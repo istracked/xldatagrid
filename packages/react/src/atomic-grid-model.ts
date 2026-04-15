@@ -242,7 +242,7 @@ export function createAtomicGridModel<TData extends Record<string, unknown>>(
 
     // Mutations — delegate to action atoms
     /** {@inheritDoc GridModel.setCellValue} */
-    setCellValue(cell: CellAddress, value: unknown) {
+    async setCellValue(cell: CellAddress, value: unknown) {
       store.set(atoms.actions.setCellValueAtom, cell, value);
     },
 
@@ -252,7 +252,7 @@ export function createAtomicGridModel<TData extends Record<string, unknown>>(
     },
 
     /** {@inheritDoc GridModel.commitEdit} */
-    commitEdit() {
+    async commitEdit() {
       store.set(atoms.actions.commitEditAtom);
     },
 
@@ -262,17 +262,17 @@ export function createAtomicGridModel<TData extends Record<string, unknown>>(
     },
 
     /** {@inheritDoc GridModel.insertRow} */
-    insertRow(index: number, data?: Record<string, unknown>) {
+    async insertRow(index: number, data?: Record<string, unknown>) {
       store.set(atoms.actions.insertRowAtom, index, data);
     },
 
     /** {@inheritDoc GridModel.deleteRows} */
-    deleteRows(rowIds: string[]) {
+    async deleteRows(rowIds: string[]) {
       store.set(atoms.actions.deleteRowsAtom, rowIds);
     },
 
-    moveRow(fromIndex: number, toIndex: number) {
-      const data = store.get(atoms.base.dataAtom) as Record<string, unknown>[];
+    async moveRow(fromIndex: number, toIndex: number) {
+      const data = store.get(atoms.base.dataAtom) as TData[];
       const cmd = createRowMoveCommand(data, fromIndex, toIndex);
       cmd.redo();
       store.set(atoms.base.dataAtom, [...data]);
