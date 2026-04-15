@@ -12,7 +12,6 @@ import type {
   GridConfig,
   SortState,
   FilterState,
-  ColumnDef,
   RowKeyResolver,
   GroupState,
 } from '@istracked/datagrid-core';
@@ -40,7 +39,7 @@ export interface BaseAtoms<TData = Record<string, unknown>> {
   /** Full data array backing the grid rows. */
   dataAtom: WritableAtom<TData[], [TData[]], void>;
   /** Column definitions, order, widths, visibility, and freeze positions. */
-  columnsAtom: WritableAtom<ColumnState, [ColumnState], void>;
+  columnsAtom: WritableAtom<ColumnState<TData>, [ColumnState<TData>], void>;
   /** Active sort descriptors (multi-column supported). */
   sortAtom: WritableAtom<SortState, [SortState], void>;
   /** Active filter tree, or `null` when no filter is applied. */
@@ -99,7 +98,7 @@ export function createGridAtoms<TData extends Record<string, unknown>>(
 
   // Normalise raw ColumnDef[] into the internal ColumnState structure that
   // tracks order, widths, visibility, and freeze positions.
-  const columnsAtom = atom<ColumnState>(createColumnState(config.columns as ColumnDef[]));
+  const columnsAtom = atom<ColumnState<TData>>(createColumnState(config.columns));
 
   // Sorting and filtering start empty/disabled; consumers apply them via
   // action atoms.

@@ -8,6 +8,7 @@
  * @module RichTextCell
  */
 import React, { useState, useEffect, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import type { CellValue, ColumnDef } from '@istracked/datagrid-core';
 import * as styles from './RichTextCell.styles';
 
@@ -31,20 +32,6 @@ interface RichTextCellProps<TData = Record<string, unknown>> {
   onCommit: (value: CellValue) => void;
   /** Callback to discard changes and exit edit mode. */
   onCancel: () => void;
-}
-
-/**
- * Strips all `<script>` tags and their content from an HTML string to prevent XSS.
- *
- * Uses a regex to match opening `<script>` tags through their corresponding closing
- * tags, removing them entirely from the output.
- *
- * @param html - The raw HTML string to sanitize.
- * @returns The HTML string with all script elements removed.
- */
-function stripScripts(html: string): string {
-  // Remove script tags and their content
-  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
 }
 
 /**
@@ -85,7 +72,7 @@ function htmlToPlainText(html: string): string {
  * />
  * ```
  */
-export function RichTextCell<TData = Record<string, unknown>>({
+export const RichTextCell = React.memo(function RichTextCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -94,7 +81,7 @@ export function RichTextCell<TData = Record<string, unknown>>({
 }: RichTextCellProps<TData>) {
   // Coerce the cell value to a string and sanitize script tags for safe rendering
   const rawHtml = value != null ? String(value) : '';
-  const safeHtml = stripScripts(rawHtml);
+  const safeHtml = DOMPurify.sanitize(rawHtml);
   const [draft, setDraft] = useState(rawHtml);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -156,4 +143,4 @@ export function RichTextCell<TData = Record<string, unknown>>({
       style={styles.textarea}
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: RichTextCellProps<TData>) => React.ReactElement;

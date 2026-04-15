@@ -123,7 +123,7 @@ const MONTH_NAMES = [
  * />
  * ```
  */
-export function CalendarCell<TData = Record<string, unknown>>({
+export const CalendarCell = React.memo(function CalendarCell<TData = Record<string, unknown>>({
   value,
   isEditing,
   onCommit,
@@ -274,4 +274,4 @@ export function CalendarCell<TData = Record<string, unknown>>({
       )}
     </div>
   );
-}
+}) as <TData = Record<string, unknown>>(props: CalendarCellProps<TData>) => React.ReactElement;

@@ -24,7 +24,7 @@ function parseArray(value: CellValue): string[] {
 /**
  * MUI-based chip select cell renderer using Autocomplete multiple with Chip.
  */
-export function MuiChipSelectCell<TData = Record<string, unknown>>({
+export const MuiChipSelectCell = React.memo(function MuiChipSelectCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -85,4 +85,4 @@ export function MuiChipSelectCell<TData = Record<string, unknown>>({
       size="small"
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement;

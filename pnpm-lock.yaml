@@ -141,6 +141,9 @@ importers:
       '@mui/material':
         specifier: '>=5.0.0 || >=6.0.0'
         version: 9.0.0(@emotion/react@11.14.0(@types/react@19.0.14)(react@19.0.5))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.0.14)(react@19.0.5))(@types/react@19.0.14)(react@19.0.5))(@types/react@19.0.14)(react-dom@19.0.5(react@19.0.5))(react@19.0.5)
+      dompurify:
+        specifier: ^3.2.4
+        version: 3.4.0
       react:
         specifier: ^19.0.0
         version: 19.0.5
@@ -148,6 +151,9 @@ importers:
         specifier: ^19.0.0
         version: 19.0.5(react@19.0.5)
     devDependencies:
+      '@types/dompurify':
+        specifier: ^3.2.0
+        version: 3.2.0
       tsup:
         specifier: ~8.4.0
         version: 8.4.0(postcss@8.5.9)(typescript@5.7.3)(yaml@2.8.3)
@@ -160,6 +166,9 @@ importers:
       '@istracked/datagrid-core':
         specifier: workspace:*
         version: link:../core
+      dompurify:
+        specifier: ^3.2.4
+        version: 3.4.0
       jotai:
         specifier: ^2.12.3
         version: 2.19.1(@babel/core@7.29.0)(@babel/template@7.28.6)(@types/react@19.0.14)(react@19.0.5)
@@ -170,6 +179,9 @@ importers:
         specifier: ^19.0.0
         version: 19.0.5(react@19.0.5)
     devDependencies:
+      '@types/dompurify':
+        specifier: ^3.2.0
+        version: 3.2.0
       tsup:
         specifier: ~8.4.0
         version: 8.4.0(postcss@8.5.9)(typescript@5.7.3)(yaml@2.8.3)
@@ -1224,6 +1236,10 @@ packages:
   '@types/doctrine@0.0.9':
     resolution: {integrity: sha512-eOIHzCUSH7SMfonMG1LsC2f8vxBFtho6NGBznK41R84YzPuvSBzrhEps33IsQiOW9+VL6NQ9DbjQJznk/S4uRA==}
 
+  '@types/dompurify@3.2.0':
+    resolution: {integrity: sha512-Fgg31wv9QbLDA0SpTOXO3MaxySc4DKGLi8sna4/Utjo4r3ZRPdCt4UQee8BWr+Q5z21yifghREPJGYaEOEIACg==}
+    deprecated: This is a stub types definition. dompurify provides its own type definitions, so you do not need this installed.
+
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
@@ -1263,6 +1279,9 @@ packages:
 
   '@types/statuses@2.0.6':
     resolution: {integrity: sha512-xMAgYwceFhRA2zY+XbEA7mxYbA093wdiW8Vu6gZPGWy9cmOyU9XesH1tNcEWsKFd5Vzrqx5T3D38PWx1FIIXkA==}
+
+  '@types/trusted-types@2.0.7':
+    resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
@@ -1638,6 +1657,9 @@ packages:
 
   dom-helpers@5.2.1:
     resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
+
+  dompurify@3.4.0:
+    resolution: {integrity: sha512-nolgK9JcaUXMSmW+j1yaSvaEaoXYHwWyGJlkoCTghc97KgGDDSnpoU/PlEnw63Ah+TGKFOyY+X5LnxaWbCSfXg==}
 
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -3831,6 +3853,10 @@ snapshots:
 
   '@types/doctrine@0.0.9': {}
 
+  '@types/dompurify@3.2.0':
+    dependencies:
+      dompurify: 3.4.0
+
   '@types/estree@1.0.8': {}
 
   '@types/hast@3.0.4':
@@ -3865,6 +3891,9 @@ snapshots:
   '@types/resolve@1.20.6': {}
 
   '@types/statuses@2.0.6': {}
+
+  '@types/trusted-types@2.0.7':
+    optional: true
 
   '@types/unist@3.0.3': {}
 
@@ -4241,6 +4270,10 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.29.2
       csstype: 3.2.3
+
+  dompurify@3.4.0:
+    optionalDependencies:
+      '@types/trusted-types': 2.0.7
 
   dunder-proto@1.0.1:
     dependencies:

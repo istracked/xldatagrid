@@ -72,7 +72,7 @@ interface StatusCellProps<TData = Record<string, unknown>> {
  * />
  * ```
  */
-export function StatusCell<TData = Record<string, unknown>>({
+export const StatusCell = React.memo(function StatusCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -211,4 +211,4 @@ export function StatusCell<TData = Record<string, unknown>>({
       )}
     </div>
   );
-}
+}) as <TData = Record<string, unknown>>(props: StatusCellProps<TData>) => React.ReactElement;

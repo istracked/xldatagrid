@@ -65,7 +65,7 @@ interface UploadCellProps<TData = Record<string, unknown>> {
  * />
  * ```
  */
-export function UploadCell<TData = Record<string, unknown>>({
+export const UploadCell = React.memo(function UploadCell<TData = Record<string, unknown>>({
   value,
   column,
   onCommit,
@@ -174,4 +174,4 @@ export function UploadCell<TData = Record<string, unknown>>({
       />
     </div>
   );
-}
+}) as <TData = Record<string, unknown>>(props: UploadCellProps<TData>) => React.ReactElement;

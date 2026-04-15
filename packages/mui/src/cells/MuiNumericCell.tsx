@@ -20,7 +20,7 @@ function formatNumeric(value: CellValue, useThousands: boolean): string {
 /**
  * MUI-based numeric cell renderer with right-aligned display and constrained input.
  */
-export function MuiNumericCell<TData = Record<string, unknown>>({
+export const MuiNumericCell = React.memo(function MuiNumericCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -100,4 +100,4 @@ export function MuiNumericCell<TData = Record<string, unknown>>({
       sx={{ height: '100%', '& input': { height: '100%', padding: '0 4px' } }}
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement;

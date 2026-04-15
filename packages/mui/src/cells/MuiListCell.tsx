@@ -14,7 +14,7 @@ import type { CellRendererProps } from '@istracked/datagrid-react';
 /**
  * MUI-based list cell renderer using Select with MenuItem.
  */
-export function MuiListCell<TData = Record<string, unknown>>({
+export const MuiListCell = React.memo(function MuiListCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -70,4 +70,4 @@ export function MuiListCell<TData = Record<string, unknown>>({
       )}
     </Select>
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement;

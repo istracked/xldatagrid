@@ -37,7 +37,7 @@ function generateId(): string {
 /**
  * MUI-based compound chip list cell renderer with inline editing.
  */
-export function MuiCompoundChipListCell<TData = Record<string, unknown>>({
+export const MuiCompoundChipListCell = React.memo(function MuiCompoundChipListCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -149,4 +149,4 @@ export function MuiCompoundChipListCell<TData = Record<string, unknown>>({
       </Box>
     </Box>
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement;

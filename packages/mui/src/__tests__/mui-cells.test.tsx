@@ -8,8 +8,9 @@ describe('muiCellRendererMap', () => {
       'password', 'richText', 'upload', 'subGrid', 'actions',
     ];
     for (const type of expectedTypes) {
-      expect(muiCellRendererMap[type]).toBeDefined();
-      expect(typeof muiCellRendererMap[type]).toBe('function');
+      const renderer = muiCellRendererMap[type];
+      expect(renderer).toBeDefined();
+      expect(typeof renderer === 'function' || (typeof renderer === 'object' && renderer !== null && '$$typeof' in renderer)).toBe(true);
     }
   });
 
@@ -20,7 +21,7 @@ describe('muiCellRendererMap', () => {
   test('each renderer is a named function', () => {
     for (const [key, renderer] of Object.entries(muiCellRendererMap)) {
       expect(renderer).toBeDefined();
-      expect(typeof renderer).toBe('function');
+      expect(typeof renderer === 'function' || (typeof renderer === 'object' && renderer !== null && '$$typeof' in renderer)).toBe(true);
     }
   });
 });

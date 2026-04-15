@@ -16,7 +16,7 @@ import { hiddenFileInput } from './MuiUploadCell.styles';
 /**
  * MUI-based upload cell renderer using Button with LinearProgress indicator.
  */
-export function MuiUploadCell<TData = Record<string, unknown>>({
+export const MuiUploadCell = React.memo(function MuiUploadCell<TData = Record<string, unknown>>({
   value,
   column,
   onCommit,
@@ -111,4 +111,4 @@ export function MuiUploadCell<TData = Record<string, unknown>>({
       )}
     </Box>
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement;

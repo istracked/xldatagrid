@@ -8,7 +8,7 @@
  *
  * @module DataGrid
  */
-import React, { useRef, useCallback, useState, useEffect } from 'react';
+import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import {
   GridConfig,
   ColumnDef,
@@ -33,6 +33,7 @@ import {
   groupRows,
   getVisibleRowsWithGroups,
   isCellInRange,
+  createSelectionChecker,
 } from '@istracked/datagrid-core';
 import { useGridWithAtoms } from './use-grid';
 import { useGridStore } from './use-grid-store';
@@ -178,6 +179,8 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
   const state = useGridStore(model);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => () => { model.destroy(); }, [model]);
 
   useKeyboard(model, containerRef, config.keyboardNavigation !== false);
 
@@ -351,19 +354,17 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     return column.cellType ?? 'text';
   }, [config.pivotMode, config.rowTypes]);
 
+  const selectionChecker = useMemo(
+    () => createSelectionChecker(state.selection.ranges, orderedVisibleColumns, rowIds),
+    [state.selection.ranges, orderedVisibleColumns, rowIds],
+  );
+
   const isSelected = useCallback((rowId: string, field: string): boolean => {
-    const cell: CellAddress = { rowId, field };
-    const { range, ranges } = state.selection;
-    // Check primary range
-    if (range && isCellInRange(cell, range, orderedVisibleColumns, rowIds)) return true;
-    // Check multi-select ranges (ctrl+click)
-    if (ranges) {
-      for (const r of ranges) {
-        if (isCellInRange(cell, r, orderedVisibleColumns, rowIds)) return true;
-      }
-    }
-    return false;
-  }, [state.selection, orderedVisibleColumns, rowIds]);
+    const rowIdx = rowIds.indexOf(rowId);
+    const colIdx = orderedVisibleColumns.findIndex(c => c.field === field);
+    if (rowIdx === -1 || colIdx === -1) return false;
+    return selectionChecker(rowIdx, colIdx);
+  }, [selectionChecker, rowIds, orderedVisibleColumns]);
 
   const isEditingCell = useCallback((rowId: string, field: string): boolean => {
     const cell = state.editing.cell;

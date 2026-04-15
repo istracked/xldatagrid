@@ -78,7 +78,7 @@ function parseArray(value: CellValue): string[] {
  * />
  * ```
  */
-export function ChipSelectCell<TData = Record<string, unknown>>({
+export const ChipSelectCell = React.memo(function ChipSelectCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -198,4 +198,4 @@ export function ChipSelectCell<TData = Record<string, unknown>>({
       )}
     </div>
   );
-}
+}) as <TData = Record<string, unknown>>(props: ChipSelectCellProps<TData>) => React.ReactElement;

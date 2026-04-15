@@ -80,7 +80,7 @@ function formatNumeric(value: CellValue, useThousands: boolean): string {
  * />
  * ```
  */
-export function NumericCell<TData = Record<string, unknown>>({
+export const NumericCell = React.memo(function NumericCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -199,4 +199,4 @@ export function NumericCell<TData = Record<string, unknown>>({
       style={styles.editInput}
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: NumericCellProps<TData>) => React.ReactElement;

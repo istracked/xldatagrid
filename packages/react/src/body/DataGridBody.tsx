@@ -212,6 +212,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         })}
         role="gridcell"
         aria-colindex={colIdx + 1}
+        aria-selected={selected}
         aria-invalid={hasError || undefined}
         data-cell-type={cellType}
         data-field={col.field}

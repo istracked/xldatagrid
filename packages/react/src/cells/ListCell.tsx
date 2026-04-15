@@ -58,7 +58,7 @@ interface ListCellProps<TData = Record<string, unknown>> {
  * />
  * ```
  */
-export function ListCell<TData = Record<string, unknown>>({
+export const ListCell = React.memo(function ListCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -175,4 +175,4 @@ export function ListCell<TData = Record<string, unknown>>({
       )}
     </div>
   );
-}
+}) as <TData = Record<string, unknown>>(props: ListCellProps<TData>) => React.ReactElement;

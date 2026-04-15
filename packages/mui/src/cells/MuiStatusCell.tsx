@@ -15,7 +15,7 @@ import { colorDot } from './MuiStatusCell.styles';
 /**
  * MUI-based status cell renderer using Select with MenuItem and Chip display.
  */
-export function MuiStatusCell<TData = Record<string, unknown>>({
+export const MuiStatusCell = React.memo(function MuiStatusCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -79,4 +79,4 @@ export function MuiStatusCell<TData = Record<string, unknown>>({
       ))}
     </Select>
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement;
