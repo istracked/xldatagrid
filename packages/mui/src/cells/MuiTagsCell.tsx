@@ -28,7 +28,7 @@ function parseTags(value: CellValue): string[] {
 /**
  * MUI-based tags cell renderer using Autocomplete with Chip display.
  */
-export function MuiTagsCell<TData = Record<string, unknown>>({
+export const MuiTagsCell = React.memo(function MuiTagsCell<TData = Record<string, unknown>>({
   value,
   isEditing,
   onCommit,
@@ -78,4 +78,4 @@ export function MuiTagsCell<TData = Record<string, unknown>>({
       size="small"
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement;

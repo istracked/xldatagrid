@@ -17,7 +17,7 @@ const MASK_CHAR = '\u2022';
 /**
  * MUI-based password cell renderer with IconButton visibility toggle.
  */
-export function MuiPasswordCell<TData = Record<string, unknown>>({
+export const MuiPasswordCell = React.memo(function MuiPasswordCell<TData = Record<string, unknown>>({
   value,
   isEditing,
   onCommit,
@@ -89,4 +89,4 @@ export function MuiPasswordCell<TData = Record<string, unknown>>({
       sx={{ height: '100%', '& input': { height: '100%', padding: '0 4px' } }}
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement;

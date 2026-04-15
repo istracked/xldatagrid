@@ -11,7 +11,7 @@ import type { CellRendererProps } from '@istracked/datagrid-react';
 /**
  * MUI-based boolean cell renderer using MUI Checkbox.
  */
-export function MuiBooleanCell<TData = Record<string, unknown>>({
+export const MuiBooleanCell = React.memo(function MuiBooleanCell<TData = Record<string, unknown>>({
   value,
   column,
   onCommit,
@@ -32,4 +32,4 @@ export function MuiBooleanCell<TData = Record<string, unknown>>({
       sx={{ padding: 0 }}
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement;

@@ -21,6 +21,8 @@ import {
   getNextCellInRow,
   getPrevCellInRow,
   ColumnDef,
+  serializeRangeToText,
+  parseTextToGrid,
 } from '@istracked/datagrid-core';
 
 /**
@@ -71,19 +73,20 @@ export function useKeyboard<TData extends Record<string, unknown>>(
     switch (e.key) {
       // --- Tab: commit any active edit, then move horizontally within the row ---
       case 'Tab': {
-        e.preventDefault();
         if (editing.cell) model.commitEdit();
-        // If nothing is selected yet, jump to the first cell in the grid.
         if (!current) {
+          e.preventDefault();
           const first = getFirstCell(columns, rowIds);
           if (first) model.select(first);
           return;
         }
-        // Shift+Tab moves backward; plain Tab moves forward.
         const next = e.shiftKey
           ? getPrevCellInRow(current, columns, rowIds)
           : getNextCellInRow(current, columns, rowIds);
-        if (next) model.select(next);
+        if (next) {
+          e.preventDefault();
+          model.select(next);
+        }
         break;
       }
       // --- Enter: toggle between editing and navigation ---
@@ -239,6 +242,63 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         }
         break;
       }
+      case 'c': {
+        if ((e.ctrlKey || e.metaKey) && selection && !editing.cell) {
+          e.preventDefault();
+          const text = serializeRangeToText(
+            model.getProcessedData(),
+            selection,
+            columns,
+            rowIds
+          );
+          navigator.clipboard?.writeText(text);
+        }
+        break;
+      }
+      case 'x': {
+        if ((e.ctrlKey || e.metaKey) && selection && !editing.cell) {
+          e.preventDefault();
+          const text = serializeRangeToText(
+            model.getProcessedData(),
+            selection,
+            columns,
+            rowIds
+          );
+          navigator.clipboard?.writeText(text);
+          const { rows, cols } = resolveRangeIndices(selection, columns, rowIds);
+          for (const rowId of rows) {
+            for (const field of cols) {
+              model.setCellValue({ rowId, field }, null);
+            }
+          }
+        }
+        break;
+      }
+      case 'v': {
+        if ((e.ctrlKey || e.metaKey) && current && !editing.cell) {
+          e.preventDefault();
+          navigator.clipboard?.readText().then(text => {
+            const grid = parseTextToGrid(text);
+            const colIndex = columns.findIndex(c => c.field === current.field);
+            const rowIndex = rowIds.indexOf(current.rowId);
+            for (let r = 0; r < grid.length; r++) {
+              const targetRowId = rowIds[rowIndex + r];
+              if (!targetRowId) break;
+              const row = grid[r];
+              if (!row) continue;
+              for (let c = 0; c < row.length; c++) {
+                const targetCol = columns[colIndex + c];
+                if (!targetCol) break;
+                model.setCellValue(
+                  { rowId: targetRowId, field: targetCol.field },
+                  row[c]
+                );
+              }
+            }
+          });
+        }
+        break;
+      }
     }
   }, [model, enabled]);
 
@@ -250,4 +310,24 @@ export function useKeyboard<TData extends Record<string, unknown>>(
     el.addEventListener('keydown', handleKeyDown);
     return () => el.removeEventListener('keydown', handleKeyDown);
   }, [containerRef, handleKeyDown]);
+}
+
+function resolveRangeIndices(
+  range: { anchor: CellAddress; focus: CellAddress },
+  columns: ColumnDef[],
+  rowIds: string[]
+): { rows: string[]; cols: string[] } {
+  const colFields = columns.map(c => c.field);
+  const anchorCol = colFields.indexOf(range.anchor.field);
+  const focusCol = colFields.indexOf(range.focus.field);
+  const minCol = Math.min(anchorCol, focusCol);
+  const maxCol = Math.max(anchorCol, focusCol);
+  const anchorRow = rowIds.indexOf(range.anchor.rowId);
+  const focusRow = rowIds.indexOf(range.focus.rowId);
+  const minRow = Math.min(anchorRow, focusRow);
+  const maxRow = Math.max(anchorRow, focusRow);
+  return {
+    rows: rowIds.slice(minRow, maxRow + 1),
+    cols: colFields.slice(minCol, maxCol + 1),
+  };
 }

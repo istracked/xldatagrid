@@ -12,8 +12,9 @@
  *
  * @module use-grid
  */
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import type { GridConfig, GridModel } from '@istracked/datagrid-core';
+import { createColumnState } from '@istracked/datagrid-core';
 import { createAtomicGridModel, type AtomicGridBundle, type AtomicStore } from './atomic-grid-model';
 import type { GridAtomSystem } from './atoms';
 
@@ -54,14 +55,28 @@ export interface UseGridResult<TData extends Record<string, unknown>> {
 export function useGrid<TData extends Record<string, unknown>>(
   config: GridConfig<TData>
 ): GridModel<TData> {
-  // Keep a ref to the latest config so imperative callbacks can access
-  // up-to-date values without recreating the model.
   const configRef = useRef(config);
   configRef.current = config;
 
-  // Memoize the bundle once; the empty dependency array ensures the grid
-  // runtime survives across re-renders.
   const bundle = useMemo(() => createAtomicGridModel(config), []);
+
+  const initialData = useRef(config.data);
+  const initialColumns = useRef(config.columns);
+
+  useEffect(() => {
+    if (config.data !== initialData.current) {
+      bundle.store.set(bundle.atoms.base.dataAtom, [...config.data]);
+    }
+    initialData.current = config.data;
+  }, [config.data, bundle]);
+
+  useEffect(() => {
+    if (config.columns !== initialColumns.current) {
+      bundle.store.set(bundle.atoms.base.columnsAtom, createColumnState(config.columns));
+    }
+    initialColumns.current = config.columns;
+  }, [config.columns, bundle]);
+
   return bundle.model;
 }
 
@@ -94,9 +109,27 @@ export function useGridWithAtoms<TData extends Record<string, unknown>>(
   const configRef = useRef(config);
   configRef.current = config;
 
-  // Memoize the full bundle once and destructure into the result shape.
-  return useMemo(() => {
+  const result = useMemo(() => {
     const bundle = createAtomicGridModel(config);
     return { model: bundle.model, store: bundle.store, atoms: bundle.atoms };
   }, []);
+
+  const initialData = useRef(config.data);
+  const initialColumns = useRef(config.columns);
+
+  useEffect(() => {
+    if (config.data !== initialData.current) {
+      result.store.set(result.atoms.base.dataAtom, [...config.data]);
+    }
+    initialData.current = config.data;
+  }, [config.data, result]);
+
+  useEffect(() => {
+    if (config.columns !== initialColumns.current) {
+      result.store.set(result.atoms.base.columnsAtom, createColumnState(config.columns));
+    }
+    initialColumns.current = config.columns;
+  }, [config.columns, result]);
+
+  return result;
 }

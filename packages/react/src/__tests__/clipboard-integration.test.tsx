@@ -10,10 +10,6 @@ import {
 } from '@istracked/datagrid-core';
 import { vi } from 'vitest';
 
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
 type TestRow = { id: string; name: string; age: number; city: string; readonly?: boolean };
 
 function makeData(): TestRow[] {
@@ -35,10 +31,6 @@ const readOnlyColumns: ColumnDef<TestRow>[] = [
   { id: 'age', field: 'age', title: 'Age' },
   { id: 'city', field: 'city', title: 'City' },
 ];
-
-// ---------------------------------------------------------------------------
-// Clipboard mock
-// ---------------------------------------------------------------------------
 
 let clipboardText = '';
 let clipboardHtml = '';
@@ -72,10 +64,6 @@ function mockClipboard() {
   return clipboard;
 }
 
-// ---------------------------------------------------------------------------
-// Helper: create a model directly for lower-level assertions
-// ---------------------------------------------------------------------------
-
 function createTestModel(data?: TestRow[], cols?: ColumnDef<TestRow>[]) {
   return createGridModel<TestRow>({
     data: data ?? makeData(),
@@ -83,10 +71,6 @@ function createTestModel(data?: TestRow[], cols?: ColumnDef<TestRow>[]) {
     rowKey: 'id',
   });
 }
-
-// ---------------------------------------------------------------------------
-// Copy tests
-// ---------------------------------------------------------------------------
 
 describe('Clipboard integration — copy', () => {
   beforeEach(() => { mockClipboard(); });
@@ -127,7 +111,6 @@ describe('Clipboard integration — copy', () => {
       model.getVisibleColumns() as ColumnDef[],
       model.getRowIds(),
     );
-    // The serialized text can be used as metadata source
     expect(typeof text).toBe('string');
     expect(text.length).toBeGreaterThan(0);
   });
@@ -143,7 +126,6 @@ describe('Clipboard integration — copy', () => {
       model.getVisibleColumns() as ColumnDef[],
       model.getRowIds(),
     );
-    // 2 rows, 2 cols: name\tage\nname\tage
     const lines = text.split('\n');
     expect(lines).toHaveLength(2);
     expect(lines[0]!.split('\t')).toHaveLength(2);
@@ -200,24 +182,18 @@ describe('Clipboard integration — copy', () => {
   it('copy fires onCopy callback with copied data', async () => {
     const model = createTestModel();
     const onCopy = vi.fn();
-    model.getState(); // ensure state initialised
-    // Subscribe to clipboard:copy event
-    const bus = (model as any); // event dispatch
+    model.getState();
+    const bus = (model as any);
     model.select({ rowId: '1', field: 'name' });
     await model.dispatch('clipboard:copy', { text: 'Alice' });
-    // Event was dispatched
-    expect(true).toBe(true); // dispatch didn't throw
+    expect(true).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Cut tests
-// ---------------------------------------------------------------------------
 
 describe('Clipboard integration — cut', () => {
   beforeEach(() => { mockClipboard(); });
 
-  it('cut single cell on Ctrl+X', () => {
+  it('cut single cell on Ctrl+X', async () => {
     const model = createTestModel();
     model.select({ rowId: '1', field: 'name' });
     const range = model.getState().selection.range!;
@@ -227,16 +203,15 @@ describe('Clipboard integration — cut', () => {
       model.getVisibleColumns() as ColumnDef[],
       model.getRowIds(),
     );
-    // Simulate cut: serialize then clear
-    model.setCellValue({ rowId: '1', field: 'name' }, null);
+    await model.setCellValue({ rowId: '1', field: 'name' }, null);
     expect(text).toBe('Alice');
     expect(model.getState().data[0]!.name).toBeNull();
   });
 
-  it('cut clears source cell value', () => {
+  it('cut clears source cell value', async () => {
     const model = createTestModel();
     model.select({ rowId: '2', field: 'city' });
-    model.setCellValue({ rowId: '2', field: 'city' }, null);
+    await model.setCellValue({ rowId: '2', field: 'city' }, null);
     expect(model.getState().data[1]!.city).toBeNull();
   });
 
@@ -255,13 +230,12 @@ describe('Clipboard integration — cut', () => {
     expect(cb.writeText).toHaveBeenCalledWith('Alice');
   });
 
-  it('cut selected range clears source cells', () => {
+  it('cut selected range clears source cells', async () => {
     const model = createTestModel();
     model.select({ rowId: '1', field: 'name' });
     model.extendTo({ rowId: '2', field: 'name' });
-    // Cut: clear both cells
-    model.setCellValue({ rowId: '1', field: 'name' }, null);
-    model.setCellValue({ rowId: '2', field: 'name' }, null);
+    await model.setCellValue({ rowId: '1', field: 'name' }, null);
+    await model.setCellValue({ rowId: '2', field: 'name' }, null);
     expect(model.getState().data[0]!.name).toBeNull();
     expect(model.getState().data[1]!.name).toBeNull();
   });
@@ -269,28 +243,19 @@ describe('Clipboard integration — cut', () => {
   it('cut fires onCut callback with cut data', async () => {
     const model = createTestModel();
     model.select({ rowId: '1', field: 'name' });
-    // Dispatch clipboard event
     const event = await model.dispatch('clipboard:copy', { operation: 'cut', text: 'Alice' });
     expect(event.type).toBe('clipboard:copy');
   });
 
   it('cut respects read-only cells by skipping them', () => {
     const model = createTestModel(undefined, readOnlyColumns);
-    // Name column is editable: false
     const original = model.getState().data[0]!.name;
-    // In a read-only column, setCellValue still works at model level,
-    // but the UI layer should skip it. We verify the column definition.
     const nameCol = model.getVisibleColumns().find(c => c.field === 'name');
     expect(nameCol!.editable).toBe(false);
-    // Age column is editable
     const ageCol = model.getVisibleColumns().find(c => c.field === 'age');
     expect(ageCol!.editable).not.toBe(false);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Paste tests
-// ---------------------------------------------------------------------------
 
 describe('Clipboard integration — paste', () => {
   beforeEach(() => { mockClipboard(); });
@@ -301,19 +266,18 @@ describe('Clipboard integration — paste', () => {
     expect(parsed).toEqual([['NewValue']]);
   });
 
-  it('paste single cell into focused cell', () => {
+  it('paste single cell into focused cell', async () => {
     const model = createTestModel();
     model.select({ rowId: '2', field: 'name' });
     const parsed = parseTextToGrid('Zara');
-    model.setCellValue({ rowId: '2', field: 'name' }, parsed[0]![0]);
+    await model.setCellValue({ rowId: '2', field: 'name' }, parsed[0]![0]);
     expect(model.getState().data[1]!.name).toBe('Zara');
   });
 
-  it('paste range into grid starting at focused cell', () => {
+  it('paste range into grid starting at focused cell', async () => {
     const model = createTestModel();
     model.select({ rowId: '1', field: 'name' });
     const parsed = parseTextToGrid('X\t10\nY\t20');
-    // Apply the parsed grid starting at row 1, col name
     const cols = model.getVisibleColumns();
     const rowIds = model.getRowIds();
     const startRowIdx = rowIds.indexOf('1');
@@ -324,7 +288,7 @@ describe('Clipboard integration — paste', () => {
         const rIdx = startRowIdx + r;
         const cIdx = startColIdx + c;
         if (rIdx < rowIds.length && cIdx < cols.length) {
-          model.setCellValue({ rowId: rowIds[rIdx]!, field: cols[cIdx]!.field }, parsed[r]![c]);
+          await model.setCellValue({ rowId: rowIds[rIdx]!, field: cols[cIdx]!.field }, parsed[r]![c]);
         }
       }
     }
@@ -335,27 +299,24 @@ describe('Clipboard integration — paste', () => {
   });
 
   it('paste range expands to fill target area', () => {
-    // Pasting "A\nB" into a 1-col selection that spans 4 rows should repeat
     const parsed = parseTextToGrid('A\nB');
     expect(parsed).toHaveLength(2);
-    // Expand by repeating
     const expanded = Array.from({ length: 4 }, (_, i) => parsed[i % parsed.length]);
     expect(expanded).toHaveLength(4);
     expect(expanded[2]).toEqual(parsed[0]);
     expect(expanded[3]).toEqual(parsed[1]);
   });
 
-  it('paste range truncates when exceeding grid bounds', () => {
+  it('paste range truncates when exceeding grid bounds', async () => {
     const model = createTestModel();
     model.select({ rowId: '3', field: 'city' });
-    // Paste 3 rows of data starting at last row — only first row fits
     const parsed = parseTextToGrid('Munich\nVienna\nPrague');
     const rowIds = model.getRowIds();
     const startRow = rowIds.indexOf('3');
     let pasted = 0;
     for (let r = 0; r < parsed.length; r++) {
       if (startRow + r < rowIds.length) {
-        model.setCellValue({ rowId: rowIds[startRow + r]!, field: 'city' }, parsed[r]![0]);
+        await model.setCellValue({ rowId: rowIds[startRow + r]!, field: 'city' }, parsed[r]![0]);
         pasted++;
       }
     }
@@ -363,7 +324,7 @@ describe('Clipboard integration — paste', () => {
     expect(model.getState().data[2]!.city).toBe('Munich');
   });
 
-  it('paste creates new rows when pasting beyond last row', () => {
+  it('paste creates new rows when pasting beyond last row', async () => {
     const model = createTestModel();
     model.select({ rowId: '3', field: 'name' });
     const parsed = parseTextToGrid('Diana\nEve');
@@ -373,10 +334,10 @@ describe('Clipboard integration — paste', () => {
     for (let r = 0; r < parsed.length; r++) {
       const rIdx = startRow + r;
       if (rIdx >= model.getState().data.length) {
-        model.insertRow(model.getState().data.length, { id: `new-${r}`, name: '', age: 0, city: '' });
+        await model.insertRow(model.getState().data.length, { id: `new-${r}`, name: '', age: 0, city: '' });
       }
       const currentRowIds = model.getRowIds();
-      model.setCellValue({ rowId: currentRowIds[rIdx]!, field: 'name' }, parsed[r]![0]);
+      await model.setCellValue({ rowId: currentRowIds[rIdx]!, field: 'name' }, parsed[r]![0]);
     }
     expect(model.getState().data).toHaveLength(4);
     expect(model.getState().data[2]!.name).toBe('Diana');
@@ -390,21 +351,18 @@ describe('Clipboard integration — paste', () => {
     expect(parsed[0]![2]).toBe('Hello');
   });
 
-  it('paste skips read-only cells', () => {
+  it('paste skips read-only cells', async () => {
     const model = createTestModel(undefined, readOnlyColumns);
-    // Name is read-only (editable: false)
     const nameCol = model.getVisibleColumns().find(c => c.field === 'name');
     expect(nameCol!.editable).toBe(false);
-    // Simulate paste that skips non-editable columns
     const parsed = parseTextToGrid('NewName\t99');
     const cols = model.getVisibleColumns();
     for (let c = 0; c < parsed[0]!.length; c++) {
       const col = cols[c];
       if (col && col.editable !== false) {
-        model.setCellValue({ rowId: '1', field: col.field }, parsed[0]![c]);
+        await model.setCellValue({ rowId: '1', field: col.field }, parsed[0]![c]);
       }
     }
-    // Name was skipped, age was updated
     expect(model.getState().data[0]!.name).toBe('Alice');
     expect(model.getState().data[0]!.age).toBe(99);
   });
@@ -416,15 +374,14 @@ describe('Clipboard integration — paste', () => {
     expect(event.payload.text).toBe('Hello');
   });
 
-  it('paste fires onChange for each modified cell', () => {
+  it('paste fires onChange for each modified cell', async () => {
     const model = createTestModel();
     const listener = vi.fn();
     model.subscribe(listener);
 
     const parsed = parseTextToGrid('X\nY');
-    model.setCellValue({ rowId: '1', field: 'name' }, parsed[0]![0]);
-    model.setCellValue({ rowId: '2', field: 'name' }, parsed[1]![0]);
-    // Each setCellValue triggers notify
+    await model.setCellValue({ rowId: '1', field: 'name' }, parsed[0]![0]);
+    await model.setCellValue({ rowId: '2', field: 'name' }, parsed[1]![0]);
     expect(listener).toHaveBeenCalledTimes(2);
   });
 
@@ -443,20 +400,17 @@ describe('Clipboard integration — paste', () => {
     const col = model.getVisibleColumns().find(c => c.field === 'age')!;
     const result = col.validate!(-5);
     expect(result).toEqual({ message: 'Negative', severity: 'error' });
-    // Valid value
     expect(col.validate!(10)).toBeNull();
   });
 
-  it('paste supports undo of entire paste operation', () => {
+  it('paste supports undo of entire paste operation', async () => {
     const model = createTestModel();
     const original1 = model.getState().data[0]!.name;
     const original2 = model.getState().data[1]!.name;
 
-    // Paste two values
-    model.setCellValue({ rowId: '1', field: 'name' }, 'X');
-    model.setCellValue({ rowId: '2', field: 'name' }, 'Y');
+    await model.setCellValue({ rowId: '1', field: 'name' }, 'X');
+    await model.setCellValue({ rowId: '2', field: 'name' }, 'Y');
 
-    // Undo both
     model.undo();
     expect(model.getState().data[1]!.name).toBe(original2);
     model.undo();
@@ -464,9 +418,7 @@ describe('Clipboard integration — paste', () => {
   });
 
   it('paste handles HTML formatted clipboard data', () => {
-    // HTML clipboard data gets converted to plain text for grid paste
     const htmlContent = '<table><tr><td>A</td><td>1</td></tr></table>';
-    // parseTextToGrid works with tab-separated plain text
     const plainFromHtml = 'A\t1';
     const parsed = parseTextToGrid(plainFromHtml);
     expect(parsed).toEqual([['A', 1]]);

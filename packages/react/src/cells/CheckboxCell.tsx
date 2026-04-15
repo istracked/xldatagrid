@@ -67,7 +67,7 @@ interface CheckboxCellProps<TData = Record<string, unknown>> {
  * />
  * ```
  */
-export function CheckboxCell<TData = Record<string, unknown>>({
+export const CheckboxCell = React.memo(function CheckboxCell<TData = Record<string, unknown>>({
   value,
   column,
   onCommit,
@@ -98,4 +98,4 @@ export function CheckboxCell<TData = Record<string, unknown>>({
       style={styles.checkbox(editable)}
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: CheckboxCellProps<TData>) => React.ReactElement;

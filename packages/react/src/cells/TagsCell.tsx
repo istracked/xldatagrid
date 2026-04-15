@@ -82,7 +82,7 @@ function parseTags(value: CellValue): string[] {
  * />
  * ```
  */
-export function TagsCell<TData = Record<string, unknown>>({
+export const TagsCell = React.memo(function TagsCell<TData = Record<string, unknown>>({
   value,
   isEditing,
   onCommit,
@@ -220,4 +220,4 @@ export function TagsCell<TData = Record<string, unknown>>({
       />
     </span>
   );
-}
+}) as <TData = Record<string, unknown>>(props: TagsCellProps<TData>) => React.ReactElement;

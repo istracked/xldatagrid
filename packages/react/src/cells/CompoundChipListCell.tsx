@@ -106,7 +106,7 @@ function generateId(): string {
  * />
  * ```
  */
-export function CompoundChipListCell<TData = Record<string, unknown>>({
+export const CompoundChipListCell = React.memo(function CompoundChipListCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -297,4 +297,4 @@ export function CompoundChipListCell<TData = Record<string, unknown>>({
       </div>
     </div>
   );
-}
+}) as <TData = Record<string, unknown>>(props: CompoundChipListCellProps<TData>) => React.ReactElement;

@@ -40,7 +40,7 @@ export function createTransposedConfig<TData = Record<string, unknown>>(
   const columns: ColumnDef<TData>[] = [
     {
       id: '__field_label',
-      field: '__field_label',
+      field: '__field_label' as keyof TData & string,
       title: fieldColumnLabel,
       width: fieldColumnWidth,
       frozen: 'left',
@@ -51,7 +51,7 @@ export function createTransposedConfig<TData = Record<string, unknown>>(
     },
     ...config.entityKeys.map(key => ({
       id: key,
-      field: key,
+      field: key as keyof TData & string,
       title: key,
       width: entityColumnWidth,
       editable: true,

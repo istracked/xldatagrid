@@ -42,7 +42,7 @@ function getValidationKey(rowId: string, field: string): string {
 // Helper: resolve ghost row position from config
 // ---------------------------------------------------------------------------
 
-function resolveGhostPosition(config: boolean | GhostRowConfig | undefined): GhostRowPosition {
+function resolveGhostPosition<T extends Record<string, unknown> = Record<string, unknown>>(config: boolean | GhostRowConfig<T> | undefined): GhostRowPosition {
   if (typeof config === 'object' && config.position) return config.position;
   return 'bottom';
 }
@@ -212,6 +212,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         })}
         role="gridcell"
         aria-colindex={colIdx + 1}
+        aria-selected={selected}
         aria-invalid={hasError || undefined}
         data-cell-type={cellType}
         data-field={col.field}

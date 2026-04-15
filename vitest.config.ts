@@ -18,7 +18,13 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['packages/*/src/**'],
-      exclude: ['**/__tests__/**', '**/index.ts']
+      exclude: ['**/__tests__/**', '**/index.ts'],
+      thresholds: {
+        lines: 80,
+        branches: 75,
+        functions: 80,
+        statements: 80
+      }
     },
     workspace: [{
       extends: true,

@@ -22,7 +22,7 @@ function parseRows(value: CellValue): Record<string, unknown>[] {
 /**
  * MUI-based sub-grid cell renderer using Accordion pattern.
  */
-export function MuiSubGridCell<TData = Record<string, unknown>>({
+export const MuiSubGridCell = React.memo(function MuiSubGridCell<TData = Record<string, unknown>>({
   value,
   column,
 }: CellRendererProps<TData>) {
@@ -88,4 +88,4 @@ export function MuiSubGridCell<TData = Record<string, unknown>>({
       </Accordion>
     </Box>
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement;

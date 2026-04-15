@@ -26,7 +26,7 @@ interface ActionsDef {
 /**
  * MUI-based actions cell renderer using IconButton with Tooltip.
  */
-export function MuiActionsCell<TData = Record<string, unknown>>({
+export const MuiActionsCell = React.memo(function MuiActionsCell<TData = Record<string, unknown>>({
   row,
   column,
 }: CellRendererProps<TData>) {
@@ -82,4 +82,4 @@ export function MuiActionsCell<TData = Record<string, unknown>>({
       ))}
     </Box>
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement | null;

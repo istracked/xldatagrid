@@ -5,14 +5,11 @@
  * @packageDocumentation
  */
 import React, { useState, useEffect, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import Box from '@mui/material/Box';
 import type { CellValue } from '@istracked/datagrid-core';
 import type { CellRendererProps } from '@istracked/datagrid-react';
 import { htmlTextarea } from './MuiRichTextCell.styles';
-
-function stripScripts(html: string): string {
-  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-}
 
 function htmlToPlainText(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -21,7 +18,7 @@ function htmlToPlainText(html: string): string {
 /**
  * MUI-based rich text cell renderer using Box with dangerouslySetInnerHTML.
  */
-export function MuiRichTextCell<TData = Record<string, unknown>>({
+export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -29,7 +26,7 @@ export function MuiRichTextCell<TData = Record<string, unknown>>({
   onCancel,
 }: CellRendererProps<TData>) {
   const rawHtml = value != null ? String(value) : '';
-  const safeHtml = stripScripts(rawHtml);
+  const safeHtml = DOMPurify.sanitize(rawHtml);
   const [draft, setDraft] = useState(rawHtml);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -71,4 +68,4 @@ export function MuiRichTextCell<TData = Record<string, unknown>>({
       style={htmlTextarea}
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement;

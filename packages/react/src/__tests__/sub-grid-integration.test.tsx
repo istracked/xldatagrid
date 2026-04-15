@@ -173,14 +173,12 @@ describe('Sub-grid integration — callbacks', () => {
     expect(collapseEvents[0]!.action).toBe('collapse');
   });
 
-  it('sub-grid preserves expansion state across data updates', () => {
+  it('sub-grid preserves expansion state across data updates', async () => {
     const model = createTestModel();
     const state = model.getState();
     state.expandedSubGrids.add('1');
     state.expandedSubGrids.add('2');
-    // Simulate data update: setCellValue on parent row
-    model.setCellValue({ rowId: '1', field: 'name' }, 'Alice Updated');
-    // Expansion state should still be present
+    await model.setCellValue({ rowId: '1', field: 'name' }, 'Alice Updated');
     expect(model.getState().expandedSubGrids.has('1')).toBe(true);
     expect(model.getState().expandedSubGrids.has('2')).toBe(true);
   });
@@ -191,9 +189,8 @@ describe('Sub-grid integration — callbacks', () => {
 // ---------------------------------------------------------------------------
 
 describe('Sub-grid integration — nested operations', () => {
-  it('sub-grid nested grid supports full editing', () => {
+  it('sub-grid nested grid supports full editing', async () => {
     const data = makeData();
-    // Create a nested model for the sub-grid data
     const nestedData = data[0]!.orders!;
     const nestedColumns: ColumnDef[] = [
       { id: 'product', field: 'product', title: 'Product' },
@@ -204,7 +201,7 @@ describe('Sub-grid integration — nested operations', () => {
       columns: nestedColumns,
       rowKey: 'itemId' as any,
     });
-    nestedModel.setCellValue({ rowId: 'o1', field: 'product' }, 'SuperWidget');
+    await nestedModel.setCellValue({ rowId: 'o1', field: 'product' }, 'SuperWidget');
     expect(nestedModel.getState().data[0]!.product).toBe('SuperWidget');
   });
 

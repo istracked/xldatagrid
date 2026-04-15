@@ -66,7 +66,7 @@ const MASK_CHAR = '\u2022'; // bullet •
  * />
  * ```
  */
-export function PasswordCell<TData = Record<string, unknown>>({
+export const PasswordCell = React.memo(function PasswordCell<TData = Record<string, unknown>>({
   value,
   isEditing,
   onCommit,
@@ -127,4 +127,4 @@ export function PasswordCell<TData = Record<string, unknown>>({
       style={styles.editInput}
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: PasswordCellProps<TData>) => React.ReactElement;

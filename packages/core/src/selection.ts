@@ -66,7 +66,7 @@ export function selectCell(state: SelectionState, cell: CellAddress): SelectionS
  * @param columns - Full list of column definitions (used to determine bounds).
  * @returns Updated selection state with the entire row selected.
  */
-export function selectRow(state: SelectionState, rowId: string, columns: ColumnDef[]): SelectionState {
+export function selectRow(state: SelectionState, rowId: string, columns: ColumnDef<any>[]): SelectionState {
   if (state.mode === 'none') return state;
   // Determine the first and last column fields
   const firstCol = columns[0]?.field ?? '';
@@ -148,7 +148,7 @@ export function clearSelection(state: SelectionState): SelectionState {
  * @param rowIds - Ordered list of all row identifiers.
  * @returns Updated selection state covering the entire grid.
  */
-export function selectAll(state: SelectionState, columns: ColumnDef[], rowIds: string[]): SelectionState {
+export function selectAll(state: SelectionState, columns: ColumnDef<any>[], rowIds: string[]): SelectionState {
   if (state.mode === 'none' || rowIds.length === 0 || columns.length === 0) return state;
   const firstRowId = rowIds[0] ?? '';
   const lastRowId = rowIds[rowIds.length - 1] ?? '';
@@ -177,7 +177,7 @@ export function selectAll(state: SelectionState, columns: ColumnDef[], rowIds: s
  * @param rowIds - Ordered list of all row identifiers (for index resolution).
  * @returns `true` when the cell is within the rectangular bounds of the range.
  */
-export function isCellInRange(cell: CellAddress, range: CellRange, columns: ColumnDef[], rowIds: string[]): boolean {
+export function isCellInRange(cell: CellAddress, range: CellRange, columns: ColumnDef<any>[], rowIds: string[]): boolean {
   // Resolve column indices for the anchor, focus, and candidate cell
   const colIndices = columns.map(c => c.field);
   const anchorCol = colIndices.indexOf(range.anchor.field);
@@ -209,7 +209,7 @@ export function isCellInRange(cell: CellAddress, range: CellRange, columns: Colu
  * @param rowIds - Ordered list of all row identifiers (for index resolution).
  * @returns `true` when the row is within at least one range.
  */
-export function isRowInRanges(rowId: string, ranges: CellRange[], columns: ColumnDef[], rowIds: string[]): boolean {
+export function isRowInRanges(rowId: string, ranges: CellRange[], columns: ColumnDef<any>[], rowIds: string[]): boolean {
   const rowIdx = rowIds.indexOf(rowId);
   if (rowIdx === -1) return false;
   for (const range of ranges) {
@@ -235,7 +235,7 @@ export function isRowInRanges(rowId: string, ranges: CellRange[], columns: Colum
  * @param columns - Full list of column definitions (used to determine bounds).
  * @returns Updated selection state.
  */
-export function toggleRowSelection(state: SelectionState, rowId: string, columns: ColumnDef[]): SelectionState {
+export function toggleRowSelection(state: SelectionState, rowId: string, columns: ColumnDef<any>[]): SelectionState {
   if (state.mode === 'none') return state;
 
   const firstCol = columns[0]?.field ?? '';
@@ -258,7 +258,7 @@ export function toggleRowSelection(state: SelectionState, rowId: string, columns
     ];
   }
 
-  const newRange = newRanges.length > 0 ? newRanges[newRanges.length - 1] : null;
+  const newRange = newRanges.length > 0 ? newRanges[newRanges.length - 1]! : null;
   return { ...state, range: newRange, ranges: newRanges };
 }
 
@@ -276,7 +276,7 @@ export function toggleRowSelection(state: SelectionState, rowId: string, columns
 export function getNextCell(
   current: CellAddress,
   direction: 'up' | 'down' | 'left' | 'right',
-  columns: ColumnDef[],
+  columns: ColumnDef<any>[],
   rowIds: string[]
 ): CellAddress | null {
   // Filter to only visible columns so hidden ones are seamlessly skipped
@@ -313,7 +313,7 @@ export function getNextCell(
  * @param rowIds - Ordered list of all row identifiers.
  * @returns The top-left {@link CellAddress}, or `null` if the grid is empty.
  */
-export function getFirstCell(columns: ColumnDef[], rowIds: string[]): CellAddress | null {
+export function getFirstCell(columns: ColumnDef<any>[], rowIds: string[]): CellAddress | null {
   const visibleCols = columns.filter(c => c.visible !== false);
   const firstRow = rowIds[0];
   const firstCol = visibleCols[0];
@@ -328,7 +328,7 @@ export function getFirstCell(columns: ColumnDef[], rowIds: string[]): CellAddres
  * @param rowIds - Ordered list of all row identifiers.
  * @returns The bottom-right {@link CellAddress}, or `null` if the grid is empty.
  */
-export function getLastCell(columns: ColumnDef[], rowIds: string[]): CellAddress | null {
+export function getLastCell(columns: ColumnDef<any>[], rowIds: string[]): CellAddress | null {
   const visibleCols = columns.filter(c => c.visible !== false);
   const lastRow = rowIds[rowIds.length - 1];
   const lastCol = visibleCols[visibleCols.length - 1];
@@ -347,7 +347,7 @@ export function getLastCell(columns: ColumnDef[], rowIds: string[]): CellAddress
  * @param rowIds - Ordered list of all row identifiers.
  * @returns The next {@link CellAddress} in reading order, or `null` at the grid's end.
  */
-export function getNextCellInRow(current: CellAddress, columns: ColumnDef[], rowIds: string[]): CellAddress | null {
+export function getNextCellInRow(current: CellAddress, columns: ColumnDef<any>[], rowIds: string[]): CellAddress | null {
   // Try moving right within the same row first
   const next = getNextCell(current, 'right', columns, rowIds);
   if (next) return next;
@@ -373,7 +373,50 @@ export function getNextCellInRow(current: CellAddress, columns: ColumnDef[], row
  * @param rowIds - Ordered list of all row identifiers.
  * @returns The previous {@link CellAddress} in reading order, or `null` at the grid's start.
  */
-export function getPrevCellInRow(current: CellAddress, columns: ColumnDef[], rowIds: string[]): CellAddress | null {
+export function createSelectionChecker(
+  ranges: CellRange[],
+  columns: ColumnDef<any>[],
+  rowIds: string[],
+): (rowIndex: number, colIndex: number) => boolean {
+  if (ranges.length === 0) return () => false;
+
+  const fieldToCol = new Map<string, number>();
+  for (let i = 0; i < columns.length; i++) {
+    fieldToCol.set(columns[i]!.field, i);
+  }
+  const rowIdToRow = new Map<string, number>();
+  for (let i = 0; i < rowIds.length; i++) {
+    rowIdToRow.set(rowIds[i]!, i);
+  }
+
+  const bounds: { minRow: number; maxRow: number; minCol: number; maxCol: number }[] = [];
+  for (const range of ranges) {
+    const anchorRow = rowIdToRow.get(range.anchor.rowId) ?? -1;
+    const focusRow = rowIdToRow.get(range.focus.rowId) ?? -1;
+    const anchorCol = fieldToCol.get(range.anchor.field) ?? -1;
+    const focusCol = fieldToCol.get(range.focus.field) ?? -1;
+    if (anchorRow === -1 || focusRow === -1 || anchorCol === -1 || focusCol === -1) continue;
+    bounds.push({
+      minRow: Math.min(anchorRow, focusRow),
+      maxRow: Math.max(anchorRow, focusRow),
+      minCol: Math.min(anchorCol, focusCol),
+      maxCol: Math.max(anchorCol, focusCol),
+    });
+  }
+
+  if (bounds.length === 0) return () => false;
+
+  return (rowIndex: number, colIndex: number): boolean => {
+    for (const b of bounds) {
+      if (rowIndex >= b.minRow && rowIndex <= b.maxRow && colIndex >= b.minCol && colIndex <= b.maxCol) {
+        return true;
+      }
+    }
+    return false;
+  };
+}
+
+export function getPrevCellInRow(current: CellAddress, columns: ColumnDef<any>[], rowIds: string[]): CellAddress | null {
   // Try moving left within the same row first
   const prev = getNextCell(current, 'left', columns, rowIds);
   if (prev) return prev;
