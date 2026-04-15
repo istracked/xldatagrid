@@ -1,0 +1,153 @@
+import React from 'react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { DataGrid } from '@istracked/datagrid-react';
+import type { ColumnDef, StatusOption } from '@istracked/datagrid-core';
+import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import * as styles from './stories.styles';
+
+const meta: Meta = {
+  title: 'Examples/Cell Types',
+};
+export default meta;
+
+// ---------------------------------------------------------------------------
+// All Cell Types showcase
+// ---------------------------------------------------------------------------
+
+interface CellShowcase {
+  id: string;
+  text: string;
+  numeric: number;
+  currency: number;
+  boolean: boolean;
+  calendar: string;
+  status: string;
+  password: string;
+  richText: string;
+  tags: string[];
+  list: string;
+  chipSelect: string[];
+  compoundChipList: { id: string; label: string }[];
+  upload: string;
+  subGrid: Record<string, unknown>[];
+}
+
+const statusOptions: StatusOption[] = [
+  { value: 'Active', label: 'Active', color: '#10b981' },
+  { value: 'Inactive', label: 'Inactive', color: '#ef4444' },
+  { value: 'Pending', label: 'Pending', color: '#f59e0b' },
+];
+
+const priorityOptions: StatusOption[] = [
+  { value: 'Low', label: 'Low' },
+  { value: 'Medium', label: 'Medium' },
+  { value: 'High', label: 'High' },
+  { value: 'Critical', label: 'Critical' },
+];
+
+const subGridCols: ColumnDef[] = [
+  { id: 'task', field: 'task', title: 'Task', width: 200 },
+  { id: 'hours', field: 'hours', title: 'Hours', width: 80, cellType: 'numeric' },
+];
+
+const columns: ColumnDef<CellShowcase>[] = [
+  { id: 'text', field: 'text', title: 'Text', width: 150, cellType: 'text', editable: true, placeholder: 'Type here...' },
+  { id: 'numeric', field: 'numeric', title: 'Numeric', width: 100, cellType: 'numeric', editable: true, min: 0, max: 100 },
+  { id: 'currency', field: 'currency', title: 'Currency', width: 120, cellType: 'currency', editable: true, format: 'USD' },
+  { id: 'boolean', field: 'boolean', title: 'Boolean', width: 90, cellType: 'boolean', editable: true },
+  { id: 'calendar', field: 'calendar', title: 'Calendar', width: 150, cellType: 'calendar', editable: true },
+  { id: 'status', field: 'status', title: 'Status', width: 120, cellType: 'status', options: statusOptions, editable: true },
+  { id: 'list', field: 'list', title: 'List', width: 120, cellType: 'list', options: priorityOptions, editable: true },
+  { id: 'password', field: 'password', title: 'Password', width: 130, cellType: 'password', editable: true },
+  { id: 'tags', field: 'tags', title: 'Tags', width: 200, cellType: 'tags', suggestions: ['react', 'vue', 'angular', 'svelte'], allowFreeText: true, editable: true },
+  { id: 'chipSelect', field: 'chipSelect', title: 'Chip Select', width: 200, cellType: 'chipSelect', options: priorityOptions, multiSelect: true, editable: true },
+  { id: 'richText', field: 'richText', title: 'Rich Text', width: 200, cellType: 'richText', editable: true },
+  { id: 'upload', field: 'upload', title: 'Upload', width: 140, cellType: 'upload', editable: true },
+  { id: 'compoundChipList', field: 'compoundChipList', title: 'Compound Chips', width: 250, cellType: 'compoundChipList', editable: true },
+  { id: 'subGrid', field: 'subGrid', title: 'Sub-Grid', width: 120, cellType: 'subGrid', subGridColumns: subGridCols, subGridRowKey: 'task' },
+];
+
+function makeData(): CellShowcase[] {
+  return Array.from({ length: 8 }, (_, i) => ({
+    id: String(i + 1),
+    text: `Item ${i + 1}`,
+    numeric: 10 + i * 7,
+    currency: 1500 + i * 250,
+    boolean: i % 2 === 0,
+    calendar: `2025-0${(i % 9) + 1}-${String(10 + i).padStart(2, '0')}`,
+    status: statusOptions[i % statusOptions.length]!.value,
+    password: 'p@ssw0rd!',
+    richText: `<b>Bold ${i + 1}</b> and <em>italic</em> text`,
+    tags: ['react', 'typescript'].slice(0, 1 + (i % 2)),
+    list: priorityOptions[i % priorityOptions.length]!.value,
+    chipSelect: [priorityOptions[i % priorityOptions.length]!.value],
+    compoundChipList: [
+      { id: `c${i}-1`, label: `Chip A-${i}` },
+      { id: `c${i}-2`, label: `Chip B-${i}` },
+    ],
+    upload: i % 3 === 0 ? 'report.pdf' : '',
+    subGrid: [
+      { task: `Sub-task ${i}-A`, hours: 4 },
+      { task: `Sub-task ${i}-B`, hours: 2 },
+    ],
+  }));
+}
+
+export const AllCellTypes: StoryObj = {
+  render: () => (
+    <div style={storyContainer}>
+      <h2 style={styles.heading}>All 15 Cell Types</h2>
+      <p style={styles.subtitle}>
+        Scroll horizontally to see every cell type. Double-click to edit.
+      </p>
+      <div style={gridContainer}>
+        <DataGrid
+          data={makeData()}
+          columns={columns as any}
+          rowKey="id"
+          cellRenderers={allCellRenderers}
+          selectionMode="cell"
+          keyboardNavigation
+        />
+      </div>
+    </div>
+  ),
+};
+
+// ---------------------------------------------------------------------------
+// Actions column
+// ---------------------------------------------------------------------------
+
+export const ActionsColumn: StoryObj = {
+  render: () => {
+    const data = makeData().slice(0, 5);
+    const cols: ColumnDef<CellShowcase>[] = [
+      { id: 'text', field: 'text', title: 'Name', width: 200 },
+      { id: 'status', field: 'status', title: 'Status', width: 120, cellType: 'status', options: statusOptions },
+      {
+        id: 'actions', field: 'id', title: 'Actions', width: 200, cellType: 'actions',
+        options: [
+          { value: 'edit', label: 'Edit' },
+          { value: 'delete', label: 'Delete' },
+          { value: 'archive', label: 'Archive' },
+        ],
+      },
+    ];
+    return (
+      <div style={storyContainer}>
+        <h2 style={styles.heading}>Actions Column</h2>
+        <p style={styles.subtitle}>
+          Action buttons rendered per row via the <code>actions</code> cell type.
+        </p>
+        <div style={gridContainer}>
+          <DataGrid
+            data={data}
+            columns={cols as any}
+            rowKey="id"
+            cellRenderers={allCellRenderers}
+          />
+        </div>
+      </div>
+    );
+  },
+};

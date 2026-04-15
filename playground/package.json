@@ -1,0 +1,16 @@
+{
+  "name": "@istracked/datagrid-playground",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@istracked/datagrid-core": "workspace:*",
+    "@istracked/datagrid-react": "workspace:*",
+    "@istracked/datagrid-extensions": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}

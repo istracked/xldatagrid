@@ -1,0 +1,20 @@
+/* Base styles using CSS custom properties */
+.istracked-datagrid {
+  --dg-primary-color: #3b82f6;
+  --dg-bg-color: #ffffff;
+  --dg-text-color: #1e293b;
+  --dg-border-color: #e2e8f0;
+  --dg-header-bg: #f8fafc;
+  --dg-cell-padding: 0 12px;
+  --dg-font-family: system-ui, sans-serif;
+  --dg-font-size: 14px;
+  --dg-row-height: 36px;
+  --dg-selection-color: #3b82f6;
+  --dg-error-color: #ef4444;
+  --dg-hover-bg: #f1f5f9;
+
+  font-family: var(--dg-font-family);
+  font-size: var(--dg-font-size);
+  color: var(--dg-text-color);
+  background: var(--dg-bg-color);
+}

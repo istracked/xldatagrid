@@ -1,0 +1,23 @@
+import { defineConfig } from 'tsup';
+
+export default defineConfig({
+  entry: ['src/index.ts'],
+  format: ['esm', 'cjs'],
+  dts: true,
+  sourcemap: true,
+  clean: true,
+  treeshake: true,
+  splitting: false,
+  external: [
+    'react',
+    'react-dom',
+    '@istracked/datagrid-core',
+    '@istracked/datagrid-react',
+    '@mui/material',
+    '@emotion/react',
+    '@emotion/styled',
+  ],
+  esbuildOptions(options) {
+    options.jsx = 'automatic';
+  },
+});

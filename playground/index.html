@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>@istracked/datagrid — Playground</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .landing {
+      max-width: 600px;
+      padding: 48px 32px;
+      text-align: center;
+    }
+    h1 { font-size: 28px; margin-bottom: 8px; }
+    .subtitle { color: #64748b; margin-bottom: 40px; font-size: 15px; }
+    .cards { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+    .card {
+      display: block;
+      width: 260px;
+      padding: 28px 24px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #fff;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .card:hover {
+      border-color: #3b82f6;
+      box-shadow: 0 4px 12px rgba(59,130,246,0.12);
+    }
+    .card h2 { font-size: 18px; margin-bottom: 8px; }
+    .card p { font-size: 13px; color: #64748b; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="landing">
+    <h1>@istracked/datagrid</h1>
+    <p class="subtitle">Playground demos for UI/UX testing</p>
+    <div class="cards">
+      <a class="card" href="/kitchen-sink/">
+        <h2>Kitchen Sink</h2>
+        <p>Everything at once — one mega-grid with every feature enabled simultaneously. Stress test for the full feature set.</p>
+      </a>
+      <a class="card" href="/sink-kitchen/">
+        <h2>Sink Kitchen</h2>
+        <p>Feature-by-feature — isolated sections, each demonstrating one capability. Ideal for targeted regression testing.</p>
+      </a>
+    </div>
+  </div>
+</body>
+</html>

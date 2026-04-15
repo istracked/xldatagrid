@@ -1,0 +1,70 @@
+/**
+ * Public API barrel file for the `@istracked/datagrid-react` package.
+ *
+ * Re-exports all user-facing components, hooks, factory functions, type
+ * aliases, and slot components so consumers can import everything from
+ * a single entry point.
+ *
+ * @module index
+ */
+
+export { DataGrid } from './DataGrid';
+export type { DataGridProps, CellRendererProps } from './DataGrid';
+export { resolveThemeStyle, LIGHT_THEME, DARK_THEME } from './DataGrid';
+export { GhostRow } from './GhostRow';
+export { MasterDetail } from './MasterDetail';
+export type { MasterDetailProps, DetailComponentProps } from './MasterDetail';
+export { useGrid, useGridWithAtoms } from './use-grid';
+export type { UseGridResult } from './use-grid';
+export { useGridStore } from './use-grid-store';
+export { useGridContext, useGridAtomContext } from './context';
+export type { GridContextValue } from './context';
+export { createAtomicGridModel } from './atomic-grid-model';
+export type { AtomicGridBundle, AtomicStore } from './atomic-grid-model';
+export type { GridAtomSystem, BaseAtoms, DerivedAtoms, ActionAtoms } from './atoms';
+export { TransposedGrid } from './TransposedGrid';
+export type { TransposedGridProps } from './TransposedGrid';
+export { useDragDrop } from './use-drag-drop';
+export type { DragDropState, UseDragDropResult } from './use-drag-drop';
+
+// State models
+export { useGridInteraction } from './state/use-grid-interaction';
+export type { UseGridInteractionReturn } from './state/use-grid-interaction';
+export type {
+  GridInteractionState,
+  GridInteractionAction,
+  MenuState,
+  ColumnDragState,
+  ColumnGroupDragState,
+  ResizeState,
+} from './state';
+
+// Chrome columns
+export { ChromeControlsCell } from './chrome';
+export type { ChromeControlsCellProps } from './chrome';
+export { ChromeRowNumberCell } from './chrome';
+export type { ChromeRowNumberCellProps } from './chrome';
+export { ChromeControlsHeaderCell, ChromeRowNumberHeaderCell } from './chrome';
+export type { ChromeControlsHeaderCellProps, ChromeRowNumberHeaderCellProps } from './chrome';
+
+// Sub-components
+export { DataGridHeader } from './header';
+export type { DataGridHeaderProps } from './header';
+export { DataGridColumnMenu } from './header';
+export type { DataGridColumnMenuProps } from './header';
+export { DataGridColumnGroupHeader } from './header';
+export type { DataGridColumnGroupHeaderProps } from './header';
+export { DataGridBody } from './body';
+export type { DataGridBodyProps } from './body';
+export { DataGridToolbar } from './toolbar';
+export type { DataGridToolbarProps } from './toolbar';
+
+// Slot components
+export { Toolbar } from './slots/Toolbar';
+export type { ToolbarProps } from './slots/Toolbar';
+export { FormulaBar } from './slots/FormulaBar';
+export type { FormulaBarProps } from './slots/FormulaBar';
+export { StatusBar } from './slots/StatusBar';
+export type { StatusBarProps } from './slots/StatusBar';
+export { EmptyState } from './slots/EmptyState';
+export type { EmptyStateProps } from './slots/EmptyState';

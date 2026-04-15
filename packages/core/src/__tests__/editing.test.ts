@@ -1,0 +1,174 @@
+import {
+  createEditingState,
+  beginEdit,
+  updateEditValue,
+  commitEdit,
+  cancelEdit,
+  isEditing,
+  isEditingCell,
+} from '../editing';
+import { ColumnDef } from '../types';
+
+const cell = { rowId: 'r1', field: 'name' };
+const otherCell = { rowId: 'r2', field: 'age' };
+
+describe('createEditingState', () => {
+  it('initializes with null cell and null values', () => {
+    const s = createEditingState();
+    expect(s.cell).toBeNull();
+    expect(s.originalValue).toBeNull();
+    expect(s.currentValue).toBeNull();
+    expect(s.isValid).toBe(true);
+    expect(s.validationError).toBeNull();
+  });
+});
+
+describe('beginEdit', () => {
+  it('sets cell address and initial value', () => {
+    const s = beginEdit(createEditingState(), cell, 'Alice');
+    expect(s.cell).toEqual(cell);
+    expect(s.originalValue).toBe('Alice');
+    expect(s.currentValue).toBe('Alice');
+  });
+
+  it('clears any prior validation error', () => {
+    const prior = { ...createEditingState(), validationError: { message: 'bad', severity: 'error' as const }, isValid: false };
+    const s = beginEdit(prior, cell, 'new');
+    expect(s.isValid).toBe(true);
+    expect(s.validationError).toBeNull();
+  });
+
+  it('accepts null as initial value', () => {
+    const s = beginEdit(createEditingState(), cell, null);
+    expect(s.originalValue).toBeNull();
+    expect(s.currentValue).toBeNull();
+  });
+
+  it('accepts numeric initial value', () => {
+    const s = beginEdit(createEditingState(), cell, 42);
+    expect(s.originalValue).toBe(42);
+  });
+});
+
+describe('updateEditValue', () => {
+  it('updates currentValue', () => {
+    const s = beginEdit(createEditingState(), cell, 'Alice');
+    const updated = updateEditValue(s, 'Bob');
+    expect(updated.currentValue).toBe('Bob');
+  });
+
+  it('preserves originalValue', () => {
+    const s = beginEdit(createEditingState(), cell, 'Alice');
+    const updated = updateEditValue(s, 'Bob');
+    expect(updated.originalValue).toBe('Alice');
+  });
+
+  it('runs column validation and captures error', () => {
+    const col: ColumnDef = {
+      id: 'c1', field: 'name', title: 'Name',
+      validate: v => (v === '' ? { message: 'Required', severity: 'error' } : null),
+    };
+    const s = beginEdit(createEditingState(), cell, 'Alice');
+    const updated = updateEditValue(s, '', col);
+    expect(updated.isValid).toBe(false);
+    expect(updated.validationError).toEqual({ message: 'Required', severity: 'error' });
+  });
+
+  it('marks valid when validation passes', () => {
+    const col: ColumnDef = {
+      id: 'c1', field: 'name', title: 'Name',
+      validate: v => (v === '' ? { message: 'Required', severity: 'error' } : null),
+    };
+    const s = beginEdit(createEditingState(), cell, '');
+    const withError = updateEditValue(s, '', col);
+    expect(withError.isValid).toBe(false);
+    const fixed = updateEditValue(withError, 'Bob', col);
+    expect(fixed.isValid).toBe(true);
+    expect(fixed.validationError).toBeNull();
+  });
+
+  it('treats warning-severity validation as still valid', () => {
+    const col: ColumnDef = {
+      id: 'c1', field: 'name', title: 'Name',
+      validate: () => ({ message: 'Watch out', severity: 'warning' }),
+    };
+    const s = beginEdit(createEditingState(), cell, 'x');
+    const updated = updateEditValue(s, 'y', col);
+    expect(updated.isValid).toBe(true);
+    expect(updated.validationError).toEqual({ message: 'Watch out', severity: 'warning' });
+  });
+
+  it('skips validation when no column provided', () => {
+    const s = beginEdit(createEditingState(), cell, 'Alice');
+    const updated = updateEditValue(s, '');
+    expect(updated.isValid).toBe(true);
+    expect(updated.validationError).toBeNull();
+  });
+});
+
+describe('commitEdit', () => {
+  it('returns cell and value when state is valid', () => {
+    const s = updateEditValue(beginEdit(createEditingState(), cell, 'Alice'), 'Bob');
+    const result = commitEdit(s);
+    expect(result).toEqual({ value: 'Bob', cell });
+  });
+
+  it('returns null when no cell is being edited', () => {
+    expect(commitEdit(createEditingState())).toBeNull();
+  });
+
+  it('returns null when state is invalid', () => {
+    const col: ColumnDef = {
+      id: 'c1', field: 'name', title: 'Name',
+      validate: () => ({ message: 'Required', severity: 'error' }),
+    };
+    const s = updateEditValue(beginEdit(createEditingState(), cell, 'Alice'), '', col);
+    expect(commitEdit(s)).toBeNull();
+  });
+});
+
+describe('cancelEdit', () => {
+  it('resets state to initial empty state', () => {
+    const s = beginEdit(createEditingState(), cell, 'Alice');
+    const cancelled = cancelEdit(s);
+    expect(cancelled.cell).toBeNull();
+    expect(cancelled.currentValue).toBeNull();
+    expect(cancelled.originalValue).toBeNull();
+  });
+});
+
+describe('isEditing', () => {
+  it('returns false when no cell is set', () => {
+    expect(isEditing(createEditingState())).toBe(false);
+  });
+
+  it('returns true when a cell is set', () => {
+    expect(isEditing(beginEdit(createEditingState(), cell, 'x'))).toBe(true);
+  });
+});
+
+describe('isEditingCell', () => {
+  it('returns true for the exact cell being edited', () => {
+    const s = beginEdit(createEditingState(), cell, 'x');
+    expect(isEditingCell(s, cell)).toBe(true);
+  });
+
+  it('returns false for a different cell', () => {
+    const s = beginEdit(createEditingState(), cell, 'x');
+    expect(isEditingCell(s, otherCell)).toBe(false);
+  });
+
+  it('returns false when not editing', () => {
+    expect(isEditingCell(createEditingState(), cell)).toBe(false);
+  });
+
+  it('returns false when only rowId matches', () => {
+    const s = beginEdit(createEditingState(), cell, 'x');
+    expect(isEditingCell(s, { rowId: 'r1', field: 'age' })).toBe(false);
+  });
+
+  it('returns false when only field matches', () => {
+    const s = beginEdit(createEditingState(), cell, 'x');
+    expect(isEditingCell(s, { rowId: 'r2', field: 'name' })).toBe(false);
+  });
+});

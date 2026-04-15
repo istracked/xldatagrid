@@ -1,0 +1,82 @@
+/**
+ * MUI status cell renderer for the datagrid.
+ *
+ * @module MuiStatusCell
+ * @packageDocumentation
+ */
+import React, { useState, useEffect, useRef } from 'react';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import Chip from '@mui/material/Chip';
+import type { CellValue, StatusOption } from '@istracked/datagrid-core';
+import type { CellRendererProps } from '@istracked/datagrid-react';
+import { colorDot } from './MuiStatusCell.styles';
+
+/**
+ * MUI-based status cell renderer using Select with MenuItem and Chip display.
+ */
+export function MuiStatusCell<TData = Record<string, unknown>>({
+  value,
+  column,
+  isEditing,
+  onCommit,
+  onCancel,
+}: CellRendererProps<TData>) {
+  const options: StatusOption[] = column.options ?? [];
+  const current = options.find((o) => o.value === value);
+  const selectRef = useRef<HTMLSelectElement>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (isEditing) {
+      setOpen(true);
+    } else {
+      setOpen(false);
+    }
+  }, [isEditing]);
+
+  if (!isEditing) {
+    return (
+      <Chip
+        label={current?.label ?? String(value ?? '')}
+        size="small"
+        sx={{
+          backgroundColor: current?.color ?? '#e5e7eb',
+          color: '#111',
+          fontSize: 12,
+          height: 24,
+        }}
+      />
+    );
+  }
+
+  return (
+    <Select
+      ref={selectRef}
+      value={value != null ? String(value) : ''}
+      open={open}
+      onOpen={() => setOpen(true)}
+      onClose={() => {
+        setOpen(false);
+        onCancel();
+      }}
+      onChange={(e) => {
+        onCommit(e.target.value);
+      }}
+      variant="standard"
+      size="small"
+      fullWidth
+      disableUnderline
+      sx={{ fontSize: 13, height: '100%' }}
+    >
+      {options.map((opt) => (
+        <MenuItem key={opt.value} value={opt.value}>
+          {opt.color && (
+            <span style={colorDot(opt.color)} />
+          )}
+          {opt.label}
+        </MenuItem>
+      ))}
+    </Select>
+  );
+}
