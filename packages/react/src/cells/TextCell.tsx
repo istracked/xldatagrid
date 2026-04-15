@@ -65,7 +65,7 @@ interface TextCellProps<TData = Record<string, unknown>> {
  * />
  * ```
  */
-export function TextCell<TData = Record<string, unknown>>({
+export const TextCell = React.memo(function TextCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -148,4 +148,4 @@ export function TextCell<TData = Record<string, unknown>>({
       style={styles.editInput}
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: TextCellProps<TData>) => React.ReactElement;

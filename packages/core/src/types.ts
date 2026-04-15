@@ -180,7 +180,7 @@ export interface ColumnDef<TData = Record<string, unknown>> {
   /** Unique column identifier (stable across reorders). */
   id: string;
   /** Property path within `TData` that this column reads/writes. */
-  field: string;
+  field: keyof TData & string;
   /** Display title rendered in the column header. */
   title: string;
   /** Initial pixel width. */
@@ -839,7 +839,7 @@ export interface GridConfig<TData = Record<string, unknown>> {
  * `clipboard:`, `contextMenu:`, `grid:`) to avoid collisions and
  * simplify subscription filtering.
  */
-export type GridEventType =
+export type GridEventTypeBase =
   | 'cell:valueChange' | 'cell:selectionChange' | 'cell:click' | 'cell:doubleClick' | 'cell:validation'
   | 'row:insert' | 'row:delete' | 'row:move'
   | 'column:resize' | 'column:sort' | 'column:filter' | 'column:reorder' | 'column:visibility'
@@ -847,6 +847,8 @@ export type GridEventType =
   | 'contextMenu:open'
   | 'subGrid:expand' | 'subGrid:collapse'
   | 'grid:mount' | 'grid:unmount' | 'grid:dataChange' | 'grid:stateChange';
+
+export type GridEventType = GridEventTypeBase | `before:${GridEventTypeBase}`;
 
 /**
  * Lifecycle phases available for hook registration.

@@ -19,9 +19,9 @@ import { ColumnDef } from './types';
  * drag-and-drop reordering without mutating column definitions. `hidden` and
  * `frozen` track visibility and pinning independently.
  */
-export interface ColumnState {
+export interface ColumnState<TData = Record<string, unknown>> {
   /** The original column definitions. */
-  columns: ColumnDef[];
+  columns: ColumnDef<TData>[];
   /** Field names in current display order. */
   order: string[];
   /** Mapping from field name to current pixel width. */
@@ -41,7 +41,7 @@ export interface ColumnState {
  * @param columns - The column definitions to initialise from.
  * @returns A fully populated column state.
  */
-export function createColumnState(columns: ColumnDef[]): ColumnState {
+export function createColumnState<TData = Record<string, unknown>>(columns: ColumnDef<TData>[]): ColumnState<TData> {
   // Derive initial display order from definition order
   const order = columns.map(c => c.field);
   const widths: Record<string, number> = {};
@@ -63,13 +63,13 @@ export function createColumnState(columns: ColumnDef[]): ColumnState {
  * @param state - Current column state.
  * @returns Ordered array of visible {@link ColumnDef} objects.
  */
-export function getVisibleColumns(state: ColumnState): ColumnDef[] {
+export function getVisibleColumns<TData = Record<string, unknown>>(state: ColumnState<TData>): ColumnDef<TData>[] {
   return state.order
     // Exclude hidden columns
     .filter(field => !state.hidden.has(field))
     // Resolve field names back to full definitions
     .map(field => state.columns.find(c => c.field === field))
-    .filter((col): col is ColumnDef => col != null);
+    .filter((col): col is ColumnDef<TData> => col != null);
 }
 
 /**
@@ -81,7 +81,7 @@ export function getVisibleColumns(state: ColumnState): ColumnDef[] {
  * @param field - The column field name.
  * @returns The column width in pixels.
  */
-export function getColumnWidth(state: ColumnState, field: string): number {
+export function getColumnWidth<TData = Record<string, unknown>>(state: ColumnState<TData>, field: string): number {
   return state.widths[field] ?? 150;
 }
 
@@ -96,7 +96,7 @@ export function getColumnWidth(state: ColumnState, field: string): number {
  * @param width - The desired new width in pixels.
  * @returns A new column state with the updated width.
  */
-export function resizeColumn(state: ColumnState, field: string, width: number): ColumnState {
+export function resizeColumn<TData = Record<string, unknown>>(state: ColumnState<TData>, field: string, width: number): ColumnState<TData> {
   // Look up the column definition to read min/max constraints
   const col = state.columns.find(c => c.field === field);
   const minW = col?.minWidth ?? 50;
@@ -117,7 +117,7 @@ export function resizeColumn(state: ColumnState, field: string, width: number): 
  * @param toIndex - The target index in the display order.
  * @returns A new column state with the updated order.
  */
-export function reorderColumn(state: ColumnState, field: string, toIndex: number): ColumnState {
+export function reorderColumn<TData = Record<string, unknown>>(state: ColumnState<TData>, field: string, toIndex: number): ColumnState<TData> {
   const order = [...state.order];
   const fromIndex = order.indexOf(field);
   if (fromIndex === -1) return state;
@@ -134,7 +134,7 @@ export function reorderColumn(state: ColumnState, field: string, toIndex: number
  * @param field - The column field name to toggle.
  * @returns A new column state with the field's visibility flipped.
  */
-export function toggleColumnVisibility(state: ColumnState, field: string): ColumnState {
+export function toggleColumnVisibility<TData = Record<string, unknown>>(state: ColumnState<TData>, field: string): ColumnState<TData> {
   const hidden = new Set(state.hidden);
   if (hidden.has(field)) {
     hidden.delete(field);
@@ -155,7 +155,7 @@ export function toggleColumnVisibility(state: ColumnState, field: string): Colum
  * @param position - `'left'` to pin at the start, `'right'` to pin at the end, or `null` to unpin.
  * @returns A new column state reflecting the updated freeze configuration.
  */
-export function freezeColumn(state: ColumnState, field: string, position: 'left' | 'right' | null): ColumnState {
+export function freezeColumn<TData = Record<string, unknown>>(state: ColumnState<TData>, field: string, position: 'left' | 'right' | null): ColumnState<TData> {
   // Remove the field from frozen first, then re-add at the correct position if needed
   let frozen = state.frozen.filter(f => f !== field);
   if (position) {
@@ -171,7 +171,7 @@ export function freezeColumn(state: ColumnState, field: string, position: 'left'
  * @param field - The column field name to check.
  * @returns `true` if the column is in the frozen list.
  */
-export function isColumnFrozen(state: ColumnState, field: string): boolean {
+export function isColumnFrozen<TData = Record<string, unknown>>(state: ColumnState<TData>, field: string): boolean {
   return state.frozen.includes(field);
 }
 
@@ -183,7 +183,7 @@ export function isColumnFrozen(state: ColumnState, field: string): boolean {
  * @param state - Current column state.
  * @returns Array of objects pairing each visible field with its pixel width.
  */
-export function getOrderedColumnWidths(state: ColumnState): { field: string; width: number }[] {
+export function getOrderedColumnWidths<TData = Record<string, unknown>>(state: ColumnState<TData>): { field: string; width: number }[] {
   return getVisibleColumns(state).map(col => ({
     field: col.field,
     width: state.widths[col.field] ?? 150,

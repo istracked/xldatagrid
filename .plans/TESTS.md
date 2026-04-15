@@ -1,0 +1,1038 @@
+# @istracked/datagrid — Test Suite (1001 Tests)
+
+TDD-first: all tests written as `it.todo()` stubs before implementation.
+
+---
+
+
+
+### Core Grid Rendering (35 tests)
+- renders empty grid with zero rows and zero columns
+- renders grid with single cell
+- renders correct number of rows from data array
+- renders correct number of columns from column definitions
+- renders cell content matching data values
+- applies column header labels from config
+- renders column headers in defined order
+- does not render rows beyond data length
+- renders grid container with correct role attribute
+- renders cells with correct aria-colindex
+- renders rows with correct aria-rowindex
+- applies custom className to grid container
+- applies custom style to grid container
+- renders placeholder when data is empty array
+- renders placeholder when data is null
+- renders placeholder when data is undefined
+- virtual scroll renders only visible rows within viewport
+- virtual scroll does not render rows above scroll position
+- virtual scroll does not render rows below viewport boundary
+- virtual scroll updates rendered rows on scroll down
+- virtual scroll updates rendered rows on scroll up
+- virtual scroll maintains correct row offsets after fast scroll
+- virtual scroll handles scroll to end of dataset
+- virtual scroll handles scroll back to top
+- virtual scroll renders overscan rows above viewport
+- virtual scroll renders overscan rows below viewport
+- virtual scroll recalculates on container resize
+- virtual scroll handles variable row heights
+- virtual scroll handles ten thousand rows without performance degradation
+- column resize updates column width on drag
+- column resize shows resize handle on header hover
+- column resize enforces minimum column width
+- column resize enforces maximum column width
+- column resize persists width after release
+- grid re-renders when data prop changes
+
+### Pivot Modes — Column-Driven (28 tests)
+- column-driven pivot renders all rows with same cell type per column
+- column-driven pivot applies text type to all rows in a text column
+- column-driven pivot applies date type to all rows in a date column
+- column-driven pivot applies status dropdown to all rows in a status column
+- column-driven pivot applies checkbox type to all rows in a boolean column
+- column-driven pivot applies currency type to all rows in a currency column
+- column-driven pivot applies numeric type to all rows in a numeric column
+- column-driven pivot applies password type to all rows in a password column
+- column-driven pivot mixes different column types across columns
+- column-driven pivot ignores row-level type overrides
+- column-driven pivot recalculates cell types when column config changes
+- column-driven pivot propagates column type to ghost row cells
+- column-driven pivot propagates column type to sub-grid cells
+- column-driven pivot applies column type to pasted cells
+- column-driven pivot applies column type to imported cells
+- column-driven pivot renders compound chip list for all rows in a chip column
+- column-driven pivot renders autocomplete chip for all rows in autocomplete column
+- column-driven pivot renders file upload for all rows in file column
+- column-driven pivot renders rich text for all rows in rich text column
+- column-driven pivot renders actions cell for all rows in actions column
+- column-driven pivot renders list badges for all rows in list column
+- column-driven pivot serializes column type config to JSON
+- column-driven pivot deserializes column type config from JSON
+- column-driven pivot validates column type is a known type
+- column-driven pivot rejects unknown column types with error
+- column-driven pivot switches to row-driven mode when pivot config changes
+- column-driven pivot preserves data integrity on mode switch
+- column-driven pivot renders sub-grid cell type for all rows in sub-grid column
+
+### Pivot Modes — Row-Driven (28 tests)
+- row-driven pivot renders all columns with same cell type per row
+- row-driven pivot applies text type to all columns in a text row
+- row-driven pivot applies date type to all columns in a date row
+- row-driven pivot applies status dropdown to all columns in a status row
+- row-driven pivot applies checkbox type to all columns in a boolean row
+- row-driven pivot applies currency type to all columns in a currency row
+- row-driven pivot applies numeric type to all columns in a numeric row
+- row-driven pivot applies password type to all columns in a password row
+- row-driven pivot mixes different row types across rows
+- row-driven pivot ignores column-level type overrides
+- row-driven pivot recalculates cell types when row config changes
+- row-driven pivot propagates row type to newly inserted columns
+- row-driven pivot applies row type to pasted cells
+- row-driven pivot applies row type to imported cells
+- row-driven pivot renders compound chip list for all columns in chip row
+- row-driven pivot renders autocomplete chip for all columns in autocomplete row
+- row-driven pivot renders file upload for all columns in file row
+- row-driven pivot renders rich text for all columns in rich text row
+- row-driven pivot renders actions cell for all columns in actions row
+- row-driven pivot renders list badges for all columns in list row
+- row-driven pivot serializes row type config to JSON
+- row-driven pivot deserializes row type config from JSON
+- row-driven pivot validates row type is a known type
+- row-driven pivot rejects unknown row types with error
+- row-driven pivot switches to column-driven mode when pivot config changes
+- row-driven pivot preserves data integrity on mode switch
+- row-driven pivot renders sub-grid cell type for all columns in sub-grid row
+- row-driven pivot header column displays row type labels
+
+### Cell Type — Text (22 tests)
+- text cell renders string value
+- text cell renders empty string when value is null
+- text cell renders empty string when value is undefined
+- text cell enters edit mode on double click
+- text cell shows input element in edit mode
+- text cell pre-fills input with current value in edit mode
+- text cell commits value on Enter key
+- text cell discards changes on Escape key
+- text cell commits value on blur
+- text cell trims whitespace before commit when configured
+- text cell preserves whitespace when trim is disabled
+- text cell enforces maxLength constraint
+- text cell displays truncated text with ellipsis when overflowing
+- text cell shows tooltip with full text on hover when truncated
+- text cell applies placeholder text when empty
+- text cell renders as read-only when column is not editable
+- text cell does not enter edit mode when read-only
+- text cell supports multiline when configured
+- text cell renders line breaks in multiline mode
+- text cell fires onChange callback with old and new value
+- text cell renders with custom font style from column config
+- text cell supports text alignment left center right
+
+### Cell Type — Date/Calendar (30 tests)
+- date cell renders formatted date string
+- date cell renders empty when value is null
+- date cell opens calendar picker on click
+- date cell opens calendar picker on Enter key
+- date cell shows current month in calendar popup
+- date cell highlights selected date in calendar
+- date cell navigates to previous month
+- date cell navigates to next month
+- date cell navigates to previous year
+- date cell navigates to next year
+- date cell selects date on click in calendar
+- date cell closes calendar after date selection
+- date cell commits selected date value
+- date cell discards selection on Escape
+- date cell discards selection on outside click
+- date cell disables dates before minDate
+- date cell disables dates after maxDate
+- date cell formats date using configured format string
+- date cell parses typed date string in configured format
+- date cell rejects invalid typed date with error
+- date cell supports date range selection when configured
+- date cell range selection highlights start and end
+- date cell range selection highlights intermediate dates
+- date cell supports time component when configured
+- date cell time picker shows hours and minutes
+- date cell time picker increments hours
+- date cell time picker increments minutes
+- date cell fires onChange with ISO date string
+- date cell renders localized month and day names
+- date cell keyboard navigates within calendar grid
+
+### Cell Type — Status Dropdown (24 tests)
+- status dropdown renders current status label
+- status dropdown renders status color indicator
+- status dropdown opens option list on click
+- status dropdown opens option list on Enter key
+- status dropdown renders all configured status options
+- status dropdown highlights current selection in list
+- status dropdown selects option on click
+- status dropdown selects option on Enter key
+- status dropdown closes after selection
+- status dropdown closes on Escape
+- status dropdown closes on outside click
+- status dropdown navigates options with arrow keys
+- status dropdown wraps navigation at list boundaries
+- status dropdown filters options when typing
+- status dropdown shows no match message when filter yields nothing
+- status dropdown fires onChange with selected status value
+- status dropdown renders custom icon per status option
+- status dropdown renders status with background color pill
+- status dropdown supports grouped status categories
+- status dropdown disables specific options when configured
+- status dropdown prevents selection of disabled options
+- status dropdown renders as read-only when column not editable
+- status dropdown supports custom render function per option
+- status dropdown truncates long labels with ellipsis
+
+### Cell Type — List/Badge/Tags (26 tests)
+- list cell renders array of tag badges
+- list cell renders empty state when array is empty
+- list cell renders each tag with label text
+- list cell renders each tag with configured color
+- list cell adds new tag on Enter in input
+- list cell adds new tag on comma key
+- list cell removes tag on badge close button click
+- list cell removes tag on Backspace when input is empty
+- list cell prevents duplicate tags
+- list cell shows duplicate warning when adding existing tag
+- list cell enforces max tag count
+- list cell shows limit reached message at max count
+- list cell trims whitespace from new tag input
+- list cell rejects empty string tags
+- list cell supports predefined tag options
+- list cell shows autocomplete dropdown from predefined options
+- list cell filters autocomplete options while typing
+- list cell renders tags with truncation when overflowing cell width
+- list cell shows overflow count badge when tags exceed cell width
+- list cell expands to show all tags on click
+- list cell fires onChange with updated tag array
+- list cell supports drag reorder of tags
+- list cell renders tag with remove icon
+- list cell supports custom tag color mapping
+- list cell validates tag against regex pattern when configured
+- list cell rejects tag not matching validation pattern
+
+### Cell Type — Compound Chip List (24 tests)
+- compound chip renders chips from structured data array
+- compound chip renders primary label per chip
+- compound chip renders secondary label per chip
+- compound chip renders avatar or icon per chip
+- compound chip opens chip editor on chip click
+- compound chip editor shows editable fields
+- compound chip editor commits changes on save
+- compound chip editor discards changes on cancel
+- compound chip adds new chip via add button
+- compound chip new chip form shows required fields
+- compound chip new chip validates required fields before add
+- compound chip removes chip on delete icon click
+- compound chip confirms before removing chip
+- compound chip reorders chips via drag and drop
+- compound chip fires onChange with updated chip array
+- compound chip truncates chip list with overflow count
+- compound chip expands chip list on click
+- compound chip renders in read-only mode without edit controls
+- compound chip supports custom chip render template
+- compound chip limits max chips when configured
+- compound chip shows max reached message
+- compound chip supports keyboard navigation between chips
+- compound chip removes focused chip on Delete key
+- compound chip renders empty state placeholder
+
+### Cell Type — Checkbox/Boolean (18 tests)
+- checkbox cell renders checked state for true value
+- checkbox cell renders unchecked state for false value
+- checkbox cell renders indeterminate state for null value
+- checkbox cell toggles on click
+- checkbox cell toggles on Space key
+- checkbox cell toggles on Enter key
+- checkbox cell fires onChange with new boolean value
+- checkbox cell does not toggle when read-only
+- checkbox cell renders custom true label when configured
+- checkbox cell renders custom false label when configured
+- checkbox cell renders as switch toggle when variant is switch
+- checkbox cell switch animates on toggle
+- checkbox cell applies disabled style when disabled
+- checkbox cell does not toggle when disabled
+- checkbox cell supports three-state cycling null false true
+- checkbox cell centers within cell
+- checkbox cell renders accessible label via aria-label
+- checkbox cell renders accessible checked state via aria-checked
+
+### Cell Type — Password (18 tests)
+- password cell renders masked dots for value
+- password cell does not reveal value on hover
+- password cell shows reveal toggle icon
+- password cell reveals value on reveal toggle click
+- password cell re-masks value on second reveal toggle click
+- password cell enters edit mode on double click
+- password cell shows password input in edit mode
+- password cell masks input characters in edit mode
+- password cell commits value on Enter
+- password cell discards changes on Escape
+- password cell fires onChange with new password value
+- password cell does not expose value in DOM text content
+- password cell copies masked value to clipboard by default
+- password cell copies real value to clipboard when configured
+- password cell enforces minLength
+- password cell enforces maxLength
+- password cell shows strength indicator when configured
+- password cell does not enter edit mode when read-only
+
+### Cell Type — Autocomplete Chip (26 tests)
+- autocomplete chip renders selected chips from value array
+- autocomplete chip renders empty input when no selection
+- autocomplete chip opens suggestion dropdown on input focus
+- autocomplete chip fetches suggestions from async source
+- autocomplete chip shows loading spinner while fetching
+- autocomplete chip renders suggestion list from fetched results
+- autocomplete chip filters suggestions as user types
+- autocomplete chip highlights matching substring in suggestions
+- autocomplete chip selects suggestion on click
+- autocomplete chip selects suggestion on Enter key
+- autocomplete chip adds chip for selected suggestion
+- autocomplete chip removes chip on chip close button
+- autocomplete chip removes last chip on Backspace when input empty
+- autocomplete chip clears input after selection
+- autocomplete chip prevents duplicate chip selection
+- autocomplete chip navigates suggestions with arrow keys
+- autocomplete chip closes dropdown on Escape
+- autocomplete chip closes dropdown on outside click
+- autocomplete chip debounces async fetch by configured delay
+- autocomplete chip shows no results message when empty
+- autocomplete chip supports custom suggestion render template
+- autocomplete chip supports freeform entry when configured
+- autocomplete chip rejects freeform entry when not configured
+- autocomplete chip fires onChange with updated chip value array
+- autocomplete chip enforces max chip count
+- autocomplete chip disables input at max chip count
+
+### Cell Type — Currency (22 tests)
+- currency cell renders value with currency symbol
+- currency cell renders value with two decimal places
+- currency cell renders negative value with minus sign
+- currency cell renders negative value in parentheses when configured
+- currency cell renders thousands separator
+- currency cell renders zero as currency formatted zero
+- currency cell renders empty when value is null
+- currency cell enters edit mode on double click
+- currency cell strips currency symbol in edit input
+- currency cell allows only numeric and decimal input
+- currency cell rejects alphabetic characters
+- currency cell commits formatted value on Enter
+- currency cell discards changes on Escape
+- currency cell rounds to configured decimal places on commit
+- currency cell fires onChange with numeric value
+- currency cell renders with locale-specific formatting
+- currency cell supports configurable currency code USD EUR GBP
+- currency cell right-aligns by default
+- currency cell renders color red for negative values when configured
+- currency cell renders color green for positive values when configured
+- currency cell supports custom format pattern
+- currency cell does not enter edit mode when read-only
+
+### Cell Type — Rich Text (24 tests)
+- rich text cell renders HTML content safely
+- rich text cell sanitizes script tags from content
+- rich text cell renders bold text
+- rich text cell renders italic text
+- rich text cell renders underlined text
+- rich text cell renders ordered lists
+- rich text cell renders unordered lists
+- rich text cell renders hyperlinks
+- rich text cell opens editor on double click
+- rich text cell editor shows formatting toolbar
+- rich text cell editor applies bold on toolbar button
+- rich text cell editor applies italic on toolbar button
+- rich text cell editor applies underline on toolbar button
+- rich text cell editor creates bulleted list on toolbar button
+- rich text cell editor creates numbered list on toolbar button
+- rich text cell editor inserts link via dialog
+- rich text cell editor supports undo within editor
+- rich text cell editor supports redo within editor
+- rich text cell commits HTML content on blur
+- rich text cell discards changes on Escape
+- rich text cell fires onChange with HTML string
+- rich text cell truncates preview with ellipsis
+- rich text cell strips HTML for plain text export
+- rich text cell renders as read-only without editor trigger
+
+### Cell Type — Numeric (22 tests)
+- numeric cell renders integer value
+- numeric cell renders decimal value
+- numeric cell renders negative value
+- numeric cell renders zero
+- numeric cell renders empty when value is null
+- numeric cell enters edit mode on double click
+- numeric cell allows only numeric characters in edit
+- numeric cell allows decimal point in edit
+- numeric cell allows negative sign at start in edit
+- numeric cell rejects alphabetic characters in edit
+- numeric cell commits value on Enter
+- numeric cell discards changes on Escape
+- numeric cell fires onChange with number type value
+- numeric cell enforces min value constraint
+- numeric cell enforces max value constraint
+- numeric cell shows error when value below min
+- numeric cell shows error when value above max
+- numeric cell renders with configured decimal precision
+- numeric cell right-aligns by default
+- numeric cell supports thousand separator formatting
+- numeric cell increments on up arrow key when configured
+- numeric cell decrements on down arrow key when configured
+
+### Cell Type — File Upload/Download (28 tests)
+- file cell renders file name when file attached
+- file cell renders file icon based on file type
+- file cell renders file size
+- file cell renders empty drop target when no file
+- file cell opens file picker on click
+- file cell accepts file from picker dialog
+- file cell rejects file exceeding max size
+- file cell rejects file with disallowed extension
+- file cell shows upload progress indicator
+- file cell fires onChange with file object after upload
+- file cell renders download button for attached file
+- file cell triggers file download on download button click
+- file cell renders delete button for attached file
+- file cell removes file on delete button click
+- file cell confirms before file deletion
+- file cell accepts file via drag and drop onto cell
+- file cell shows drag-over highlight state
+- file cell supports multiple file attachment when configured
+- file cell renders file list for multiple attachments
+- file cell removes individual file from multiple list
+- file cell renders thumbnail preview for image files
+- file cell renders generic icon for non-image files
+- file cell validates file type against accept list
+- file cell shows error message for rejected file
+- file cell renders as read-only without upload controls
+- file cell read-only still shows download button
+- file cell handles upload network error gracefully
+- file cell retries failed upload on retry button click
+
+### Cell Type — Sub-Grid Cell (30 tests)
+- sub-grid cell renders expand toggle icon
+- sub-grid cell starts in collapsed state
+- sub-grid cell expands nested grid on toggle click
+- sub-grid cell collapses nested grid on second toggle click
+- sub-grid cell renders nested column headers
+- sub-grid cell renders nested row data
+- sub-grid cell supports nested text cells
+- sub-grid cell supports nested numeric cells
+- sub-grid cell supports nested date cells
+- sub-grid cell supports nested checkbox cells
+- sub-grid cell supports nested status dropdown cells
+- sub-grid cell supports editing in nested cells
+- sub-grid cell fires onChange with updated nested data
+- sub-grid cell supports adding rows to nested grid
+- sub-grid cell shows ghost row in nested grid
+- sub-grid cell supports deleting rows from nested grid
+- sub-grid cell supports sorting in nested grid
+- sub-grid cell supports filtering in nested grid
+- sub-grid cell renders nested sub-grid recursively to configured depth
+- sub-grid cell enforces max nesting depth
+- sub-grid cell inherits parent grid theme
+- sub-grid cell passes column config to nested grid
+- sub-grid cell isolates selection from parent grid
+- sub-grid cell supports keyboard navigation within nested grid
+- sub-grid cell Tab from last nested cell returns to parent
+- sub-grid cell renders row count badge when collapsed
+- sub-grid cell animates expand and collapse transition
+- sub-grid cell virtual scrolls nested rows when numerous
+- sub-grid cell supports drag and drop file into nested grid
+- sub-grid cell preserves nested state across parent re-renders
+
+### Cell Type — Actions Cell (20 tests)
+- actions cell renders action buttons from config
+- actions cell renders icon per action button
+- actions cell renders label per action button
+- actions cell fires action callback on button click
+- actions cell passes row data to action callback
+- actions cell disables action button when condition returns false
+- actions cell hides action button when visible condition returns false
+- actions cell renders overflow menu for excess actions
+- actions cell overflow menu opens on click
+- actions cell overflow menu fires action on item click
+- actions cell overflow menu closes after action
+- actions cell overflow menu closes on outside click
+- actions cell renders confirm dialog for destructive actions
+- actions cell confirm dialog proceeds on confirm
+- actions cell confirm dialog cancels on cancel
+- actions cell shows loading spinner on async action
+- actions cell disables other actions during async execution
+- actions cell re-enables actions after async completion
+- actions cell renders tooltip per action button
+- actions cell supports custom action button render
+
+### JSON Configuration (32 tests)
+- config renders formula bar when formulaBar is true
+- config hides formula bar when formulaBar is false
+- config renders formula bar by default when formulaBar is omitted
+- config formula bar displays active cell value
+- config formula bar edits active cell value
+- config renders toolbar when toolbar is true
+- config hides toolbar when toolbar is false
+- config renders toolbar rows matching toolbar config array
+- config toolbar renders buttons per toolbar row definition
+- config enables sorting when sorting is true
+- config disables sorting when sorting is false
+- config hides sort indicators when sorting is false
+- config enables filtering when filtering is true
+- config disables filtering when filtering is false
+- config hides filter row when filtering is false
+- config enables right-click menu when contextMenu is true
+- config disables right-click menu when contextMenu is false
+- config right-click shows no menu when contextMenu is false
+- config enables row grouping when grouping.rows is true
+- config disables row grouping when grouping.rows is false
+- config enables column grouping when grouping.columns is true
+- config disables column grouping when grouping.columns is false
+- config applies full JSON config object on initial render
+- config updates grid when JSON config changes
+- config validates JSON config schema on init
+- config rejects invalid JSON config with error
+- config merges partial config with defaults
+- config serializes current grid state to JSON
+- config deserializes grid state from JSON
+- config restores column widths from saved state
+- config restores sort order from saved state
+- config restores filter state from saved state
+
+### Extension System (44 tests)
+- extension registers plugin via registerExtension API
+- extension rejects plugin without name property
+- extension rejects plugin with duplicate name
+- extension calls plugin init hook on registration
+- extension passes grid API to plugin init hook
+- extension calls plugin onMount hook after grid mount
+- extension calls plugin onDataChange hook when data updates
+- extension calls plugin onCellEdit hook before cell commit
+- extension onCellEdit hook can modify cell value
+- extension onCellEdit hook can cancel cell edit by returning false
+- extension calls plugin onRowAdd hook before row insertion
+- extension onRowAdd hook can cancel row insertion
+- extension calls plugin onRowDelete hook before row deletion
+- extension onRowDelete hook can cancel row deletion
+- extension calls plugin onSort hook before sort executes
+- extension onSort hook can override sort comparator
+- extension calls plugin onFilter hook before filter executes
+- extension onFilter hook can override filter predicate
+- extension calls plugin onSelectionChange hook on selection update
+- extension calls plugin onColumnResize hook on column resize
+- extension calls plugin onColumnReorder hook on column reorder
+- extension intercepts cell edit event via event interception API
+- extension intercepts row click event via event interception API
+- extension intercepts keyboard event via event interception API
+- extension intercept can stop event propagation
+- extension intercept chain calls interceptors in registration order
+- extension modifies context menu via addContextMenuItem
+- extension context menu item appears in right-click menu
+- extension context menu item fires plugin callback on click
+- extension removes context menu item via removeContextMenuItem
+- extension modifies toolbar via addToolbarButton
+- extension toolbar button appears in toolbar row
+- extension toolbar button fires plugin callback on click
+- extension removes toolbar button via removeToolbarButton
+- extension calls plugin destroy hook on unregisterExtension
+- extension destroy hook cleans up plugin resources
+- extension calls all plugin destroy hooks on grid unmount
+- extension unregisterExtension removes plugin from registry
+- extension provides getRegisteredExtensions API
+- extension provides getExtensionByName API
+- extension lifecycle hooks fire in correct order init mount data
+- extension supports async init hook
+- extension async init resolves before mount hook fires
+- extension error in one plugin does not crash other plugins
+
+### Built-in Extension — Regex Input Validation (20 tests)
+- regex validation rejects cell input not matching column pattern
+- regex validation accepts cell input matching column pattern
+- regex validation shows error message on invalid input
+- regex validation clears error message when input corrected
+- regex validation prevents commit of invalid value
+- regex validation allows commit of valid value
+- regex validation applies pattern from column config
+- regex validation supports email regex pattern
+- regex validation supports phone number regex pattern
+- regex validation supports URL regex pattern
+- regex validation supports custom regex pattern string
+- regex validation applies to text cell type
+- regex validation applies to numeric cell type
+- regex validation applies to autocomplete freeform input
+- regex validation highlights cell border red on error
+- regex validation removes highlight when error cleared
+- regex validation fires onValidationError callback
+- regex validation works in ghost row
+- regex validation evaluates on each keystroke when configured
+- regex validation evaluates on commit when configured
+
+### Built-in Extension — Cell Comments with Discussion Threading (28 tests)
+- comments indicator icon shows on cell with comments
+- comments indicator icon hidden on cell without comments
+- comments indicator shows count badge for multiple comments
+- comments panel opens on indicator click
+- comments panel shows comment text
+- comments panel shows comment author
+- comments panel shows comment timestamp
+- comments panel shows comments in chronological order
+- comments panel add comment via input and submit
+- comments panel new comment appears in list
+- comments panel fires onCommentAdd callback
+- comments panel edit own comment via edit button
+- comments panel saves edited comment
+- comments panel fires onCommentEdit callback
+- comments panel delete own comment via delete button
+- comments panel confirms before deleting comment
+- comments panel fires onCommentDelete callback
+- comments thread reply to existing comment
+- comments thread reply appears nested under parent
+- comments thread shows reply count on collapsed thread
+- comments thread expands to show replies
+- comments thread collapses to hide replies
+- comments thread supports multiple nesting levels
+- comments panel closes on outside click
+- comments panel closes on Escape key
+- comments panel persists comments across grid re-renders
+- comments resolve thread marks thread as resolved
+- comments resolved thread renders with visual distinction
+
+### Sub-Grid (18 tests)
+- sub-grid expands row to show nested grid
+- sub-grid collapses expanded row
+- sub-grid only one row expanded at a time when configured
+- sub-grid allows multiple rows expanded simultaneously when configured
+- sub-grid passes parent row data as context to nested grid
+- sub-grid nested grid receives own column definitions
+- sub-grid nested grid data binds to parent row field
+- sub-grid fires onExpand callback with row data
+- sub-grid fires onCollapse callback with row data
+- sub-grid preserves expansion state across data updates
+- sub-grid nested grid supports full editing
+- sub-grid nested grid supports sorting independently
+- sub-grid nested grid supports filtering independently
+- sub-grid nested changes propagate to parent data model
+- sub-grid renders expand icon in designated column
+- sub-grid supports lazy loading nested data
+- sub-grid shows loading indicator during lazy fetch
+- sub-grid caches loaded nested data
+
+### Drag and Drop Files (36 tests)
+- drag drop on entire grid shows grid-level drop overlay
+- drag drop on entire grid accepts dropped file
+- drag drop on entire grid creates new row from dropped file
+- drag drop on entire grid maps file metadata to new row fields
+- drag drop on entire grid rejects file exceeding size limit
+- drag drop on entire grid rejects file with disallowed type
+- drag drop on entire grid shows error for rejected file
+- drag drop on entire grid handles multiple files creating multiple rows
+- drag drop on entire grid fires onFileDrop callback with file data
+- drag drop on specific column shows column drop overlay
+- drag drop on specific column accepts file on configured column
+- drag drop on specific column rejects file on non-drop column
+- drag drop on specific column populates file cell in target column
+- drag drop on specific column creates new row with file in column
+- drag drop on specific column uses column-level accept filter
+- drag drop on specific column fires onColumnFileDrop callback
+- drag drop on specific cell shows cell drop highlight
+- drag drop on specific cell replaces existing file in cell
+- drag drop on specific cell accepts file matching cell type config
+- drag drop on specific cell rejects file not matching cell config
+- drag drop on specific cell fires onCellFileDrop callback
+- drag drop creates sub-grid entry when target is sub-grid cell
+- drag drop sub-grid entry populates nested row with file data
+- drag drop sub-grid entry appends to existing nested rows
+- drag drop shows drag enter visual feedback
+- drag drop removes drag visual feedback on drag leave
+- drag drop removes drag visual feedback after drop
+- drag drop prevents browser default file open behavior
+- drag drop handles drag over without triggering rapid re-renders
+- drag drop supports concurrent file uploads with progress
+- drag drop cancels in-progress upload on Escape
+- drag drop retries failed upload on retry action
+- drag drop handles zero byte file gracefully
+- drag drop handles file with very long name
+- drag drop fires onDropComplete after all uploads finish
+- drag drop disables drop when grid is read-only
+
+### Context Menu (22 tests)
+- context menu opens on right-click on cell
+- context menu opens on right-click on row header
+- context menu opens on right-click on column header
+- context menu positions near cursor coordinates
+- context menu repositions to stay within viewport
+- context menu closes on outside click
+- context menu closes on Escape key
+- context menu closes on menu item click
+- context menu shows delete row option
+- context menu delete row removes target row
+- context menu delete row fires onRowDelete callback
+- context menu shows configurable items from config
+- context menu configurable item fires callback with row and column
+- context menu disables item when condition returns false
+- context menu hides item when visible returns false
+- context menu shows separator between item groups
+- context menu supports nested submenu
+- context menu nested submenu opens on hover
+- context menu nested submenu closes when parent loses hover
+- context menu renders icons per item
+- context menu renders keyboard shortcut hint per item
+- context menu does not open when contextMenu config is false
+
+### Sorting and Filtering (38 tests)
+- sort single column ascending on header click
+- sort single column descending on second header click
+- sort removes sort on third header click
+- sort shows ascending indicator icon on sorted column
+- sort shows descending indicator icon on sorted column
+- sort removes indicator icon when sort cleared
+- sort multi-column adds sort on shift-click header
+- sort multi-column shows priority number per sorted column
+- sort multi-column primary sort takes precedence
+- sort multi-column removes single column from multi-sort
+- sort stable sort preserves original order for equal values
+- sort handles null values placing them at end
+- sort handles undefined values placing them at end
+- sort handles mixed types gracefully
+- sort text column case insensitive by default
+- sort text column case sensitive when configured
+- sort numeric column compares numerically not lexicographically
+- sort date column compares chronologically
+- sort boolean column sorts false before true
+- sort fires onSortChange callback with sort state
+- filter text column contains substring match
+- filter text column equals exact match
+- filter text column starts with match
+- filter text column ends with match
+- filter text column case insensitive by default
+- filter text column empty string clears filter
+- filter numeric column equals match
+- filter numeric column greater than match
+- filter numeric column less than match
+- filter numeric column between range match
+- filter boolean column true only
+- filter boolean column false only
+- filter date column equals date
+- filter date column after date
+- filter date column before date
+- filter date column between date range
+- filter combines across multiple columns with AND logic
+- filter fires onFilterChange callback with filter state
+
+### Grouping (28 tests)
+- row grouping groups rows by specified column value
+- row grouping renders group header row with group value
+- row grouping renders row count per group
+- row grouping starts expanded by default
+- row grouping collapses group on header click
+- row grouping expands collapsed group on header click
+- row grouping collapse all groups via API
+- row grouping expand all groups via API
+- row grouping supports multi-level grouping
+- row grouping multi-level nests second level under first
+- row grouping sorts groups alphabetically by default
+- row grouping sorts groups by custom comparator
+- row grouping maintains sort within groups
+- row grouping maintains filter within groups
+- row grouping updates groups when data changes
+- row grouping fires onGroupChange callback
+- row grouping renders aggregate row per group when configured
+- row grouping aggregate shows sum for numeric columns
+- column grouping renders spanning header over grouped columns
+- column grouping renders group label in spanning header
+- column grouping supports collapse of grouped columns
+- column grouping collapse hides child columns except first
+- column grouping expand shows all child columns
+- column grouping maintains column order within group
+- column grouping supports drag reorder of groups
+- column grouping fires onColumnGroupChange callback
+- column grouping persists state across re-renders
+- column grouping renders visual border between groups
+
+### Keyboard Navigation (36 tests)
+- Tab moves focus to next cell in row
+- Tab from last cell in row moves to first cell of next row
+- Tab from last cell in last row moves to ghost row
+- Shift+Tab moves focus to previous cell in row
+- Shift+Tab from first cell in row moves to last cell of previous row
+- Enter commits edit and moves focus to cell below
+- Shift+Enter moves focus to cell above
+- Escape exits edit mode without committing
+- Escape clears selection when not in edit mode
+- ArrowRight moves focus to next cell
+- ArrowLeft moves focus to previous cell
+- ArrowDown moves focus to cell below
+- ArrowUp moves focus to cell above
+- ArrowRight at rightmost column does not move
+- ArrowLeft at leftmost column does not move
+- ArrowDown at last row does not move
+- ArrowUp at first row does not move
+- Ctrl+Home moves focus to first cell in grid
+- Ctrl+End moves focus to last cell in grid
+- Home moves focus to first cell in current row
+- End moves focus to last cell in current row
+- F2 enters edit mode on focused cell
+- Space toggles checkbox cell
+- Delete clears focused cell value
+- Ctrl+A selects all cells
+- Shift+ArrowRight extends selection right
+- Shift+ArrowLeft extends selection left
+- Shift+ArrowDown extends selection down
+- Shift+ArrowUp extends selection up
+- Ctrl+ArrowRight jumps to last cell in row
+- Ctrl+ArrowLeft jumps to first cell in row
+- Ctrl+ArrowDown jumps to last row in column
+- Ctrl+ArrowUp jumps to first row in column
+- PageDown scrolls viewport down by page height
+- PageUp scrolls viewport up by page height
+- keyboard navigation skips hidden columns
+
+### Ghost Row (22 tests)
+- ghost row renders at bottom of grid
+- ghost row renders with placeholder styling
+- ghost row cells are editable
+- ghost row shows placeholder text per column
+- ghost row creates new data row on first cell edit
+- ghost row new row appears above ghost row
+- ghost row resets to empty after row creation
+- ghost row fires onRowAdd callback with new row data
+- ghost row validates required fields before creation
+- ghost row shows validation errors on invalid fields
+- ghost row does not create row when validation fails
+- ghost row supports Tab navigation across cells
+- ghost row Enter in last cell creates row and moves to new ghost row
+- ghost row respects column types for input
+- ghost row inherits column default values
+- ghost row does not appear when grid is read-only
+- ghost row does not appear when addRows is false
+- ghost row supports paste into ghost row cells
+- ghost row paste creates multiple rows from multi-row clipboard data
+- ghost row applies column validators during input
+- ghost row clears validation errors on valid input
+- ghost row supports Escape to discard partial input
+
+### Column Operations (28 tests)
+- column resize changes width on drag handle
+- column resize shows resize cursor on handle hover
+- column resize updates all cells in column
+- column resize fires onColumnResize callback
+- column resize double-click auto-fits to content width
+- column reorder drags column to new position
+- column reorder shows drop indicator at target position
+- column reorder updates column order in state
+- column reorder fires onColumnReorder callback
+- column reorder does not allow drop on frozen column region
+- column visibility toggle hides column
+- column visibility toggle shows hidden column
+- column visibility menu lists all columns with checkboxes
+- column visibility fires onColumnVisibilityChange callback
+- column visibility hidden column data excluded from export
+- column freeze locks column to left side
+- column freeze frozen column does not scroll horizontally
+- column freeze frozen column border visible
+- column freeze multiple columns lock in order
+- column freeze unfreeze returns column to scrollable region
+- column freeze fires onColumnFreeze callback
+- column header renders sortable indicator when sorting enabled
+- column header renders filter icon when filtering enabled
+- column header renders column menu trigger
+- column header menu shows sort ascending option
+- column header menu shows sort descending option
+- column header menu shows hide column option
+- column header menu shows freeze column option
+
+### Selection (30 tests)
+- cell selection highlights single cell on click
+- cell selection clears previous selection on new click
+- cell selection maintains selection while scrolling
+- cell selection fires onSelectionChange with cell coordinates
+- row selection selects entire row on row header click
+- row selection highlights all cells in selected row
+- row selection multi-select rows with Ctrl+click
+- row selection range select rows with Shift+click
+- row selection fires onSelectionChange with row indices
+- column selection selects entire column on column header click
+- column selection highlights all cells in selected column
+- column selection multi-select columns with Ctrl+click
+- column selection range select columns with Shift+click
+- column selection fires onSelectionChange with column indices
+- range selection starts on mousedown
+- range selection extends on mousemove
+- range selection finalizes on mouseup
+- range selection highlights rectangular cell range
+- range selection crosses row boundaries
+- range selection crosses column boundaries
+- range selection adjusts when scrolling during drag
+- range selection fires onSelectionChange with range bounds
+- range selection Shift+click extends from anchor cell
+- selection copies selected data to clipboard on Ctrl+C
+- selection renders selection border around selected range
+- selection clears on Escape
+- selection clears on click outside grid
+- selection select all via Ctrl+A
+- selection preserves through data refresh
+- selection disabled when selectionMode is none
+
+### Undo/Redo (26 tests)
+- undo reverts last cell edit
+- undo reverts cell to previous value
+- undo reverts row deletion restoring row
+- undo reverts row addition removing row
+- undo reverts column reorder to previous order
+- undo reverts sort to previous state
+- undo reverts filter to previous state
+- undo reverts paste operation
+- undo fires onUndo callback with command
+- undo Ctrl+Z triggers undo
+- undo multiple times walks back through history
+- undo has no effect when history is empty
+- redo re-applies last undone action
+- redo restores cell edit value
+- redo restores deleted row removal
+- redo restores added row
+- redo fires onRedo callback with command
+- redo Ctrl+Y triggers redo
+- redo Ctrl+Shift+Z triggers redo
+- redo multiple times walks forward through history
+- redo has no effect when redo stack is empty
+- redo stack clears when new edit occurs after undo
+- undo redo history limit prevents memory growth
+- undo redo preserves history across data refresh
+- undo batches rapid edits within debounce window
+- undo batch counts as single undo step
+
+### Export (24 tests)
+- export Excel generates xlsx file
+- export Excel includes all visible columns
+- export Excel includes all rows
+- export Excel excludes hidden columns
+- export Excel respects active filters
+- export Excel preserves numeric formatting
+- export Excel preserves date formatting
+- export Excel includes column headers as first row
+- export Excel fires onExport callback
+- export PDF generates pdf file
+- export PDF renders grid as table in PDF
+- export PDF respects page size configuration
+- export PDF respects landscape orientation
+- export PDF includes header and footer when configured
+- export PDF excludes hidden columns
+- export PDF respects active filters
+- export PDF fires onExport callback
+- export CSV generates csv file
+- export CSV separates values with comma
+- export CSV wraps values containing commas in quotes
+- export CSV escapes quotes within values
+- export CSV includes column headers as first line
+- export CSV excludes hidden columns
+- export CSV respects active filters
+
+### Master-Detail (20 tests)
+- master detail renders expand icon in first column
+- master detail expands detail panel on icon click
+- master detail collapses detail panel on second click
+- master detail renders detail template component
+- master detail passes master row data to detail component
+- master detail only one detail expanded at a time when configured
+- master detail allows multiple details expanded when configured
+- master detail fires onDetailExpand callback with row data
+- master detail fires onDetailCollapse callback with row data
+- master detail preserves expansion state on sort
+- master detail preserves expansion state on filter
+- master detail detail panel spans full grid width
+- master detail detail panel height adjusts to content
+- master detail detail panel fixed height when configured
+- master detail lazy loads detail data on expand
+- master detail shows loading spinner during lazy fetch
+- master detail caches loaded detail data
+- master detail invalidates cache on master row change
+- master detail keyboard Enter toggles detail expansion
+- master detail detail panel receives focus after expand
+
+### Validation (26 tests)
+- validation required column shows error on empty commit
+- validation required column allows commit with value
+- validation min length shows error when too short
+- validation max length shows error when too long
+- validation min value shows error when below minimum
+- validation max value shows error when above maximum
+- validation custom validator function receives cell value
+- validation custom validator returns error message on failure
+- validation custom validator returns null on success
+- validation multiple validators run in sequence
+- validation stops on first failure when configured
+- validation runs all validators when configured
+- validation shows first error message on cell
+- validation shows all error messages on cell when configured
+- validation error tooltip displays on hover
+- validation error red border on invalid cell
+- validation clears error when value corrected
+- validation fires onValidationError callback
+- validation prevents row creation from ghost row when invalid
+- validation ghost row highlights invalid required fields
+- validation async validator supports promise-based validation
+- validation async validator shows pending indicator
+- validation async validator shows error on rejection
+- validation column-level validator config via column definition
+- validation applies to pasted values
+- validation applies to imported data
+
+### Clipboard (28 tests)
+- copy single cell to clipboard on Ctrl+C
+- copy cell value as plain text
+- copy cell with formatting metadata
+- copy selected range to clipboard
+- copy range as tab-separated rows and newline-separated columns
+- copy includes header row when configured
+- copy excludes header row when not configured
+- copy fires onCopy callback with copied data
+- cut single cell on Ctrl+X
+- cut clears source cell value
+- cut single cell places value on clipboard
+- cut selected range clears source cells
+- cut fires onCut callback with cut data
+- cut respects read-only cells by skipping them
+- paste single cell from clipboard on Ctrl+V
+- paste single cell into focused cell
+- paste range into grid starting at focused cell
+- paste range expands to fill target area
+- paste range truncates when exceeding grid bounds
+- paste creates new rows when pasting beyond last row
+- paste respects column types and parses values
+- paste skips read-only cells
+- paste fires onPaste callback with pasted data
+- paste fires onChange for each modified cell
+- paste triggers validation on pasted values
+- paste supports undo of entire paste operation
+- paste handles HTML formatted clipboard data
+- paste handles tab-separated plain text clipboard data
+
+### Theming (24 tests)
+- theme applies CSS custom property for primary color
+- theme applies CSS custom property for background color
+- theme applies CSS custom property for text color
+- theme applies CSS custom property for border color
+- theme applies CSS custom property for header background
+- theme applies CSS custom property for cell padding
+- theme applies CSS custom property for font family
+- theme applies CSS custom property for font size
+- theme applies CSS custom property for row height
+- theme applies CSS custom property for selection color
+- theme applies CSS custom property for error color
+- theme applies CSS custom property for hover background
+- theme light mode applies light color scheme
+- theme dark mode applies dark color scheme
+- theme switches from light to dark mode
+- theme switches from dark to light mode
+- theme persists across grid re-renders
+- theme applies to nested sub-grid
+- theme applies to context menu
+- theme applies to calendar popup
+- theme applies to dropdown popups
+- theme custom property override takes precedence
+- theme inherits from parent CSS custom properties
+- theme applies transition on theme switch
+
+---
+
+**Total: 1001 tests**

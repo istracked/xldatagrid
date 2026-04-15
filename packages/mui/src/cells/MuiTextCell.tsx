@@ -15,7 +15,7 @@ import type { CellRendererProps } from '@istracked/datagrid-react';
  *
  * Uses MUI Typography in display mode and MUI TextField in edit mode.
  */
-export function MuiTextCell<TData = Record<string, unknown>>({
+export const MuiTextCell = React.memo(function MuiTextCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -68,4 +68,4 @@ export function MuiTextCell<TData = Record<string, unknown>>({
       sx={{ height: '100%', '& input': { height: '100%', padding: '0 4px' } }}
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement;

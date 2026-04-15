@@ -100,7 +100,7 @@ interface ActionsCellProps<TData = Record<string, unknown>> {
  * />
  * ```
  */
-export function ActionsCell<TData = Record<string, unknown>>({
+export const ActionsCell = React.memo(function ActionsCell<TData = Record<string, unknown>>({
   row,
   column,
 }: ActionsCellProps<TData>) {
@@ -168,4 +168,4 @@ export function ActionsCell<TData = Record<string, unknown>>({
       ))}
     </span>
   );
-}
+}) as <TData = Record<string, unknown>>(props: ActionsCellProps<TData>) => React.ReactElement | null;

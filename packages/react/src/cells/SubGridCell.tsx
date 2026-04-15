@@ -77,7 +77,7 @@ function parseRows(value: CellValue): Record<string, unknown>[] {
  * />
  * ```
  */
-export function SubGridCell<TData = Record<string, unknown>>({
+export const SubGridCell = React.memo(function SubGridCell<TData = Record<string, unknown>>({
   value,
   column,
 }: SubGridCellProps<TData>) {
@@ -126,4 +126,4 @@ export function SubGridCell<TData = Record<string, unknown>>({
       )}
     </div>
   );
-}
+}) as <TData = Record<string, unknown>>(props: SubGridCellProps<TData>) => React.ReactElement;

@@ -110,7 +110,7 @@ function formatDisplay(value: CellValue, symbol: string): string {
  * />
  * ```
  */
-export function CurrencyCell<TData = Record<string, unknown>>({
+export const CurrencyCell = React.memo(function CurrencyCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -187,4 +187,4 @@ export function CurrencyCell<TData = Record<string, unknown>>({
       style={styles.editInput}
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: CurrencyCellProps<TData>) => React.ReactElement;

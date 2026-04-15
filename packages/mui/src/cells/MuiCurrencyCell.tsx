@@ -36,7 +36,7 @@ function formatDisplay(value: CellValue, symbol: string): string {
 /**
  * MUI-based currency cell renderer with InputAdornment for the currency symbol.
  */
-export function MuiCurrencyCell<TData = Record<string, unknown>>({
+export const MuiCurrencyCell = React.memo(function MuiCurrencyCell<TData = Record<string, unknown>>({
   value,
   column,
   isEditing,
@@ -109,4 +109,4 @@ export function MuiCurrencyCell<TData = Record<string, unknown>>({
       sx={{ height: '100%', '& input': { height: '100%', padding: '0 4px' } }}
     />
   );
-}
+}) as <TData = Record<string, unknown>>(props: CellRendererProps<TData>) => React.ReactElement;

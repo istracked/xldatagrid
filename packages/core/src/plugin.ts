@@ -117,7 +117,15 @@ export class PluginHost {
 
     // Run the optional async initialiser last, after all hooks are wired.
     if (def.init) {
-      await def.init(ctx);
+      try {
+        await def.init(ctx);
+      } catch (err) {
+        for (const disposer of disposers) {
+          disposer();
+        }
+        this.extensions.delete(def.id);
+        throw err;
+      }
     }
   }
 

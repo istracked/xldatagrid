@@ -2,9 +2,6 @@ import { vi } from 'vitest';
 import { createGridModel } from '../grid-model';
 import { ExtensionDefinition } from '../types';
 
-// Recreated fresh each call to prevent cross-test mutation bleed.
-// createGridModel spreads the top-level array but keeps row object references,
-// so we deep-copy each row to ensure mutations in one test don't affect another.
 function makeSampleData() {
   return [
     { id: '1', name: 'Alice', age: 30, active: true },
@@ -14,9 +11,9 @@ function makeSampleData() {
 }
 
 const sampleColumns = [
-  { id: 'name', field: 'name', title: 'Name' },
-  { id: 'age', field: 'age', title: 'Age', sortable: true },
-  { id: 'active', field: 'active', title: 'Active' },
+  { id: 'name', field: 'name' as const, title: 'Name' },
+  { id: 'age', field: 'age' as const, title: 'Age', sortable: true },
+  { id: 'active', field: 'active' as const, title: 'Active' },
 ];
 
 function createTestGrid() {
@@ -62,26 +59,26 @@ describe('createGridModel', () => {
   });
 
   describe('cell editing', () => {
-    it('setCellValue updates the cell in data', () => {
+    it('setCellValue updates the cell in data', async () => {
       const grid = createTestGrid();
-      grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
+      await grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
       const data = grid.getProcessedData();
       expect(data.find(r => r.id === '1')?.name).toBe('Alicia');
     });
 
-    it('setCellValue notifies subscribers', () => {
+    it('setCellValue notifies subscribers', async () => {
       const grid = createTestGrid();
       const listener = vi.fn();
       grid.subscribe(listener);
-      grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
+      await grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
       expect(listener).toHaveBeenCalledTimes(1);
     });
 
-    it('setCellValue does nothing for unknown rowId', () => {
+    it('setCellValue does nothing for unknown rowId', async () => {
       const grid = createTestGrid();
       const listener = vi.fn();
       grid.subscribe(listener);
-      grid.setCellValue({ rowId: 'nonexistent', field: 'name' }, 'X');
+      await grid.setCellValue({ rowId: 'nonexistent', field: 'name' }, 'X');
       expect(listener).not.toHaveBeenCalled();
     });
 
@@ -99,13 +96,10 @@ describe('createGridModel', () => {
       expect(grid.getState().editing.cell).toBeNull();
     });
 
-    it('commitEdit applies edit value to data', () => {
+    it('commitEdit applies edit value to data', async () => {
       const grid = createTestGrid();
       grid.beginEdit({ rowId: '1', field: 'name' });
-      // Directly mutate editing state via beginEdit so currentValue = originalValue = 'Alice'
-      // commitEdit uses currentValue, which starts as the original
-      grid.commitEdit();
-      // Value stays 'Alice' since we did not call updateEditValue — just verify it didn't crash
+      await grid.commitEdit();
       expect(grid.getState().editing.cell).toBeNull();
     });
 
@@ -119,55 +113,55 @@ describe('createGridModel', () => {
   });
 
   describe('row operations', () => {
-    it('insertRow adds a row at the specified index', () => {
+    it('insertRow adds a row at the specified index', async () => {
       const grid = createTestGrid();
-      grid.insertRow(1, { id: '99', name: 'Dave', age: 28, active: true });
+      await grid.insertRow(1, { id: '99', name: 'Dave', age: 28, active: true });
       expect(grid.getState().data).toHaveLength(4);
       expect(grid.getState().data[1]?.id).toBe('99');
     });
 
-    it('insertRow notifies subscribers', () => {
+    it('insertRow notifies subscribers', async () => {
       const grid = createTestGrid();
       const listener = vi.fn();
       grid.subscribe(listener);
-      grid.insertRow(0, { id: '99', name: 'Dave', age: 28, active: true });
+      await grid.insertRow(0, { id: '99', name: 'Dave', age: 28, active: true });
       expect(listener).toHaveBeenCalledTimes(1);
     });
 
-    it('insertRow with no data inserts an empty row object', () => {
+    it('insertRow with no data inserts an empty row object', async () => {
       const grid = createTestGrid();
-      grid.insertRow(0);
+      await grid.insertRow(0);
       expect(grid.getState().data).toHaveLength(4);
     });
 
-    it('deleteRows removes rows by id', () => {
+    it('deleteRows removes rows by id', async () => {
       const grid = createTestGrid();
-      grid.deleteRows(['1', '3']);
+      await grid.deleteRows(['1', '3']);
       const data = grid.getState().data;
       expect(data).toHaveLength(1);
       expect(data[0]?.id).toBe('2');
     });
 
-    it('deleteRows ignores unknown row ids', () => {
+    it('deleteRows ignores unknown row ids', async () => {
       const grid = createTestGrid();
-      grid.deleteRows(['nonexistent']);
+      await grid.deleteRows(['nonexistent']);
       expect(grid.getState().data).toHaveLength(3);
     });
   });
 
   describe('moveRow', () => {
-    it('moves row from one index to another', () => {
+    it('moves row from one index to another', async () => {
       const grid = createTestGrid();
-      grid.moveRow(0, 2);
+      await grid.moveRow(0, 2);
       const data = grid.getState().data;
       expect(data[0]?.id).toBe('2');
       expect(data[1]?.id).toBe('3');
       expect(data[2]?.id).toBe('1');
     });
 
-    it('undo restores original order', () => {
+    it('undo restores original order', async () => {
       const grid = createTestGrid();
-      grid.moveRow(0, 2);
+      await grid.moveRow(0, 2);
       grid.undo();
       const data = grid.getState().data;
       expect(data[0]?.id).toBe('1');
@@ -175,9 +169,9 @@ describe('createGridModel', () => {
       expect(data[2]?.id).toBe('3');
     });
 
-    it('redo re-applies the move', () => {
+    it('redo re-applies the move', async () => {
       const grid = createTestGrid();
-      grid.moveRow(0, 2);
+      await grid.moveRow(0, 2);
       grid.undo();
       grid.redo();
       const data = grid.getState().data;
@@ -195,16 +189,15 @@ describe('createGridModel', () => {
         hooks: () => [{ event: 'row:move' as const, handler }],
       };
       await grid.registerExtension(ext);
-      grid.moveRow(1, 0);
-      // The event bus dispatches synchronously within moveRow
+      await grid.moveRow(1, 0);
       expect(handler).toHaveBeenCalledTimes(1);
     });
 
-    it('notifies subscribers', () => {
+    it('notifies subscribers', async () => {
       const grid = createTestGrid();
       const listener = vi.fn();
       grid.subscribe(listener);
-      grid.moveRow(0, 1);
+      await grid.moveRow(0, 1);
       expect(listener).toHaveBeenCalledTimes(1);
     });
   });
@@ -336,7 +329,6 @@ describe('createGridModel', () => {
     it('extendTo is a no-op when no selection exists', () => {
       const grid = createTestGrid();
       grid.extendTo({ rowId: '3', field: 'age' });
-      // extendSelection returns unchanged state when range is null
       expect(grid.getState().selection.range).toBeNull();
     });
 
@@ -406,25 +398,25 @@ describe('createGridModel', () => {
   });
 
   describe('undo / redo', () => {
-    it('undo reverts the last cell edit', () => {
+    it('undo reverts the last cell edit', async () => {
       const grid = createTestGrid();
-      grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
+      await grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
       expect(grid.getState().data[0]?.name).toBe('Alicia');
       grid.undo();
       expect(grid.getState().data[0]?.name).toBe('Alice');
     });
 
-    it('redo re-applies an undone edit', () => {
+    it('redo re-applies an undone edit', async () => {
       const grid = createTestGrid();
-      grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
+      await grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
       grid.undo();
       grid.redo();
       expect(grid.getState().data[0]?.name).toBe('Alicia');
     });
 
-    it('undo then redo round-trip leaves state unchanged', () => {
+    it('undo then redo round-trip leaves state unchanged', async () => {
       const grid = createTestGrid();
-      grid.setCellValue({ rowId: '2', field: 'age' }, 99);
+      await grid.setCellValue({ rowId: '2', field: 'age' }, 99);
       grid.undo();
       grid.redo();
       expect(grid.getState().data[1]?.age).toBe(99);
@@ -442,34 +434,34 @@ describe('createGridModel', () => {
       expect(grid.getState().undoRedo.redoStack).toHaveLength(0);
     });
 
-    it('new edit clears redo stack', () => {
+    it('new edit clears redo stack', async () => {
       const grid = createTestGrid();
-      grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
+      await grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
       grid.undo();
-      grid.setCellValue({ rowId: '1', field: 'name' }, 'Ally');
+      await grid.setCellValue({ rowId: '1', field: 'name' }, 'Ally');
       expect(grid.getState().undoRedo.redoStack).toHaveLength(0);
     });
   });
 
   describe('subscribe / unsubscribe', () => {
-    it('subscribe returns a working unsubscribe function', () => {
+    it('subscribe returns a working unsubscribe function', async () => {
       const grid = createTestGrid();
       const listener = vi.fn();
       const unsub = grid.subscribe(listener);
       unsub();
-      grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
+      await grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
       expect(listener).not.toHaveBeenCalled();
     });
 
-    it('unsubscribe stops notifications', () => {
+    it('unsubscribe stops notifications', async () => {
       const grid = createTestGrid();
       const listener = vi.fn();
       const unsub = grid.subscribe(listener);
-      grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
+      await grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
       expect(listener).toHaveBeenCalledTimes(1);
       unsub();
-      grid.setCellValue({ rowId: '1', field: 'name' }, 'Aliciaa');
-      expect(listener).toHaveBeenCalledTimes(1); // still once, not twice
+      await grid.setCellValue({ rowId: '1', field: 'name' }, 'Aliciaa');
+      expect(listener).toHaveBeenCalledTimes(1);
     });
 
     it('multiple subscribers are all notified', () => {
@@ -537,6 +529,53 @@ describe('createGridModel', () => {
     });
   });
 
+  describe('getProcessedData memoization', () => {
+    it('getProcessedData returns same reference when data/sort/filter unchanged', () => {
+      const grid = createTestGrid();
+      const first = grid.getProcessedData();
+      const second = grid.getProcessedData();
+      expect(first).toBe(second);
+    });
+
+    it('getProcessedData returns new reference after sort change', () => {
+      const grid = createTestGrid();
+      const before = grid.getProcessedData();
+      grid.sort([{ field: 'age', dir: 'asc' }]);
+      const after = grid.getProcessedData();
+      expect(after).not.toBe(before);
+    });
+
+    it('getProcessedData returns new reference after filter change', () => {
+      const grid = createTestGrid();
+      const before = grid.getProcessedData();
+      grid.filter({ logic: 'and', filters: [{ field: 'active', operator: 'eq', value: true }] });
+      const after = grid.getProcessedData();
+      expect(after).not.toBe(before);
+    });
+
+    it('getProcessedData returns new reference after data mutation', async () => {
+      const grid = createTestGrid();
+      const before = grid.getProcessedData();
+      await grid.setCellValue({ rowId: '1', field: 'name' }, 'Alicia');
+      const after = grid.getProcessedData();
+      expect(after).not.toBe(before);
+    });
+  });
+
+  describe('deleteRows batch undo', () => {
+    it('deleteRows with multiple rowIds requires only one undo to restore all', async () => {
+      const grid = createTestGrid();
+      await grid.deleteRows(['1', '2', '3']);
+      expect(grid.getState().data).toHaveLength(0);
+      grid.undo();
+      expect(grid.getState().data).toHaveLength(3);
+      const ids = grid.getState().data.map((r: Record<string, unknown>) => r.id);
+      expect(ids).toContain('1');
+      expect(ids).toContain('2');
+      expect(ids).toContain('3');
+    });
+  });
+
   describe('destroy', () => {
     it('destroy resolves without error', async () => {
       const grid = createTestGrid();
@@ -548,8 +587,6 @@ describe('createGridModel', () => {
       const listener = vi.fn();
       grid.subscribe(listener);
       await grid.destroy();
-      // After destroy, internal listener set is cleared — no way to trigger
-      // notify externally, so we just confirm no error was thrown
       expect(listener).not.toHaveBeenCalled();
     });
   });
