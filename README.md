@@ -4,6 +4,109 @@ A high-performance, fully-featured datagrid component library for React 19. Buil
 
 ---
 
+## Development
+
+### Prerequisites
+
+- Node.js >= 20
+- pnpm 9.x
+
+### Setup
+
+```bash
+git clone https://github.com/istracked/xldatagrid.git
+cd xldatagrid
+pnpm install
+```
+
+### NPM Commands
+
+#### Root-Level Commands (run from repo root)
+
+| Command | Description |
+|---------|-------------|
+| `pnpm run dev` | Start the Vite dev server with the playground demos |
+| `pnpm run build` | Build all packages (`core`, `react`, `extensions`, `mui`) with tsup |
+| `pnpm test` | Run the full test suite with Vitest |
+| `pnpm run test:watch` | Run tests in watch mode (re-runs on file changes) |
+| `pnpm run test:coverage` | Run tests with v8 code coverage report |
+| `pnpm run storybook` | Start Storybook dev server on port 6006 |
+| `pnpm run build-storybook` | Build Storybook as a static site |
+| `pnpm run typecheck` | Type-check all packages via `tsc -b` (project references) |
+| `pnpm run lint` | Lint all files with ESLint |
+| `pnpm run format` | Format all files with Prettier |
+| `pnpm run validate` | Full CI validation: type-check + build all packages + run all tests |
+| `pnpm run docs` | Generate API documentation with TypeDoc |
+| `pnpm run docs:open` | Generate API docs and open them in the browser |
+
+#### Per-Package Commands (run from any `packages/*` directory)
+
+Each package (`core`, `react`, `extensions`, `mui`) exposes the same two scripts:
+
+| Command | Description |
+|---------|-------------|
+| `pnpm run build` | Build the package with tsup (outputs ESM + CJS bundles) |
+| `pnpm run dev` | Watch mode — rebuild on file changes with tsup |
+
+To run a per-package command from the repo root:
+
+```bash
+# Build only the core package
+pnpm --filter @istracked/datagrid-core run build
+
+# Watch the react package
+pnpm --filter @istracked/datagrid-react run dev
+```
+
+### Playground
+
+The playground is a Vite multi-page app at `playground/` with two comprehensive demos:
+
+- **Kitchen Sink** (`/kitchen-sink/`) — Single mega-grid with every feature enabled: sorting, filtering, selection, editing, validation, ghost row, context menu, column groups, chrome columns, theming, keyboard navigation, export
+- **Sink Kitchen** (`/sink-kitchen/`) — 27 isolated sections, each showcasing one feature with its own grid, controls, and event log. Sidebar navigation with scroll-tracking. Every section has `data-testid` attributes for automated UI testing.
+
+### Storybook
+
+17 story files covering every feature:
+
+- Introduction, Basic Grid, Cell Types, Chrome Columns, Column Operations, Context Menu, Editing, Extensions, Filtering, Ghost Row, Grouping, Keyboard Navigation, Kitchen Sink, Master-Detail, Selection, Sorting, Theming
+
+### Project Structure
+
+```
+xldatagrid/
+  packages/
+    core/           # Framework-agnostic grid engine
+    react/          # React 19 components and hooks
+    extensions/     # Plugin extensions (validation, export, comments)
+    mui/            # Material UI cell renderers and theme bridge
+  playground/       # Vite multi-page demo app
+    kitchen-sink/   # Everything-at-once mega-grid
+    sink-kitchen/   # Feature-by-feature isolated sections
+  stories/          # Storybook stories
+```
+
+### Test Suite
+
+42 test files covering:
+
+- **Core** (14 files): grid model, column model, sorting, filtering, selection, editing, clipboard, undo/redo, grouping, virtualization, events, plugins, transposed grid, sub-grid expansion
+- **React** (23 files): DataGrid rendering, cell types, chrome columns, ghost row, master-detail, context menu, keyboard navigation, drag-drop, theming, validation, JSON config, pivot modes, clipboard integration, column ops, selection, sort/filter, grouping, undo/redo, sub-grid, transposed grid, grid interaction state, grid store hook
+- **Extensions** (3 files): regex validation, export, cell comments
+- **MUI** (2 files): theme bridge, MUI cell renderers
+
+### Tech Stack
+
+- **Runtime**: React 19, TypeScript 5.7
+- **State**: Jotai (atomic state for grid model)
+- **Build**: tsup (per-package ESM + CJS bundles), Vite (playground + Storybook)
+- **Test**: Vitest 3 + Testing Library + jsdom
+- **Storybook**: Storybook 10 with React-Vite
+- **MUI**: Material UI 9 + Emotion
+- **Monorepo**: pnpm workspaces
+
+---
+
 ## Packages
 
 | Package | Description | Version |
@@ -403,109 +506,6 @@ const myExtension: ExtensionDefinition = {
   ],
 };
 ```
-
----
-
-## Development
-
-### Prerequisites
-
-- Node.js >= 20
-- pnpm 9.x
-
-### Setup
-
-```bash
-git clone https://github.com/istracked/xldatagrid.git
-cd xldatagrid
-pnpm install
-```
-
-### NPM Commands
-
-#### Root-Level Commands (run from repo root)
-
-| Command | Description |
-|---------|-------------|
-| `pnpm run dev` | Start the Vite dev server with the playground demos |
-| `pnpm run build` | Build all packages (`core`, `react`, `extensions`, `mui`) with tsup |
-| `pnpm test` | Run the full test suite with Vitest |
-| `pnpm run test:watch` | Run tests in watch mode (re-runs on file changes) |
-| `pnpm run test:coverage` | Run tests with v8 code coverage report |
-| `pnpm run storybook` | Start Storybook dev server on port 6006 |
-| `pnpm run build-storybook` | Build Storybook as a static site |
-| `pnpm run typecheck` | Type-check all packages via `tsc -b` (project references) |
-| `pnpm run lint` | Lint all files with ESLint |
-| `pnpm run format` | Format all files with Prettier |
-| `pnpm run validate` | Full CI validation: type-check + build all packages + run all tests |
-| `pnpm run docs` | Generate API documentation with TypeDoc |
-| `pnpm run docs:open` | Generate API docs and open them in the browser |
-
-#### Per-Package Commands (run from any `packages/*` directory)
-
-Each package (`core`, `react`, `extensions`, `mui`) exposes the same two scripts:
-
-| Command | Description |
-|---------|-------------|
-| `pnpm run build` | Build the package with tsup (outputs ESM + CJS bundles) |
-| `pnpm run dev` | Watch mode — rebuild on file changes with tsup |
-
-To run a per-package command from the repo root:
-
-```bash
-# Build only the core package
-pnpm --filter @istracked/datagrid-core run build
-
-# Watch the react package
-pnpm --filter @istracked/datagrid-react run dev
-```
-
-### Playground
-
-The playground is a Vite multi-page app at `playground/` with two comprehensive demos:
-
-- **Kitchen Sink** (`/kitchen-sink/`) — Single mega-grid with every feature enabled: sorting, filtering, selection, editing, validation, ghost row, context menu, column groups, chrome columns, theming, keyboard navigation, export
-- **Sink Kitchen** (`/sink-kitchen/`) — 27 isolated sections, each showcasing one feature with its own grid, controls, and event log. Sidebar navigation with scroll-tracking. Every section has `data-testid` attributes for automated UI testing.
-
-### Storybook
-
-17 story files covering every feature:
-
-- Introduction, Basic Grid, Cell Types, Chrome Columns, Column Operations, Context Menu, Editing, Extensions, Filtering, Ghost Row, Grouping, Keyboard Navigation, Kitchen Sink, Master-Detail, Selection, Sorting, Theming
-
-### Project Structure
-
-```
-xldatagrid/
-  packages/
-    core/           # Framework-agnostic grid engine
-    react/          # React 19 components and hooks
-    extensions/     # Plugin extensions (validation, export, comments)
-    mui/            # Material UI cell renderers and theme bridge
-  playground/       # Vite multi-page demo app
-    kitchen-sink/   # Everything-at-once mega-grid
-    sink-kitchen/   # Feature-by-feature isolated sections
-  stories/          # Storybook stories
-```
-
-### Test Suite
-
-42 test files covering:
-
-- **Core** (14 files): grid model, column model, sorting, filtering, selection, editing, clipboard, undo/redo, grouping, virtualization, events, plugins, transposed grid, sub-grid expansion
-- **React** (23 files): DataGrid rendering, cell types, chrome columns, ghost row, master-detail, context menu, keyboard navigation, drag-drop, theming, validation, JSON config, pivot modes, clipboard integration, column ops, selection, sort/filter, grouping, undo/redo, sub-grid, transposed grid, grid interaction state, grid store hook
-- **Extensions** (3 files): regex validation, export, cell comments
-- **MUI** (2 files): theme bridge, MUI cell renderers
-
-## Tech Stack
-
-- **Runtime**: React 19, TypeScript 5.7
-- **State**: Jotai (atomic state for grid model)
-- **Build**: tsup (per-package ESM + CJS bundles), Vite (playground + Storybook)
-- **Test**: Vitest 3 + Testing Library + jsdom
-- **Storybook**: Storybook 10 with React-Vite
-- **MUI**: Material UI 9 + Emotion
-- **Monorepo**: pnpm workspaces
 
 ## License
 
