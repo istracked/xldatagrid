@@ -1,0 +1,1 @@
+export { MuiTagsCell } from './MuiTagsCell';

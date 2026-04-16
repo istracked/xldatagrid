@@ -1,0 +1,1 @@
+export { MuiUploadCell } from './MuiUploadCell';
