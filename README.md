@@ -25,13 +25,16 @@ pnpm install
 
 | Command | Description |
 |---------|-------------|
-| `pnpm run dev` | Start the Vite dev server with the playground demos |
+| `pnpm run dev` | Start the Kitchen Sink demo (Vite dev server with all features) |
 | `pnpm run build` | Build all packages (`core`, `react`, `extensions`, `mui`) with tsup |
 | `pnpm test` | Run the full test suite with Vitest |
 | `pnpm run test:watch` | Run tests in watch mode (re-runs on file changes) |
 | `pnpm run test:coverage` | Run tests with v8 code coverage report |
-| `pnpm run storybook` | Start Storybook dev server on port 6006 |
-| `pnpm run build-storybook` | Build Storybook as a static site |
+| `pnpm run storybook` | Start Storybook dev server on port 6006 (all component stories with MUI) |
+| `pnpm run build-storybook` | Build Storybook as a static site (serve with `npx http-server storybook-static -p 6006 -o`) |
+
+> The Storybook showcases all grid features using MUI (Material UI) cell renderers. The Kitchen Sink demo (`pnpm run dev`) provides a single-page demo with every feature enabled simultaneously.
+
 | `pnpm run typecheck` | Type-check all packages via `tsc -b` (project references) |
 | `pnpm run lint` | Lint all files with ESLint |
 | `pnpm run format` | Format all files with Prettier |
@@ -60,10 +63,9 @@ pnpm --filter @istracked/datagrid-react run dev
 
 ### Playground
 
-The playground is a Vite multi-page app at `playground/` with two comprehensive demos:
+The playground is a Vite app at `playground/` with the Kitchen Sink demo:
 
 - **Kitchen Sink** (`/kitchen-sink/`) — Single mega-grid with every feature enabled: sorting, filtering, selection, editing, validation, ghost row, context menu, column groups, chrome columns, theming, keyboard navigation, export
-- **Sink Kitchen** (`/sink-kitchen/`) — 27 isolated sections, each showcasing one feature with its own grid, controls, and event log. Sidebar navigation with scroll-tracking. Every section has `data-testid` attributes for automated UI testing.
 
 ### Storybook
 
@@ -80,9 +82,8 @@ xldatagrid/
     react/          # React 19 components and hooks
     extensions/     # Plugin extensions (validation, export, comments)
     mui/            # Material UI cell renderers and theme bridge
-  playground/       # Vite multi-page demo app
+  playground/       # Vite demo app
     kitchen-sink/   # Everything-at-once mega-grid
-    sink-kitchen/   # Feature-by-feature isolated sections
   stories/          # Storybook stories
 ```
 

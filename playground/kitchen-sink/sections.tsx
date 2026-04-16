@@ -1,14 +1,27 @@
 import React, { useState, useMemo } from 'react';
-import { DataGrid, MasterDetail, TransposedGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid, muiCellRendererMap } from '@istracked/datagrid-mui';
+import { MasterDetail, TransposedGrid } from '@istracked/datagrid-react';
 import type { DetailComponentProps } from '@istracked/datagrid-react';
 import type { ColumnDef, CellValue, GhostRowConfig, ContextMenuConfig, SelectionMode, TransposedField } from '@istracked/datagrid-core';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
+import Sort from '@mui/icons-material/Sort';
+import FilterList from '@mui/icons-material/FilterList';
+import Download from '@mui/icons-material/Download';
+import Undo from '@mui/icons-material/Undo';
+import Redo from '@mui/icons-material/Redo';
 import {
   makeEmployees, defaultColumns, departmentOptions, Employee,
   makeOrders, orderColumns, orderStatusOptions,
   makeCellShowcaseData, cellShowcaseColumns, CellShowcase,
   showcaseStatusOptions, priorityOptions,
 } from '../data';
-import { allCellRenderers, EventLog, gridContainer, btnStyle, btnActiveStyle, labelStyle } from '../helpers';
+import { EventLog, gridContainer, btnStyle, btnActiveStyle, labelStyle } from '../helpers';
 
 // ---------------------------------------------------------------------------
 // Shared styles
@@ -48,11 +61,10 @@ export function CellTypesSection() {
         All 15 built-in cell types. Scroll horizontally to see every type. Double-click to edit.
       </p>
       <div style={tallGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeCellShowcaseData(8)}
           columns={cellShowcaseColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="cell"
           keyboardNavigation
         />
@@ -100,11 +112,10 @@ export function ActionsColumnSection() {
         button on any row to trigger an action.
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={columns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           onCellEdit={({ rowId, field, value }) => {
             if (field === 'actions') {
               setLog(prev => [`Row ${rowId}: action="${value}"`, ...prev].slice(0, 20));
@@ -126,17 +137,19 @@ export function SortSingleSection() {
 
   return (
     <div style={sectionStyle}>
-      <h2 style={headingStyle}>Sorting — Single Column</h2>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Sort fontSize="small" color="action" />
+        <h2 style={headingStyle}>Sorting — Single Column</h2>
+      </Box>
       <p style={descStyle}>
         Click any column header to sort. Only one column is sorted at a time — clicking a new header
         clears the previous sort.
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           sorting={{ mode: 'single' }}
         />
       </div>
@@ -153,17 +166,19 @@ export function SortMultiSection() {
 
   return (
     <div style={sectionStyle}>
-      <h2 style={headingStyle}>Sorting — Multi Column</h2>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Sort fontSize="small" color="action" />
+        <h2 style={headingStyle}>Sorting — Multi Column</h2>
+      </Box>
       <p style={descStyle}>
         Hold Shift and click headers to add sort columns. Numbers show sort priority. Click a header
         without Shift to reset to single-column sort on that column.
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           sorting={{ mode: 'multi' }}
         />
       </div>
@@ -180,17 +195,19 @@ export function FilteringSection() {
 
   return (
     <div style={sectionStyle}>
-      <h2 style={headingStyle}>Filtering</h2>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <FilterList fontSize="small" color="action" />
+        <h2 style={headingStyle}>Filtering</h2>
+      </Box>
       <p style={descStyle}>
         Pre-filtered to Engineering department. Use the column filter icons to modify or add
         filters. Sorting is also enabled — click headers to sort filtered results.
       </p>
       <div style={tallGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           filtering={{ debounceMs: 200 }}
           sorting={{ mode: 'multi' }}
           initialFilter={{
@@ -223,26 +240,26 @@ export function SelectionSection() {
       </p>
       <div style={toolbarRow}>
         <span style={labelStyle}>Mode:</span>
-        {modes.map(mode => (
-          <button
-            key={mode}
-            style={selectionMode === mode ? btnActiveStyle : btnStyle}
-            onClick={() => setSelectionMode(mode)}
-          >
-            {mode}
-          </button>
-        ))}
+        <ToggleButtonGroup
+          value={selectionMode}
+          exclusive
+          onChange={(_, val) => { if (val) setSelectionMode(val); }}
+          size="small"
+        >
+          {modes.map(mode => (
+            <ToggleButton key={mode} value={mode}>{mode}</ToggleButton>
+          ))}
+        </ToggleButtonGroup>
       </div>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode={selectionMode}
           onSelectionChange={(selection) => {
             const summary = Array.isArray(selection)
-              ? `Selected ${selection.length} row(s): ${selection.slice(0, 3).join(', ')}${selection.length > 3 ? '…' : ''}`
+              ? `Selected ${selection.length} row(s): ${selection.slice(0, 3).join(', ')}${selection.length > 3 ? '...' : ''}`
               : `Selection changed`;
             setLog(prev => [summary, ...prev].slice(0, 20));
           }}
@@ -296,11 +313,10 @@ export function EditValidationSection() {
         be at least $30,000. Invalid cells show a red border and tooltip.
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={columns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="cell"
           keyboardNavigation
           onCellEdit={({ rowId, field, value }) => {
@@ -322,17 +338,20 @@ export function UndoRedoSection() {
 
   return (
     <div style={sectionStyle}>
-      <h2 style={headingStyle}>Undo / Redo</h2>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Undo fontSize="small" color="action" />
+        <Redo fontSize="small" color="action" />
+        <h2 style={headingStyle}>Undo / Redo</h2>
+      </Box>
       <p style={descStyle}>
         Edit cells, then use Ctrl+Z to undo and Ctrl+Y (or Ctrl+Shift+Z) to redo. The grid
         maintains a full command history for all edits made during the session.
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="cell"
           keyboardNavigation
         />
@@ -357,11 +376,10 @@ export function ClipboardSection() {
         supported. Paste from Excel or Google Sheets also works.
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="range"
           keyboardNavigation
           onCopy={() => setLog(prev => [`Copied selection to clipboard`, ...prev].slice(0, 20))}
@@ -396,11 +414,10 @@ export function ColResizeReorderSection() {
         Drag column edges to resize. Drag column headers to reorder. Double-click resize handle to auto-fit.
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={columns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           sorting
           onColumnResize={({ columnId, width }) => {
             setLog(prev => [`Resized column=${columnId} to ${width}px`, ...prev].slice(0, 20));
@@ -430,11 +447,10 @@ export function ColVisibilitySection() {
         Click the column visibility menu (toolbar icon) to toggle which columns are shown.
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           showColumnVisibilityMenu
           onColumnVisibilityChange={({ columnId, visible }) => {
             setLog(prev => [`Column=${columnId} visible=${visible}`, ...prev].slice(0, 20));
@@ -469,11 +485,10 @@ export function ColFreezeSection() {
         Name is frozen left, Rating is frozen right. Scroll horizontally to see frozen columns stay pinned.
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={columns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           sorting
         />
       </div>
@@ -493,11 +508,10 @@ export function ColMenuSection() {
         Click the vertical dots (&#8942;) on any column header to open the column menu. Options: sort, hide, freeze.
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(15)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           showColumnMenu
           sorting
           selectionMode="cell"
@@ -544,11 +558,10 @@ export function GhostRowSection() {
       <div style={variantContainerStyle}>
         <h3 style={variantLabelStyle}>Bottom ghost row</h3>
         <div style={ghostGridStyle}>
-          <DataGrid
+          <MuiDataGrid
             data={dataA}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             keyboardNavigation
             ghostRow={{ position: 'bottom', placeholder: 'Add employee (bottom)...' }}
             onRowAdd={handleRowAdd as any}
@@ -559,11 +572,10 @@ export function GhostRowSection() {
       <div style={variantContainerStyle}>
         <h3 style={variantLabelStyle}>Top sticky ghost row</h3>
         <div style={ghostGridStyle}>
-          <DataGrid
+          <MuiDataGrid
             data={dataB}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             keyboardNavigation
             ghostRow={{ position: 'top', sticky: true, placeholder: 'New row (sticky top)...' }}
             onRowAdd={handleRowAdd as any}
@@ -574,11 +586,10 @@ export function GhostRowSection() {
       <div style={variantContainerStyle}>
         <h3 style={variantLabelStyle}>Ghost row with validation + defaults</h3>
         <div style={ghostGridStyle}>
-          <DataGrid
+          <MuiDataGrid
             data={dataC}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             keyboardNavigation
             ghostRow={{
               position: 'bottom',
@@ -610,11 +621,10 @@ export function GroupingRowSection() {
         Orders grouped by Region. Aggregates: sum of Total, average Quantity. Click group headers to collapse.
       </p>
       <div style={tallGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={orderColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           sorting
           showGroupControls
           grouping={{
@@ -644,11 +654,10 @@ export function GroupingMultiSection() {
         Two-level nesting: Region &#8594; Category. Expand/collapse individual groups or all at once.
       </p>
       <div style={tallGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={orderColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           sorting
           showGroupControls
           grouping={{
@@ -677,11 +686,10 @@ export function GroupingColumnSection() {
         Columns grouped under spanning headers. Click collapse buttons to hide group columns.
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={orderColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           sorting
           grouping={{
             columns: {
@@ -747,7 +755,7 @@ export function MasterDetailSection() {
           data={data}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
+          cellRenderers={muiCellRendererMap}
           sorting
           selectionMode="cell"
           detailComponent={EmployeeDetail as any}
@@ -813,11 +821,10 @@ export function ContextMenuSection() {
         Right-click any cell for the context menu. Includes nested submenu (Export) and danger action (Delete Row).
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           contextMenu={menuConfig}
           sorting
           selectionMode="cell"
@@ -880,11 +887,10 @@ export function KeyboardNavSection() {
         </tbody>
       </table>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="cell"
           keyboardNavigation
         />
@@ -927,22 +933,22 @@ export function ThemingSection() {
       </p>
       <div style={toolbarRow}>
         <span style={labelStyle}>Theme:</span>
-        {(['light', 'dark', 'purple'] as ThemeMode[]).map(t => (
-          <button
-            key={t}
-            style={theme === t ? btnActiveStyle : btnStyle}
-            onClick={() => setTheme(t)}
-          >
-            {t}
-          </button>
-        ))}
+        <ToggleButtonGroup
+          value={theme}
+          exclusive
+          onChange={(_, val) => { if (val) setTheme(val); }}
+          size="small"
+        >
+          {(['light', 'dark', 'purple'] as ThemeMode[]).map(t => (
+            <ToggleButton key={t} value={t}>{t}</ToggleButton>
+          ))}
+        </ToggleButtonGroup>
       </div>
       <div style={wrapperStyle}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           theme={resolvedTheme as any}
           sorting
           selectionMode="cell"
@@ -996,6 +1002,7 @@ export function TransposedSection() {
           fields={fields}
           entityKeys={entityKeys}
           values={values}
+          cellRenderers={muiCellRendererMap}
           onValueChange={(fieldId, entityKey, value) =>
             setLog(prev => [`${fieldId}[${entityKey}] = ${String(value)}`, ...prev].slice(0, 20))
           }
@@ -1020,11 +1027,10 @@ export function VirtualizationSection() {
         500 rows with virtualized rendering. Only visible rows are in the DOM. Scroll rapidly to test performance.
       </p>
       <div style={tallGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           sorting={{ mode: 'multi' }}
           selectionMode="range"
           keyboardNavigation
@@ -1107,15 +1113,14 @@ export function ExtensionsSection() {
         Regex validation on email and name fields. Export buttons for CSV and JSON download.
       </p>
       <div style={toolbarRow}>
-        <button style={btnStyle} onClick={exportCSV}>Export CSV</button>
-        <button style={btnStyle} onClick={exportJSON}>Export JSON</button>
+        <Button variant="outlined" size="small" startIcon={<Download />} onClick={exportCSV}>Export CSV</Button>
+        <Button variant="outlined" size="small" startIcon={<Download />} onClick={exportJSON}>Export JSON</Button>
       </div>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={columns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           sorting
           selectionMode="cell"
           keyboardNavigation
@@ -1138,11 +1143,10 @@ export function EmptyStateSection() {
         Grid with zero rows. Shows the empty/placeholder state.
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={[]}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
         />
       </div>
     </div>
@@ -1163,11 +1167,10 @@ export function ReadOnlySection() {
         All cells are read-only. Navigation and sorting work, but double-click does not enter edit mode.
       </p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           readOnly
           sorting
           selectionMode="cell"
@@ -1201,11 +1204,10 @@ export function ChromeColumnsSection() {
 
       <h3 style={{ margin: '8px 0 4px', fontSize: 15 }}>Controls Only</h3>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={cols as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           chrome={{
             controls: {
               width: 100,
@@ -1222,11 +1224,10 @@ export function ChromeColumnsSection() {
       <h3 style={{ margin: '8px 0 4px', fontSize: 15 }}>Row Numbers Only</h3>
       <p style={descStyle}>Click a row number to select the entire row. Shift+click for range, Ctrl/Cmd+click to toggle.</p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={cols as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="row"
           chrome={{ rowNumbers: true }}
         />
@@ -1235,11 +1236,10 @@ export function ChromeColumnsSection() {
       <h3 style={{ margin: '8px 0 4px', fontSize: 15 }}>Both + Drag Reorder</h3>
       <p style={descStyle}>Controls on the left, row numbers on the right. Drag row numbers to reorder rows.</p>
       <div style={miniGridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={data}
           columns={cols as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="row"
           chrome={{
             controls: {
@@ -1250,7 +1250,7 @@ export function ChromeColumnsSection() {
             rowNumbers: { reorderable: true },
           }}
           onRowReorder={({ sourceRowId, targetRowId }: { sourceRowId: string; targetRowId: string }) =>
-            setLog(prev => [`Reorder: ${sourceRowId} → ${targetRowId}`, ...prev].slice(0, 20))
+            setLog(prev => [`Reorder: ${sourceRowId} -> ${targetRowId}`, ...prev].slice(0, 20))
           }
         />
       </div>

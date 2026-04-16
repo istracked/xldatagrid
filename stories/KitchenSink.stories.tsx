@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import type { ColumnDef, CellValue, GhostRowConfig, ContextMenuConfig } from '@istracked/datagrid-core';
 import { makeEmployees, defaultColumns, departmentOptions, Employee } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -71,11 +71,10 @@ export const EverythingAtOnce: StoryObj = {
         </p>
 
         <div style={{ ...gridContainer, ...styles.kitchenSinkGridBorder(dark) }}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(100)}
             columns={cols as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             theme={theme}
             sorting={{ mode: 'multi' }}
             filtering={{ debounceMs: 200 }}
@@ -124,11 +123,10 @@ export const GroupedKitchenSink: StoryObj = {
         Row grouping by department with aggregates + column groups + sorting + filtering + editing + ghost row.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(60)}
           columns={(defaultColumns.map((c) => ({ ...c, resizable: true }))) as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           grouping={{
             rows: {
               fields: ['department'],

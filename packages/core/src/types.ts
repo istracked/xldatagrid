@@ -189,6 +189,13 @@ export interface ColumnDef<TData = Record<string, unknown>> {
   minWidth?: number;
   /** Maximum pixel width when resizing. */
   maxWidth?: number;
+  /**
+   * Width sizing mode.
+   * - `'auto'`: column expands to fit its content (icons, text, etc.)
+   * - `'fixed'`: column has a fixed pixel width; content shrinks/clips to fit
+   * Defaults to `'fixed'` when `width` is set, `'auto'` otherwise.
+   */
+  widthMode?: 'auto' | 'fixed';
   /** Selects the renderer/editor pair for cells in this column. */
   cellType?: CellType;
   /** Whether the column participates in sorting. */
@@ -730,6 +737,8 @@ export interface ChromeColumnsConfig {
 export interface ControlsColumnConfig {
   /** Width in pixels. Default: 40. */
   width?: number;
+  /** Width sizing mode. 'auto' expands to fit actions, 'fixed' clips overflow. Default: 'fixed'. */
+  widthMode?: 'auto' | 'fixed';
   /** Action definitions rendered in each row's controls cell. */
   actions: ControlAction[];
 }
@@ -754,6 +763,8 @@ export interface ControlAction {
 export interface RowNumberColumnConfig {
   /** Width in pixels. Default: 50. */
   width?: number;
+  /** Width sizing mode. Default: 'fixed'. */
+  widthMode?: 'auto' | 'fixed';
   /** Whether rows can be reordered by dragging the row number cell. Default: true. */
   reorderable?: boolean;
 }

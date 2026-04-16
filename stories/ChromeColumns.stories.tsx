@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import { makeEmployees, defaultColumns } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -24,11 +24,10 @@ export const ControlsOnly: StoryObj = {
           A controls column with View and Edit actions. Click an action to log it below.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(10)}
             columns={subsetColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             chrome={{
               controls: {
                 actions: [
@@ -65,11 +64,10 @@ export const RowNumbersOnly: StoryObj = {
         A row-number column is shown on the left. Row selection is enabled.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(10)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="row"
           chrome={{
             rowNumbers: true,
@@ -88,11 +86,10 @@ export const ControlsAndRowNumbers: StoryObj = {
         Both a row-number column and a controls column with a View action.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(10)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           chrome={{
             controls: {
               actions: [
@@ -117,11 +114,10 @@ export const CustomActions: StoryObj = {
           Actions use custom render functions to display emoji icons instead of text labels.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(10)}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             chrome={{
               controls: {
                 actions: [
@@ -169,11 +165,10 @@ export const DragReorder: StoryObj = {
           Row numbers are shown with a drag handle. Drag a row to reorder it.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(10)}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             chrome={{
               rowNumbers: { reorderable: true },
             }}

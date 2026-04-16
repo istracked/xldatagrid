@@ -81,18 +81,25 @@ export const StatusCell = React.memo(function StatusCell<TData = Record<string, 
 }: StatusCellProps<TData>) {
   // Resolve the available status options from the column definition
   const options: StatusOption[] = column.options ?? [];
-  // Find the option matching the current cell value for badge rendering
-  const current = options.find((o) => o.value === value);
+  // Draft state: tracks the selected value without exiting edit mode
+  const [draft, setDraft] = useState<CellValue>(value);
+  // Find the option matching the draft value for badge rendering
+  const current = options.find((o) => o.value === draft);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Sync draft when the external value changes (e.g. undo/redo)
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
 
   // Open the dropdown automatically when entering edit mode,
   // pre-selecting the current option index for keyboard navigation.
   useEffect(() => {
     if (isEditing) {
       setOpen(true);
-      const idx = options.findIndex((o) => o.value === value);
+      const idx = options.findIndex((o) => o.value === draft);
       setActiveIndex(idx >= 0 ? idx : 0);
     } else {
       setOpen(false);
@@ -107,13 +114,14 @@ export const StatusCell = React.memo(function StatusCell<TData = Record<string, 
   }, [open]);
 
   /**
-   * Selects a status option, closes the dropdown, and commits the value.
+   * Selects a status option: updates draft and closes the dropdown,
+   * but keeps the cell in edit mode. The value is committed on blur.
    *
    * @param option - The chosen {@link StatusOption}.
    */
   const select = (option: StatusOption) => {
+    setDraft(option.value);
     setOpen(false);
-    onCommit(option.value);
   };
 
   /**
@@ -130,9 +138,11 @@ export const StatusCell = React.memo(function StatusCell<TData = Record<string, 
       setActiveIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       const opt = options[activeIndex];
       if (opt) select(opt);
     } else if (e.key === 'Escape') {
+      e.stopPropagation();
       setOpen(false);
       onCancel();
     }
@@ -183,7 +193,7 @@ export const StatusCell = React.memo(function StatusCell<TData = Record<string, 
           onKeyDown={handleKeyDown}
           onBlur={() => {
             setOpen(false);
-            onCancel();
+            onCommit(draft);
           }}
           style={styles.dropdown}
         >
