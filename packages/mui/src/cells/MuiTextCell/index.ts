@@ -1,0 +1,1 @@
+export { MuiTextCell } from './MuiTextCell';

@@ -47,6 +47,9 @@ export type { ChromeRowNumberCellProps } from './chrome';
 export { ChromeControlsHeaderCell, ChromeRowNumberHeaderCell } from './chrome';
 export type { ChromeControlsHeaderCellProps, ChromeRowNumberHeaderCellProps } from './chrome';
 
+// Shared cell editor hooks
+export * from './cells/hooks';
+
 // Sub-components
 export { DataGridHeader } from './header';
 export type { DataGridHeaderProps } from './header';

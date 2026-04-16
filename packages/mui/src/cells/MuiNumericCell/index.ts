@@ -1,0 +1,1 @@
+export { MuiNumericCell } from './MuiNumericCell';

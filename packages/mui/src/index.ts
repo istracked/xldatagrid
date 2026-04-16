@@ -11,3 +11,4 @@ export { MuiDataGrid } from './MuiDataGrid';
 export type { MuiDataGridProps } from './MuiDataGrid';
 export * from './theme';
 export * from './cells';
+export * from './components';
