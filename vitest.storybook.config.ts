@@ -1,18 +1,16 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
 import { fileURLToPath } from 'node:url';
+import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 
 // Use PWD (preserves symlink path) to avoid spaces in resolved real paths.
-// esbuild cannot handle spaces in import paths, and the real path on this
-// system contains "MacIntosh HD 1". Falling back to __dirname when PWD is
-// unavailable keeps the config portable.
 const dirname = process.env.PWD ?? (typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url)));
 
+// Storybook visual tests — runs stories in a headless Playwright browser.
+// Usage: npx vitest run --config vitest.storybook.config.ts
 export default defineConfig({
-  // Force Vite to use the symlink path as root (real path may contain spaces)
   root: dirname,
   resolve: {
-    // Prevent Vite from resolving symlinks to real paths (which may contain spaces)
     symlinks: false,
     alias: {
       '@istracked/datagrid-core': path.resolve(dirname, 'packages/core/src'),
@@ -21,21 +19,20 @@ export default defineConfig({
       '@istracked/datagrid-mui': path.resolve(dirname, 'packages/mui/src')
     }
   },
+  plugins: [
+    storybookTest({
+      configDir: path.join(dirname, '.storybook'),
+    }),
+  ],
   test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./vitest.setup.ts'],
-    include: ['packages/**/__tests__/**/*.test.{ts,tsx}'],
-    coverage: {
-      provider: 'v8',
-      include: ['packages/*/src/**'],
-      exclude: ['**/__tests__/**', '**/index.ts'],
-      thresholds: {
-        lines: 80,
-        branches: 75,
-        functions: 80,
-        statements: 80
-      }
-    },
+    name: 'storybook',
+    browser: {
+      enabled: true,
+      headless: true,
+      provider: 'playwright',
+      instances: [{
+        browser: 'chromium'
+      }]
+    }
   }
 });

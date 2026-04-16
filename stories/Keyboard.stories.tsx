@@ -1,8 +1,8 @@
 import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import { makeEmployees, defaultColumns } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -47,11 +47,10 @@ export const FullKeyboardSupport: StoryObj = {
         </table>
       </div>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(20)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="range"
           keyboardNavigation
           sorting

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import type { ContextMenuConfig } from '@istracked/datagrid-core';
 import { makeEmployees, defaultColumns } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -19,11 +19,10 @@ export const DefaultContextMenu: StoryObj = {
         Right-click any cell to open the built-in context menu.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(15)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           contextMenu
           sorting
           selectionMode="cell"
@@ -76,11 +75,10 @@ export const CustomContextMenu: StoryObj = {
           Right-click to see custom items including a nested "Export" submenu and a danger "Delete Row" action.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(10)}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             contextMenu={menuConfig}
             sorting
             selectionMode="cell"

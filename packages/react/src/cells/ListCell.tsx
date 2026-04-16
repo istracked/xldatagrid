@@ -65,36 +65,43 @@ export const ListCell = React.memo(function ListCell<TData = Record<string, unkn
   onCommit,
   onCancel,
 }: ListCellProps<TData>) {
-  // Resolve available options and find the display label for the current value
+  // Resolve available options
   const options = column.options ?? [];
-  const displayLabel = options.find((o) => o.value === String(value ?? ''))?.label ?? (value != null ? String(value) : '');
+  // Draft state: tracks the selected value without exiting edit mode
+  const [draft, setDraft] = useState<CellValue>(value);
+  const displayLabel = options.find((o) => o.value === String(draft ?? ''))?.label ?? (draft != null ? String(draft) : '');
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
+  // Sync draft when the external value changes (e.g. undo/redo)
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
   // Open the dropdown and pre-select the current value's index when edit mode activates
   useEffect(() => {
     if (isEditing) {
       setOpen(true);
-      const currentIndex = options.findIndex((o) => o.value === String(value ?? ''));
+      const currentIndex = options.findIndex((o) => o.value === String(draft ?? ''));
       setActiveIndex(currentIndex >= 0 ? currentIndex : 0);
     } else {
       setOpen(false);
     }
   }, [isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Dismiss the dropdown by cancelling when the user clicks outside the container
+  // Commit draft and exit edit mode when the user clicks outside the container
   useEffect(() => {
     if (!open) return;
     function handleOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        onCancel();
+        onCommit(draft);
       }
     }
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
-  }, [open, onCancel]);
+  }, [open, onCommit, draft]);
 
   // Keep the visually active option scrolled into view within the list container
   useEffect(() => {
@@ -123,12 +130,16 @@ export const ListCell = React.memo(function ListCell<TData = Record<string, unkn
       // Clamp to the first option index
       setActiveIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === 'Enter') {
-      // Commit the currently highlighted option if valid
+      e.preventDefault();
+      e.stopPropagation();
+      // Select the highlighted option into draft (stay in edit mode)
       const selected = options[activeIndex];
       if (activeIndex >= 0 && activeIndex < options.length && selected) {
-        onCommit(selected.value);
+        setDraft(selected.value);
+        setOpen(false);
       }
     } else if (e.key === 'Escape') {
+      e.stopPropagation();
       onCancel();
     }
   };
@@ -160,7 +171,7 @@ export const ListCell = React.memo(function ListCell<TData = Record<string, unkn
               key={opt.value}
               role="option"
               aria-selected={activeIndex === idx}
-              onClick={() => onCommit(opt.value)}
+              onClick={() => { setDraft(opt.value); setOpen(false); }}
               onMouseEnter={() => setActiveIndex(idx)}
               style={styles.optionItem(activeIndex === idx, opt.value === String(value ?? ''))}
             >

@@ -23,9 +23,14 @@ export const MuiStatusCell = React.memo(function MuiStatusCell<TData = Record<st
   onCancel,
 }: CellRendererProps<TData>) {
   const options: StatusOption[] = column.options ?? [];
-  const current = options.find((o) => o.value === value);
+  const [draft, setDraft] = useState<CellValue>(value);
+  const current = options.find((o) => o.value === draft);
   const selectRef = useRef<HTMLSelectElement>(null);
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
 
   useEffect(() => {
     if (isEditing) {
@@ -38,7 +43,7 @@ export const MuiStatusCell = React.memo(function MuiStatusCell<TData = Record<st
   if (!isEditing) {
     return (
       <Chip
-        label={current?.label ?? String(value ?? '')}
+        label={current?.label ?? String(draft ?? '')}
         size="small"
         sx={{
           backgroundColor: current?.color ?? '#e5e7eb',
@@ -53,15 +58,17 @@ export const MuiStatusCell = React.memo(function MuiStatusCell<TData = Record<st
   return (
     <Select
       ref={selectRef}
-      value={value != null ? String(value) : ''}
+      value={draft != null ? String(draft) : ''}
       open={open}
       onOpen={() => setOpen(true)}
       onClose={() => {
         setOpen(false);
-        onCancel();
       }}
       onChange={(e) => {
-        onCommit(e.target.value);
+        setDraft(e.target.value);
+      }}
+      onBlur={() => {
+        onCommit(draft);
       }}
       variant="standard"
       size="small"

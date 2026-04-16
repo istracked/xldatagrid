@@ -22,8 +22,13 @@ export const MuiListCell = React.memo(function MuiListCell<TData = Record<string
   onCancel,
 }: CellRendererProps<TData>) {
   const options = column.options ?? [];
-  const displayLabel = options.find((o: { value: string }) => o.value === String(value ?? ''))?.label ?? (value != null ? String(value) : '');
+  const [draft, setDraft] = useState<CellValue>(value);
+  const displayLabel = options.find((o: { value: string }) => o.value === String(draft ?? ''))?.label ?? (draft != null ? String(draft) : '');
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
 
   useEffect(() => {
     if (isEditing) setOpen(true);
@@ -44,14 +49,14 @@ export const MuiListCell = React.memo(function MuiListCell<TData = Record<string
 
   return (
     <Select
-      value={value != null ? String(value) : ''}
+      value={draft != null ? String(draft) : ''}
       open={open}
       onOpen={() => setOpen(true)}
       onClose={() => {
         setOpen(false);
-        onCancel();
       }}
-      onChange={(e) => onCommit(e.target.value)}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => onCommit(draft)}
       variant="standard"
       size="small"
       fullWidth

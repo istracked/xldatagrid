@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid, useGridContext } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
+import { useGridContext } from '@istracked/datagrid-react';
 import { createRegexValidation, createCellComments, createExportExtension } from '@istracked/datagrid-extensions';
 import type { ColumnDef, CellValue } from '@istracked/datagrid-core';
 import { makeEmployees, defaultColumns, Employee } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -54,11 +55,10 @@ export const RegexValidation: StoryObj = {
           Email must be a valid address. Name must be 2+ letters only. Edit cells to trigger validation — invalid cells get a red border.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(10)}
             columns={cols as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             selectionMode="cell"
             keyboardNavigation
           />
@@ -116,11 +116,10 @@ export const ExportFormats: StoryObj = {
           {lastExport && <span style={styles.extensionsExportStatus}>{lastExport}</span>}
         </div>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={data}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             sorting
             selectionMode="cell"
           />

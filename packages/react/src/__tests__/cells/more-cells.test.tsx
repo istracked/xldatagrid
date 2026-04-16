@@ -173,11 +173,12 @@ describe('ListCell', () => {
     expect(screen.getByText('No options')).toBeInTheDocument();
   });
 
-  it('calls onCommit with clicked option value', () => {
+  it('updates draft when option is clicked without committing', () => {
     const onCommit = vi.fn();
     render(<ListCell {...makeProps({ isEditing: true, column: { options: listOptions }, onCommit })} />);
     fireEvent.click(screen.getByText('Option B'));
-    expect(onCommit).toHaveBeenCalledWith('b');
+    // Click updates draft but does NOT call onCommit (cell stays in edit mode)
+    expect(onCommit).not.toHaveBeenCalled();
   });
 
   it('navigates options with ArrowDown key', () => {
@@ -196,12 +197,15 @@ describe('ListCell', () => {
     expect(options[1]).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('calls onCommit on Enter key for active option', () => {
+  it('updates draft on Enter and closes dropdown without committing', () => {
     const onCommit = vi.fn();
     render(<ListCell {...makeProps({ isEditing: true, value: 'a', column: { options: listOptions }, onCommit })} />);
     const container = screen.getByRole('listbox').parentElement!;
     fireEvent.keyDown(container, { key: 'Enter' });
-    expect(onCommit).toHaveBeenCalledWith('a');
+    // Enter updates draft and closes dropdown but does NOT commit (cell stays in edit mode)
+    expect(onCommit).not.toHaveBeenCalled();
+    // Dropdown should be closed
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 
   it('calls onCancel on Escape key', () => {
