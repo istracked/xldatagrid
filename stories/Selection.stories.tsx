@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import type { CellRange } from '@istracked/datagrid-core';
 import { makeEmployees, defaultColumns } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -17,11 +17,10 @@ export const CellSelection: StoryObj = {
       <h2 style={styles.heading}>Cell Selection</h2>
       <p style={styles.subtitle}>Click a cell to select it. Use arrow keys to navigate.</p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(20)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="cell"
           keyboardNavigation
         />
@@ -36,11 +35,10 @@ export const RowSelection: StoryObj = {
       <h2 style={styles.heading}>Row Selection</h2>
       <p style={styles.subtitle}>Click a row to select the entire row.</p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(20)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="row"
           keyboardNavigation
         />
@@ -57,11 +55,10 @@ export const RangeSelection: StoryObj = {
         Click a cell then hold <kbd>Shift</kbd> + arrow keys to extend the selection. <kbd>Ctrl+A</kbd> selects all.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(20)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="range"
           keyboardNavigation
         />
@@ -78,12 +75,11 @@ export const SelectionCallback: StoryObj = {
         <h2 style={styles.heading}>onSelectionChange</h2>
         <p style={styles.subtitle}>Selection state is logged below the grid.</p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(15)}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
-            selectionMode="range"
+              selectionMode="range"
             keyboardNavigation
             onSelectionChange={(r: CellRange | null) => setSel(r ? JSON.stringify(r) : '(cleared)')}
           />

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import type { SortState } from '@istracked/datagrid-core';
 import { makeEmployees, defaultColumns } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -17,11 +17,10 @@ export const SingleSort: StoryObj = {
       <h2 style={styles.heading}>Single Column Sort</h2>
       <p style={styles.subtitle}>Click a column header to sort. Click again to reverse.</p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(30)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           sorting={{ mode: 'single' }}
         />
       </div>
@@ -37,11 +36,10 @@ export const MultiSort: StoryObj = {
         Hold <kbd>Shift</kbd> and click additional column headers to add secondary sorts. Priority numbers appear next to arrows.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(30)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           sorting={{ mode: 'multi' }}
         />
       </div>
@@ -57,12 +55,11 @@ export const SortChangeCallback: StoryObj = {
         <h2 style={styles.heading}>onSortChange Callback</h2>
         <p style={styles.subtitle}>Sort events are logged below the grid.</p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(15)}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
-            sorting={{ mode: 'multi' }}
+              sorting={{ mode: 'multi' }}
             onSortChange={(s: SortState) =>
               setLog((prev) => [...prev.slice(-4), JSON.stringify(s)])
             }

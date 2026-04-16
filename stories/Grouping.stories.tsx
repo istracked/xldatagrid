@@ -1,8 +1,8 @@
 import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import { makeOrders, orderColumns } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -18,11 +18,11 @@ export const RowGrouping: StoryObj = {
         Orders grouped by Category. Click group headers to expand/collapse.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeOrders(60)}
           columns={orderColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
+
           grouping={{
             rows: { fields: ['category'], defaultExpanded: true },
           }}
@@ -42,11 +42,11 @@ export const RowGroupingWithAggregates: StoryObj = {
         Grouped by Region with sum of Total and average Quantity per group.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeOrders(60)}
           columns={orderColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
+
           grouping={{
             rows: {
               fields: ['region'],
@@ -70,11 +70,11 @@ export const MultiLevelGrouping: StoryObj = {
         Two-level nesting: first by Region, then by Category within each region.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeOrders(60)}
           columns={orderColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
+
           grouping={{
             rows: { fields: ['region', 'category'], defaultExpanded: true },
           }}
@@ -94,11 +94,11 @@ export const ColumnGrouping: StoryObj = {
         Columns are grouped under spanning headers. Click the collapse button on a group to collapse.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeOrders(30)}
           columns={orderColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
+
           grouping={{
             columns: {
               groups: [

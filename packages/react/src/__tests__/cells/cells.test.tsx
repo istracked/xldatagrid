@@ -752,14 +752,15 @@ describe('StatusCell', () => {
     expect(screen.getByText('Pending')).toBeTruthy();
   });
 
-  it('calls onCommit when option is clicked', () => {
+  it('updates draft when option is clicked and commits on blur', () => {
     const onCommit = vi.fn();
     render(
       <StatusCell value="active" row={{}} column={statusColumn} rowIndex={0} isEditing={true} onCommit={onCommit} onCancel={noop} />
     );
     // Use mouseDown because the dropdown uses onMouseDown to prevent blur first
     fireEvent.mouseDown(screen.getByRole('option', { name: 'Inactive' }));
-    expect(onCommit).toHaveBeenCalledWith('inactive');
+    // Click updates draft but does NOT call onCommit (cell stays in edit mode)
+    expect(onCommit).not.toHaveBeenCalled();
   });
 
   it('moves activeIndex down on ArrowDown', () => {
@@ -783,7 +784,7 @@ describe('StatusCell', () => {
     expect(options[1]?.getAttribute('data-active')).toBe('true');
   });
 
-  it('selects active option on Enter', () => {
+  it('updates draft on Enter and closes dropdown without committing', () => {
     const onCommit = vi.fn();
     render(
       <StatusCell value="active" row={{}} column={statusColumn} rowIndex={0} isEditing={true} onCommit={onCommit} onCancel={noop} />
@@ -791,7 +792,10 @@ describe('StatusCell', () => {
     const listbox = screen.getByRole('listbox');
     fireEvent.keyDown(listbox, { key: 'ArrowDown' });
     fireEvent.keyDown(listbox, { key: 'Enter' });
-    expect(onCommit).toHaveBeenCalledWith('inactive');
+    // Enter updates draft and closes dropdown but does NOT commit (cell stays in edit mode)
+    expect(onCommit).not.toHaveBeenCalled();
+    // Dropdown should be closed
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
 
   it('calls onCancel on Escape', () => {

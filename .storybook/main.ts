@@ -2,7 +2,11 @@ import type { StorybookConfig } from '@storybook/react-vite';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// Use PWD to preserve symlink path and avoid spaces in resolved real paths
+// that break esbuild. Falls back to import.meta dirname for portability.
+const fallbackDir = dirname(fileURLToPath(import.meta.url));
+const rootDir = process.env.PWD ?? resolve(fallbackDir, '..');
+const pkgDir = (pkg: string) => resolve(rootDir, 'packages', pkg, 'src');
 
 const config: StorybookConfig = {
   stories: [
@@ -16,11 +20,13 @@ const config: StorybookConfig = {
   framework: '@storybook/react-vite',
   viteFinal: (config) => {
     config.resolve = config.resolve ?? {};
+    config.resolve.symlinks = false;
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@istracked/datagrid-core': resolve(__dirname, '../packages/core/src'),
-      '@istracked/datagrid-react': resolve(__dirname, '../packages/react/src'),
-      '@istracked/datagrid-extensions': resolve(__dirname, '../packages/extensions/src'),
+      '@istracked/datagrid-core': pkgDir('core'),
+      '@istracked/datagrid-react': pkgDir('react'),
+      '@istracked/datagrid-extensions': pkgDir('extensions'),
+      '@istracked/datagrid-mui': pkgDir('mui'),
     };
     // Enable HMR for package source files
     config.server = config.server ?? {};
@@ -37,6 +43,7 @@ const config: StorybookConfig = {
         '@istracked/datagrid-core',
         '@istracked/datagrid-react',
         '@istracked/datagrid-extensions',
+        '@istracked/datagrid-mui',
       ],
     };
     return config;

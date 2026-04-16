@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import { makeEmployees, defaultColumns } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -15,11 +15,10 @@ export const LightTheme: StoryObj = {
     <div style={storyContainer}>
       <h2 style={styles.heading}>Light Theme (Default)</h2>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(15)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           theme="light"
           sorting
           selectionMode="cell"
@@ -34,11 +33,10 @@ export const DarkTheme: StoryObj = {
     <div style={{ ...storyContainer, ...styles.themingDarkWrapper }}>
       <h2 style={styles.heading}>Dark Theme</h2>
       <div style={{ ...gridContainer, ...styles.themingDarkGridBorder }}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(15)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           theme="dark"
           sorting
           selectionMode="cell"
@@ -56,11 +54,10 @@ export const CustomTheme: StoryObj = {
         Pass a <code>Record&lt;string, string&gt;</code> to set CSS custom properties.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(15)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           theme={{
             '--dg-primary-color': '#7c3aed',
             '--dg-bg-color': '#faf5ff',
@@ -93,12 +90,11 @@ export const ThemeSwitcher: StoryObj = {
           </button>
         </div>
         <div style={{ ...gridContainer, ...styles.themingSwitcherGridBorder(dark) }}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(20)}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
-            theme={dark ? 'dark' : 'light'}
+              theme={dark ? 'dark' : 'light'}
             sorting
             selectionMode="cell"
             keyboardNavigation
