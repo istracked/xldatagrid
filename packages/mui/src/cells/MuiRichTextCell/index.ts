@@ -1,0 +1,1 @@
+export { MuiRichTextCell } from './MuiRichTextCell';

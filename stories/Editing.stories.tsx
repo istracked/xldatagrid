@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import type { ColumnDef, CellValue } from '@istracked/datagrid-core';
 import { makeEmployees, defaultColumns, Employee } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -21,11 +21,10 @@ export const InlineEditing: StoryObj = {
           Double-click any editable cell. Press <kbd>Enter</kbd> to commit, <kbd>Escape</kbd> to cancel. Edit events logged below.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(15)}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             selectionMode="cell"
             keyboardNavigation
             onCellEdit={(rowId, field, value, prev) =>
@@ -71,11 +70,10 @@ export const WithValidation: StoryObj = {
           Name requires 2+ characters. Salary must be {'>='} 30,000. Invalid cells show a red border and tooltip.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(10)}
             columns={cols as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             selectionMode="cell"
             keyboardNavigation
           />
@@ -93,11 +91,10 @@ export const UndoRedo: StoryObj = {
         Edit cells then press <kbd>Ctrl+Z</kbd> to undo and <kbd>Ctrl+Y</kbd> or <kbd>Ctrl+Shift+Z</kbd> to redo.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(10)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="cell"
           keyboardNavigation
         />

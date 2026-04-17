@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import { makeEmployees, defaultColumns } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -20,11 +20,10 @@ export const ColumnResize: StoryObj = {
           Drag the right edge of any column header to resize. Double-click to auto-fit.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(15)}
             columns={(defaultColumns.map((c) => ({ ...c, resizable: true }))) as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             onColumnResize={(field, width) =>
               setLog((p) => [...p.slice(-4), `${field}: ${width}px`])
             }
@@ -48,11 +47,10 @@ export const ColumnReorder: StoryObj = {
           Drag a column header to a new position. A blue indicator shows the drop target.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(15)}
             columns={(defaultColumns.map((c) => ({ ...c, reorderable: true }))) as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             onColumnReorder={(field, toIndex) =>
               setLog((p) => [...p.slice(-4), `${field} -> index ${toIndex}`])
             }
@@ -74,11 +72,10 @@ export const ColumnVisibility: StoryObj = {
         Click the column visibility toggle to show/hide columns via checkboxes.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(15)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           showColumnVisibilityMenu
           sorting
         />
@@ -100,11 +97,10 @@ export const FrozenColumns: StoryObj = {
           The "Name" column is frozen to the left. Scroll horizontally — it stays pinned.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(20)}
             columns={cols as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             sorting
           />
         </div>
@@ -121,11 +117,10 @@ export const ColumnMenu: StoryObj = {
         Hover on a column header to see the menu trigger. Options include sort, hide, and freeze.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(15)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           showColumnMenu
           sorting
         />

@@ -1,8 +1,8 @@
 import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import { makeEmployees, defaultColumns } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -22,11 +22,10 @@ export const Default: StoryObj = {
         50 rows, sorting enabled, filterable columns. Double-click a cell to edit.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(50)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           sorting={{ mode: 'multi' }}
           filtering
           selectionMode="cell"
@@ -49,11 +48,10 @@ export const ReadOnly: StoryObj = {
         All editing disabled. Sort and select still work.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(20)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           readOnly
           sorting
         />
@@ -74,11 +72,10 @@ export const LargeDataset: StoryObj = {
         Virtualized rendering for performance. Scroll to verify smooth behaviour.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(500)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           sorting={{ mode: 'multi' }}
           selectionMode="range"
           keyboardNavigation
@@ -100,11 +97,10 @@ export const EmptyGrid: StoryObj = {
         No data rows — the grid shows column headers only.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={[]}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
         />
       </div>
     </div>
