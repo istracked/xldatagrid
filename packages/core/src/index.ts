@@ -22,6 +22,7 @@
  * - **grouping** — row and column grouping engine.
  * - **plugin** — extension loading and lifecycle orchestration.
  * - **undo-redo** — command-based undo/redo stack.
+ * - **search-index** — prefix trie, column-index builders, and IDB adapter.
  *
  * @module core
  */
@@ -40,3 +41,4 @@ export * from './grouping';
 export * from './plugin';
 export * from './undo-redo';
 export * from './transposed';
+export * from './search-index';

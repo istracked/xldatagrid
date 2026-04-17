@@ -174,6 +174,10 @@ export function DataGridBody<TData extends Record<string, unknown>>(
   // Render helper: row-number chrome cell (shared across both body paths)
   // -------------------------------------------------------------------------
 
+  const rowNumberStickyLeft = rowNumberOnLeft
+    ? (controlsConfig ? (controlsWidth ?? 40) : 0)
+    : undefined;
+
   const renderRowNumberCell = (rowId: string, rowIdx: number) => {
     if (!rowNumberConfig || !onRowNumberClick) return null;
     return (
@@ -184,6 +188,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         width={rowNumberWidth ?? 50}
         height={rowHeight}
         reorderable={rowNumberConfig.reorderable !== false}
+        stickyLeft={rowNumberStickyLeft}
         onSelect={onRowNumberClick}
         onDragStart={onRowDragStart}
         onDragOver={onRowDragOver}

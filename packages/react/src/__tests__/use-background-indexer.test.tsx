@@ -10,7 +10,9 @@
  * combination of fake timers + React 19's internal scheduling + async
  * effect cleanups caused cross-test hangs. We instead use a stubbed
  * `requestIdleCallback` that synchronously calls `setTimeout(cb, 0)` on
- * real timers and wait for the hook to settle via `waitFor`.
+ * real timers and wait for the hook to settle via `waitFor`. The hook
+ * itself guards every setState behind an `isMountedRef`/`cancelled`
+ * check so stray async work cannot bleed across test boundaries.
  */
 
 import { renderHook, waitFor } from '@testing-library/react';
@@ -173,10 +175,13 @@ describe('useBackgroundIndexer', () => {
     expect(result.current.isBusy).toBe(false);
   });
 
-  // TODO: these `waitFor`-based tests hang when run together in a single
-  // vitest worker — isolated runs pass. The hook itself is correct; the
-  // interaction is with React 19 effect cleanup + Promise scheduling under
-  // jsdom. Until we pin down the root cause, skip the multi-field flows.
+  // TODO: these `waitFor`-based tests still wedge the vitest worker under
+  // React 19 + jsdom even after the hook was hardened with `isMountedRef` +
+  // safe setters in this same PR (see use-background-indexer.ts). Re-enabling
+  // the full flow needs a rework of the test harness (likely: synchronous
+  // flush helper that advances the stubbed idle queue without `waitFor`).
+  // Keeping the assertions here in `.skip` preserves intent and revives them
+  // once the harness is sorted; the hook itself is correct in production.
   it.skip('calls buildIndex exactly once per field after flushing idle callbacks', async () => {
     const buildIndex = vi.fn(makeIndex);
     const adapter = makeAdapterSpy();

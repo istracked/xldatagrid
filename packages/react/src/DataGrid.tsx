@@ -8,7 +8,7 @@
  *
  * @module DataGrid
  */
-import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useCallback, useState, useEffect, useId, useMemo } from 'react';
 import {
   GridConfig,
   ColumnDef,
@@ -717,10 +717,15 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
       .map((c) => c.field);
   }, [filterMenuEnabled, orderedVisibleColumns]);
 
+  // Stable per-instance id used as the IDB namespace when no explicit gridId
+  // is provided. Prevents multiple grids from colliding on the `'default'` key.
+  const autoGridId = useId();
+  const resolvedGridId = gridId ?? `auto-${autoGridId}`;
+
   // Background indexer feeds distinct values to the dropdown. The hook is
   // always called (rules of hooks) but disabled when the feature is off.
   const indexerState = useBackgroundIndexer({
-    gridId: gridId ?? 'default',
+    gridId: resolvedGridId,
     data: processedData as ReadonlyArray<Record<string, unknown>>,
     rowIds,
     fields: filterableFields,
@@ -736,6 +741,8 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
   const [conditionDialogOpen, setConditionDialogOpen] = useState<{ field: string } | null>(null);
 
   const handleFilterMenuTrigger = useCallback((field: string, anchor: DOMRect) => {
+    // Mutual exclusion: close the legacy column menu when the Excel filter menu opens.
+    interaction.closeMenu();
     setFilterMenuOpen({
       field,
       anchor: {
@@ -745,9 +752,15 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
         right: anchor.right,
       },
     });
-  }, []);
+  }, [interaction]);
 
   const closeFilterMenu = useCallback(() => setFilterMenuOpen(null), []);
+
+  const handleColumnMenuTrigger = useCallback((field: string) => {
+    // Mutual exclusion: close the Excel filter menu when the legacy column menu opens.
+    setFilterMenuOpen(null);
+    interaction.openColumnMenu(field);
+  }, [interaction]);
 
   // Active-filter lookup — flattens the composite filter one level deep.
   const activeFilterFields = useMemo<Set<string>>(() => {
@@ -944,7 +957,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           onDragOver={handleHeaderDragOver}
           onDrop={handleHeaderDrop}
           onDragEnd={handleHeaderDragEnd}
-          onMenuTrigger={(field) => interaction.openColumnMenu(field)}
+          onMenuTrigger={handleColumnMenuTrigger}
           onResizeStart={() => {}}
           onResizeMove={handleResizeMove}
           onResizeEnd={handleResizeEnd}

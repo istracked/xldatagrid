@@ -47,7 +47,7 @@ describe('Row number column — position', () => {
 
     // DOCUMENT_POSITION_FOLLOWING (4) means firstDataCell comes AFTER rowNumberCell
     const rel = rowNumberCell.compareDocumentPosition(firstDataCell);
-    expect(rel & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rel & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
   });
 
   it('defaults to position="left": header row-number header precedes first data column header', () => {
@@ -68,7 +68,7 @@ describe('Row number column — position', () => {
     expect(dataHeader).not.toBeNull();
 
     const rel = rowNumberHeader.compareDocumentPosition(dataHeader!);
-    expect(rel & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rel & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
   });
 
   it('position="right": row-number cell follows all data cells in DOM order', () => {
@@ -89,7 +89,7 @@ describe('Row number column — position', () => {
     // Every data cell must precede the row-number cell.
     for (const cell of dataCells) {
       const rel = rowNumberCell.compareDocumentPosition(cell);
-      expect(rel & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+      expect(rel & Node.DOCUMENT_POSITION_PRECEDING).not.toBe(0);
     }
   });
 
@@ -110,7 +110,7 @@ describe('Row number column — position', () => {
     expect(dataHeader).not.toBeNull();
 
     const rel = rowNumberHeader.compareDocumentPosition(dataHeader!);
-    expect(rel & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(rel & Node.DOCUMENT_POSITION_PRECEDING).not.toBe(0);
   });
 });
 
@@ -133,10 +133,11 @@ describe('Row number column — background styling', () => {
 
     // jsdom does not resolve CSS custom properties to their fallback value, so
     // assert on the inline style string that it references our new token and
-    // falls back to the Excel-gutter grey.
+    // falls back to the existing header-bg token (Excel-gutter grey is provided
+    // by the `.dg-theme-excel365` stylesheet, not inline).
     const bg = rowNumberCell.style.background || rowNumberCell.style.backgroundColor;
     expect(bg).toContain('--dg-row-number-bg');
-    expect(bg).toContain('#f3f2f1');
+    expect(bg).toContain('--dg-header-bg');
   });
 
   it('row-number header cell background references --dg-row-number-bg token', () => {
@@ -152,6 +153,6 @@ describe('Row number column — background styling', () => {
     const header = screen.getByTestId('chrome-row-number-header') as HTMLElement;
     const bg = header.style.background || header.style.backgroundColor;
     expect(bg).toContain('--dg-row-number-bg');
-    expect(bg).toContain('#f3f2f1');
+    expect(bg).toContain('--dg-header-bg');
   });
 });

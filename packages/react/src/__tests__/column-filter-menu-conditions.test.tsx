@@ -280,15 +280,15 @@ describe('FilterConditionDialog — cancel', () => {
 // ---------------------------------------------------------------------------
 
 describe('FilterConditionDialog — backdrop click', () => {
-  it('calls onClose when backdrop is clicked', () => {
+  it('calls onClose when backdrop is mouse-pressed', () => {
     const { onClose } = renderDialog();
-    fireEvent.click(screen.getByTestId('filter-cond-backdrop'));
+    fireEvent.mouseDown(screen.getByTestId('filter-cond-backdrop'));
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('does not call onClose when dialog body is clicked', () => {
+  it('does not call onClose when dialog body is mouse-pressed', () => {
     const { onClose } = renderDialog();
-    fireEvent.click(screen.getByTestId('filter-cond-dialog'));
+    fireEvent.mouseDown(screen.getByTestId('filter-cond-dialog'));
     expect(onClose).not.toHaveBeenCalled();
   });
 });
@@ -350,5 +350,61 @@ describe('FilterConditionDialog — initial prop', () => {
     expect(val1().value).toBe('A');
     expect(op2().value).toBe('endsWith');
     expect(val2().value).toBe('Z');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Accessibility
+// ---------------------------------------------------------------------------
+
+describe('FilterConditionDialog — accessibility', () => {
+  it('marks the dialog with aria-modal="true"', () => {
+    renderDialog();
+    const dialog = screen.getByTestId('filter-cond-dialog');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(dialog.getAttribute('role')).toBe('dialog');
+  });
+
+  it('disables the placeholder "-- select --" option', () => {
+    renderDialog();
+    const placeholder = Array.from(op1().options).find((o) => o.value === '');
+    expect(placeholder).toBeTruthy();
+    expect(placeholder!.disabled).toBe(true);
+  });
+
+  it('focuses the first operator select when opened', async () => {
+    renderDialog();
+    // Focus is moved on the next tick (setTimeout 0).
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(document.activeElement).toBe(op1());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Between validation
+// ---------------------------------------------------------------------------
+
+describe('FilterConditionDialog — between validation', () => {
+  it('does not emit a between descriptor with an empty second value', () => {
+    const { onApply } = renderDialog({ dataType: 'number', field: 'age' });
+
+    fireEvent.change(op1(), { target: { value: 'between' } });
+    fireEvent.change(val1(), { target: { value: '5' } });
+    // Intentionally leave the second value empty.
+
+    fireEvent.click(okBtn());
+
+    // The half-filled between is invalid and should not produce a descriptor.
+    // Since it was the only condition, onApply should be called with null.
+    expect(onApply).toHaveBeenCalledWith(null);
+    // And it must not have produced a descriptor with an empty value2.
+    const calls = onApply.mock.calls;
+    for (const [arg] of calls) {
+      if (arg && typeof arg === 'object') {
+        for (const f of arg.filters) {
+          expect(f.value).not.toEqual(['5', '']);
+        }
+      }
+    }
   });
 });

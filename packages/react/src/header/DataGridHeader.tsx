@@ -118,6 +118,9 @@ export function DataGridHeader<TData>(props: DataGridHeaderProps<TData>) {
   // Mirrors the logic in DataGridBody so header + body stay in lockstep.
   const rowNumberPosition: 'left' | 'right' = rowNumberConfig?.position ?? 'left';
   const rowNumberOnLeft = rowNumberPosition === 'left';
+  const rowNumberHeaderStickyLeft = rowNumberOnLeft
+    ? (controlsConfig ? (controlsWidth ?? 40) : 0)
+    : undefined;
 
   const renderRowNumberHeaderCell = () =>
     rowNumberConfig ? (
@@ -125,6 +128,7 @@ export function DataGridHeader<TData>(props: DataGridHeaderProps<TData>) {
         key="__row-number-header__"
         width={rowNumberWidth ?? 50}
         height={headerHeight}
+        stickyLeft={rowNumberHeaderStickyLeft}
         onSelectAll={onSelectAll}
       />
     ) : null;
@@ -211,21 +215,34 @@ export function DataGridHeader<TData>(props: DataGridHeaderProps<TData>) {
               )}
               {/* Filter icon */}
               {isFilteringEnabled && (
-                <span
-                  data-testid="column-filter-icon"
-                  data-active={activeFilterFields?.has(col.field) ? 'true' : undefined}
-                  role={onFilterMenuTrigger ? 'button' : undefined}
-                  style={styles.filterIcon}
-                  onClick={onFilterMenuTrigger ? (e) => {
-                    e.stopPropagation();
-                    const anchor = (e.currentTarget as HTMLElement)
-                      .closest('[role="columnheader"]')
-                      ?.getBoundingClientRect();
-                    if (anchor) onFilterMenuTrigger(col.field, anchor);
-                  } : undefined}
-                >
-                  {activeFilterFields?.has(col.field) ? '\u2714' : '\u25BC'}
-                </span>
+                onFilterMenuTrigger ? (
+                  <button
+                    type="button"
+                    data-testid="column-filter-icon"
+                    data-active={activeFilterFields?.has(col.field) ? 'true' : undefined}
+                    aria-label={`Filter ${col.title ?? col.field}`}
+                    aria-haspopup="menu"
+                    style={styles.filterIcon}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const anchor = (e.currentTarget as HTMLElement)
+                        .closest('[role="columnheader"]')
+                        ?.getBoundingClientRect();
+                      if (anchor) onFilterMenuTrigger(col.field, anchor);
+                    }}
+                  >
+                    {activeFilterFields?.has(col.field) ? '\u2714' : '\u25BC'}
+                  </button>
+                ) : (
+                  <span
+                    data-testid="column-filter-icon"
+                    data-active={activeFilterFields?.has(col.field) ? 'true' : undefined}
+                    aria-hidden="true"
+                    style={styles.filterIcon}
+                  >
+                    {activeFilterFields?.has(col.field) ? '\u2714' : '\u25BC'}
+                  </span>
+                )
               )}
               {/* Column menu trigger */}
               {showColumnMenu && (

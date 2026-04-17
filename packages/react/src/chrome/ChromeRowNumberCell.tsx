@@ -8,6 +8,12 @@ export interface ChromeRowNumberCellProps {
   height: number;
   isSelected?: boolean;
   reorderable?: boolean;
+  /**
+   * When set, pins the cell with `position: sticky; left: stickyLeft` so the
+   * row-number gutter stays visible during horizontal scroll. Pass the offset
+   * of any preceding sticky chrome columns (e.g. controls width) or `0`.
+   */
+  stickyLeft?: number;
   onSelect: (rowId: string, shiftKey: boolean, metaKey: boolean) => void;
   onDragStart?: (rowId: string, rowIndex: number) => void;
   onDragOver?: (rowId: string, rowIndex: number) => void;
@@ -15,7 +21,7 @@ export interface ChromeRowNumberCellProps {
 }
 
 export function ChromeRowNumberCell(props: ChromeRowNumberCellProps) {
-  const { rowNumber, rowId, width, height, isSelected, reorderable, onSelect, onDragStart, onDragOver, onDrop } = props;
+  const { rowNumber, rowId, width, height, isSelected, reorderable, stickyLeft, onSelect, onDragStart, onDragOver, onDrop } = props;
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -45,6 +51,7 @@ export function ChromeRowNumberCell(props: ChromeRowNumberCellProps) {
   const cellStyle = {
     ...styles.rowNumberCell(width, height),
     ...(isSelected ? styles.rowNumberSelected : {}),
+    ...(stickyLeft !== undefined ? { position: 'sticky' as const, left: stickyLeft, zIndex: 5 } : {}),
   };
 
   return (

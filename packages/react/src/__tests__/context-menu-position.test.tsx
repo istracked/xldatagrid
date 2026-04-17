@@ -110,4 +110,37 @@ describe('ContextMenu positioning', () => {
       document.body.querySelector('[data-testid="context-menu"]'),
     ).not.toBeNull();
   });
+
+  it('escapes a CSS-transformed ancestor via the document.body portal', () => {
+    // Reproduces the precise scenario the fix addresses: an ancestor with a
+    // CSS `transform` becomes the containing block for `position: fixed`
+    // descendants, hijacking the menu's coordinate origin. The portal must
+    // re-parent the menu directly under document.body so this can't happen.
+    const { container } = render(
+      <div data-testid="transformed-ancestor" style={{ transform: 'translateX(1px)' }}>
+        <DataGrid
+          data={makeData()}
+          columns={columns}
+          rowKey="id"
+          contextMenu={true}
+        />
+      </div>,
+    );
+
+    fireEvent.contextMenu(screen.getAllByRole('gridcell')[0]!, {
+      clientX: 500,
+      clientY: 400,
+    });
+
+    const menu = screen.getByTestId('context-menu');
+    const transformedDiv = screen.getByTestId('transformed-ancestor');
+
+    // The menu must live under document.body, NOT inside the transformed
+    // subtree — otherwise `position: fixed` would be re-rooted to the
+    // transformed ancestor's origin (the original bug).
+    expect(document.body.contains(menu)).toBe(true);
+    expect(transformedDiv.contains(menu)).toBe(false);
+    // And it must not be a descendant of the rendered grid container either.
+    expect(container.querySelector('[data-testid="context-menu"]')).toBeNull();
+  });
 });

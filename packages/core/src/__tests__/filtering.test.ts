@@ -303,6 +303,42 @@ describe('evaluateFilter — in / notIn', () => {
     expect(evaluateCompositeFilter({ role: 'guest', age: 60 }, filter)).toBe(true);
     expect(evaluateCompositeFilter({ role: 'guest', age: 30 }, filter)).toBe(false);
   });
+
+  // The fast-path: callers (and the applyFiltering precompile step) may pass a
+  // pre-built Set for O(1) membership testing instead of an array.
+  it("'in' accepts a Set<string> target with the same semantics as an array", () => {
+    expect(evaluateFilter('A', f('in', new Set(['A', 'B', 'C'])))).toBe(true);
+    expect(evaluateFilter('D', f('in', new Set(['A', 'B', 'C'])))).toBe(false);
+    expect(evaluateFilter(42, f('in', new Set(['42'])))).toBe(true);
+    expect(evaluateFilter(7, f('in', new Set(['42'])))).toBe(false);
+  });
+
+  it("'in' with empty Set never matches", () => {
+    expect(evaluateFilter('A', f('in', new Set()))).toBe(false);
+    expect(evaluateFilter(null, f('in', new Set()))).toBe(false);
+    expect(evaluateFilter('', f('in', new Set()))).toBe(false);
+  });
+
+  it("'in' Set including '(blanks)' matches null/undefined/empty cells", () => {
+    expect(evaluateFilter(null, f('in', new Set(['A', '(blanks)'])))).toBe(true);
+    expect(evaluateFilter(undefined, f('in', new Set(['A', '(blanks)'])))).toBe(true);
+    expect(evaluateFilter('', f('in', new Set(['A', '(blanks)'])))).toBe(true);
+    expect(evaluateFilter(null, f('in', new Set(['A', 'B'])))).toBe(false);
+  });
+
+  it("'notIn' accepts a Set<string> target with the same semantics as an array", () => {
+    expect(evaluateFilter('A', f('notIn', new Set(['A', 'B'])))).toBe(false);
+    expect(evaluateFilter('C', f('notIn', new Set(['A', 'B'])))).toBe(true);
+    expect(evaluateFilter(42, f('notIn', new Set(['42'])))).toBe(false);
+    expect(evaluateFilter(7, f('notIn', new Set(['42'])))).toBe(true);
+  });
+
+  it("'notIn' Set including '(blanks)' excludes blank cells", () => {
+    expect(evaluateFilter(null, f('notIn', new Set(['(blanks)'])))).toBe(false);
+    expect(evaluateFilter(undefined, f('notIn', new Set(['(blanks)'])))).toBe(false);
+    expect(evaluateFilter('', f('notIn', new Set(['(blanks)'])))).toBe(false);
+    expect(evaluateFilter('A', f('notIn', new Set(['(blanks)'])))).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -449,5 +485,68 @@ describe('applyFiltering', () => {
     };
     applyFiltering(data, filter);
     expect(data).toEqual(original);
+  });
+
+  // The Set precompile path: applyFiltering must produce identical results to
+  // the array path, must not mutate the caller's descriptor, and must work for
+  // 'in' nested inside composites.
+  it("filters with 'in' value-list operator (array target)", () => {
+    const filter: CompositeFilterDescriptor = {
+      logic: 'and',
+      filters: [{ field: 'name', operator: 'in', value: ['Alice', 'Charlie'] }],
+    };
+    const result = applyFiltering(data, filter);
+    expect(result.map(r => r.name)).toEqual(['Alice', 'Charlie']);
+  });
+
+  it("filters with 'in' value-list operator (Set target, same result as array)", () => {
+    const filter: CompositeFilterDescriptor = {
+      logic: 'and',
+      filters: [{ field: 'name', operator: 'in', value: new Set(['Alice', 'Charlie']) }],
+    };
+    const result = applyFiltering(data, filter);
+    expect(result.map(r => r.name)).toEqual(['Alice', 'Charlie']);
+  });
+
+  it("filters with 'notIn' value-list operator", () => {
+    const filter: CompositeFilterDescriptor = {
+      logic: 'and',
+      filters: [{ field: 'name', operator: 'notIn', value: ['Bob', 'Diana'] }],
+    };
+    const result = applyFiltering(data, filter);
+    expect(result.map(r => r.name)).toEqual(['Alice', 'Charlie']);
+  });
+
+  it("does not mutate caller's filter descriptor when precompiling 'in' arrays to Sets", () => {
+    const arrayValue = ['Alice', 'Charlie'];
+    const inLeaf = { field: 'name', operator: 'in' as const, value: arrayValue };
+    const filter: CompositeFilterDescriptor = {
+      logic: 'and',
+      filters: [inLeaf],
+    };
+    applyFiltering(data, filter);
+    // Caller's descriptor and value array remain untouched.
+    expect(inLeaf.value).toBe(arrayValue);
+    expect(Array.isArray(inLeaf.value)).toBe(true);
+    expect(arrayValue).toEqual(['Alice', 'Charlie']);
+    expect(filter.filters[0]).toBe(inLeaf);
+  });
+
+  it("precompiles 'in' inside nested composite filters", () => {
+    const filter: CompositeFilterDescriptor = {
+      logic: 'and',
+      filters: [
+        { field: 'active', operator: 'eq', value: true },
+        {
+          logic: 'or',
+          filters: [
+            { field: 'name', operator: 'in', value: ['Alice'] },
+            { field: 'age', operator: 'gt', value: 40 },
+          ],
+        },
+      ],
+    };
+    const result = applyFiltering(data, filter);
+    expect(result.map(r => r.name)).toEqual(['Alice', 'Charlie']);
   });
 });

@@ -179,9 +179,6 @@ importers:
       dompurify:
         specifier: ^3.2.4
         version: 3.4.0
-      idb:
-        specifier: ^8.0.2
-        version: 8.0.3
       jotai:
         specifier: ^2.12.3
         version: 2.19.1(@babel/core@7.29.0)(@babel/template@7.28.6)(@types/react@19.0.14)(react@19.0.5)

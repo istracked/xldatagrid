@@ -222,12 +222,24 @@ export function useBackgroundIndexer(
   buildIndexRef.current = buildIndex;
   openAdapterRef.current = openAdapter;
 
+  // Tracks whether the hook is still mounted. Async work that resolves
+  // after unmount must NOT call setState — under React 19 + jsdom this
+  // surfaces as `act()` warnings and, more critically, can leave dangling
+  // microtask chains that cross-pollute subsequent tests in the same file.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (disabled) {
       return undefined;
     }
     if (fields.length === 0) {
-      setIsBusy(false);
+      if (isMountedRef.current) setIsBusy(false);
       return undefined;
     }
 
@@ -235,13 +247,30 @@ export function useBackgroundIndexer(
     let idleHandle: IdleHandle | null = null;
     let adapter: IdbAdapter | null = null;
 
+    // Local guard: a setState is safe iff the effect hasn't been cleaned up
+    // AND the component is still mounted. Centralising the check here
+    // prevents stray updates from in-flight Promises that resolve after
+    // either boundary.
+    const safeSetIndexes: typeof setIndexes = (updater) => {
+      if (cancelled || !isMountedRef.current) return;
+      setIndexes(updater);
+    };
+    const safeSetStatus: typeof setStatus = (updater) => {
+      if (cancelled || !isMountedRef.current) return;
+      setStatus(updater);
+    };
+    const safeSetIsBusy: typeof setIsBusy = (updater) => {
+      if (cancelled || !isMountedRef.current) return;
+      setIsBusy(updater);
+    };
+
     // Reset per-field status to 'loading-cache' for the current field set.
-    setStatus((prev) => {
+    safeSetStatus((prev) => {
       const next: Record<string, BackgroundIndexerFieldStatus> = { ...prev };
       for (const f of fields) next[f] = 'loading-cache';
       return next;
     });
-    setIsBusy(true);
+    safeSetIsBusy(true);
 
     const processField = async (field: string): Promise<void> => {
       if (cancelled) return;
@@ -259,13 +288,14 @@ export function useBackgroundIndexer(
         if (cached && cached.payload) {
           // Pragmatic simplification: trust any fresh cached entry. See
           // module-level strategy note.
-          setIndexes((prev) => ({ ...prev, [field]: cached.payload }));
-          setStatus((prev) => ({ ...prev, [field]: 'ready' }));
+          const payload = cached.payload;
+          safeSetIndexes((prev) => ({ ...prev, [field]: payload }));
+          safeSetStatus((prev) => ({ ...prev, [field]: 'ready' }));
           return;
         }
 
         // (b) rebuild path
-        setStatus((prev) => ({ ...prev, [field]: 'building' }));
+        safeSetStatus((prev) => ({ ...prev, [field]: 'building' }));
         const builder = buildIndexRef.current ?? (await defaultBuildIndex());
         if (cancelled) return;
 
@@ -275,18 +305,21 @@ export function useBackgroundIndexer(
         await adapter.put(gridId, field, payload);
         if (cancelled) return;
 
-        setIndexes((prev) => ({ ...prev, [field]: payload }));
-        setStatus((prev) => ({ ...prev, [field]: 'ready' }));
+        safeSetIndexes((prev) => ({ ...prev, [field]: payload }));
+        safeSetStatus((prev) => ({ ...prev, [field]: 'ready' }));
       } catch {
-        if (cancelled) return;
-        setStatus((prev) => ({ ...prev, [field]: 'error' }));
+        safeSetStatus((prev) => ({ ...prev, [field]: 'error' }));
       }
     };
 
+    // Track the in-flight chunk Promise so cleanup can `await` it (well —
+    // it can at least observe completion). Since React effect cleanups are
+    // synchronous we can't actually await here, but flipping `cancelled`
+    // before the next microtask runs guarantees no further setState fires.
     const runChunk = (startIdx: number): void => {
       idleHandle = scheduleIdle(() => {
-        if (cancelled) return;
         idleHandle = null;
+        if (cancelled) return;
         void (async () => {
           const end = Math.min(startIdx + chunkSize, fields.length);
           for (let i = startIdx; i < end; i += 1) {
@@ -297,7 +330,7 @@ export function useBackgroundIndexer(
           if (end < fields.length) {
             runChunk(end);
           } else {
-            setIsBusy(false);
+            safeSetIsBusy(false);
           }
         })();
       });

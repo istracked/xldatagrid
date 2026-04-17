@@ -4,7 +4,7 @@
  * Allows the user to define up to two filter conditions combined with And/Or
  * logic, matching the layout of the Excel 365 Custom AutoFilter modal.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { FilterDescriptor, FilterOperator, CompositeFilterDescriptor } from '@istracked/datagrid-core';
 import * as styles from './FilterConditionDialog.styles';
@@ -127,9 +127,10 @@ interface ConditionRowProps {
   operators: OperatorOption[];
   state: ConditionState;
   onChange: (next: ConditionState) => void;
+  selectRef?: React.Ref<HTMLSelectElement>;
 }
 
-function ConditionRow({ index, dataType, operators, state, onChange }: ConditionRowProps) {
+function ConditionRow({ index, dataType, operators, state, onChange, selectRef }: ConditionRowProps) {
   const inputType = dataType === 'date' ? 'date' : 'text';
   const selectedOpt = state.operator ? findOption(operators, state.operator as FilterOperator) : undefined;
   const hideValue = selectedOpt?.noValue === true;
@@ -138,6 +139,7 @@ function ConditionRow({ index, dataType, operators, state, onChange }: Condition
   return (
     <div style={styles.conditionRow}>
       <select
+        ref={selectRef}
         data-testid={`filter-cond-op-${index}`}
         style={styles.operatorSelect}
         value={state.operator}
@@ -146,7 +148,7 @@ function ConditionRow({ index, dataType, operators, state, onChange }: Condition
           onChange({ ...state, operator: op, value: '', value2: '' });
         }}
       >
-        <option value="">-- select --</option>
+        <option value="" disabled>-- select --</option>
         {operators.map((o) => (
           <option key={o.operator} value={o.operator}>
             {o.label}
@@ -200,24 +202,60 @@ export function FilterConditionDialog({
   const [cond2, setCond2] = useState<ConditionState>(EMPTY_CONDITION);
   const [logic, setLogic] = useState<'and' | 'or'>('and');
 
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const firstOpRef = useRef<HTMLSelectElement | null>(null);
+  // Captures the element that had focus at the moment the dialog opened, so
+  // we can restore it when the dialog closes.
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  // We capture `initial` in a ref so the seed effect can read the latest value
+  // without listing it as a dependency. We intentionally seed state only when
+  // the dialog opens; mid-session changes to `initial` are discarded to
+  // preserve in-flight user edits.
+  const initialRef = useRef(initial);
+  initialRef.current = initial;
+  const operatorsRef = useRef(operators);
+  operatorsRef.current = operators;
+
   // Seed from `initial` when open flips to true.
-  // useEffect is necessary here: we need to react to the `open` prop
-  // transitioning from false → true to reset form state to `initial`.
   useEffect(() => {
     if (!open) return;
-    if (!initial || initial.filters.length === 0) {
+    const seed = initialRef.current;
+    const ops = operatorsRef.current;
+    if (!seed || seed.filters.length === 0) {
       setCond1(EMPTY_CONDITION);
       setCond2(EMPTY_CONDITION);
       setLogic('and');
       return;
     }
-    setLogic(initial.logic);
-    const [f1, f2] = initial.filters as FilterDescriptor[];
-    setCond1(f1 ? conditionFromDescriptor(f1, operators) : EMPTY_CONDITION);
-    setCond2(f2 ? conditionFromDescriptor(f2, operators) : EMPTY_CONDITION);
-  // operators is derived from dataType (stable reference per render, but
-  // dataType itself never changes while the dialog is open)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    setLogic(seed.logic);
+    const [f1, f2] = seed.filters as FilterDescriptor[];
+    setCond1(f1 ? conditionFromDescriptor(f1, ops) : EMPTY_CONDITION);
+    setCond2(f2 ? conditionFromDescriptor(f2, ops) : EMPTY_CONDITION);
+  }, [open]);
+
+  // Focus management: capture previously focused element on open, move focus
+  // to first operator select, then restore focus on close.
+  useEffect(() => {
+    if (!open) return;
+    previouslyFocusedRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // Defer to after the portal renders.
+    const id = window.setTimeout(() => {
+      firstOpRef.current?.focus();
+    }, 0);
+    return () => {
+      window.clearTimeout(id);
+      const prev = previouslyFocusedRef.current;
+      if (prev && typeof prev.focus === 'function') {
+        try {
+          prev.focus();
+        } catch {
+          // ignore — element may have been removed from the DOM
+        }
+      }
+      previouslyFocusedRef.current = null;
+    };
   }, [open]);
 
   // Escape key to close
@@ -235,19 +273,31 @@ export function FilterConditionDialog({
   const hasCond1 = cond1.operator !== '';
   const hasCond2 = cond2.operator !== '';
 
-  function handleOk() {
-    if (!hasCond1 && !hasCond2) {
-      onApply(null);
-      return;
+  function isConditionValid(cond: ConditionState): boolean {
+    if (cond.operator === '') return false;
+    const opt = findOption(operators, cond.operator as FilterOperator);
+    if (!opt) return false;
+    if (opt.noValue) return true;
+    if (opt.between) {
+      // Both sides of a between range must be filled.
+      return cond.value !== '' && cond.value2 !== '';
     }
+    return true;
+  }
+
+  function handleOk() {
     const filters: FilterDescriptor[] = [];
-    if (hasCond1) {
+    if (hasCond1 && isConditionValid(cond1)) {
       const opt = findOption(operators, cond1.operator as FilterOperator)!;
       filters.push(buildDescriptor(field, cond1, opt));
     }
-    if (hasCond2) {
+    if (hasCond2 && isConditionValid(cond2)) {
       const opt = findOption(operators, cond2.operator as FilterOperator)!;
       filters.push(buildDescriptor(field, cond2, opt));
+    }
+    if (filters.length === 0) {
+      onApply(null);
+      return;
     }
     if (filters.length === 1) {
       onApply({ logic: 'and', filters });
@@ -256,22 +306,52 @@ export function FilterConditionDialog({
     }
   }
 
+  function handleDialogKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== 'Tab') return;
+    const root = dialogRef.current;
+    if (!root) return;
+    const focusables = root.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0]!;
+    const last = focusables[focusables.length - 1]!;
+    const active = document.activeElement as HTMLElement | null;
+    if (e.shiftKey) {
+      if (active === first || !root.contains(active)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (active === last || !root.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }
+
   return createPortal(
     <>
-      {/* Backdrop — click closes dialog */}
+      {/* Backdrop — mousedown closes dialog. We use mousedown rather than
+          click to avoid a race with the dialog's stopPropagation on click
+          (e.g. mousedown on backdrop, mouseup inside dialog). */}
       <div
         data-testid="filter-cond-backdrop"
         style={styles.backdrop}
-        onClick={onClose}
+        onMouseDown={onClose}
       />
 
       {/* Dialog panel — clicks inside must not bubble to backdrop */}
       <div
+        ref={dialogRef}
         role="dialog"
+        aria-modal="true"
         aria-label={`Custom AutoFilter: ${title}`}
         data-testid="filter-cond-dialog"
         style={styles.dialog}
         onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={handleDialogKeyDown}
       >
         <div style={styles.heading}>Show rows where:</div>
 
@@ -281,6 +361,7 @@ export function FilterConditionDialog({
           operators={operators}
           state={cond1}
           onChange={setCond1}
+          selectRef={firstOpRef}
         />
 
         {hasCond1 && (

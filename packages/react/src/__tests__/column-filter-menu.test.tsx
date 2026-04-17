@@ -70,7 +70,7 @@ describe('DataGridColumnFilterMenu section ordering', () => {
     const desc = screen.getByTestId('column-filter-sort-desc');
     expect(
       asc.compareDocumentPosition(desc) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    ).not.toBe(0);
   });
 
   it('renders sort rows before clear-filter', () => {
@@ -79,7 +79,7 @@ describe('DataGridColumnFilterMenu section ordering', () => {
     const clear = screen.getByTestId('column-filter-clear');
     expect(
       asc.compareDocumentPosition(clear) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    ).not.toBe(0);
   });
 
   it('renders clear-filter before search input', () => {
@@ -88,7 +88,7 @@ describe('DataGridColumnFilterMenu section ordering', () => {
     const search = screen.getByTestId('column-filter-search');
     expect(
       clear.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    ).not.toBe(0);
   });
 
   it('renders search input before value list', () => {
@@ -97,7 +97,7 @@ describe('DataGridColumnFilterMenu section ordering', () => {
     const values = screen.getByTestId('column-filter-values');
     expect(
       search.compareDocumentPosition(values) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    ).not.toBe(0);
   });
 
   it('renders value list before OK/Cancel buttons', () => {
@@ -106,7 +106,7 @@ describe('DataGridColumnFilterMenu section ordering', () => {
     const ok = screen.getByTestId('column-filter-ok');
     expect(
       values.compareDocumentPosition(ok) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    ).not.toBe(0);
   });
 });
 
