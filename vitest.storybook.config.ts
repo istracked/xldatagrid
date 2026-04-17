@@ -1,0 +1,38 @@
+import { defineConfig } from 'vitest/config';
+import path from 'path';
+import { fileURLToPath } from 'node:url';
+import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
+
+// Use PWD (preserves symlink path) to avoid spaces in resolved real paths.
+const dirname = process.env.PWD ?? (typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url)));
+
+// Storybook visual tests — runs stories in a headless Playwright browser.
+// Usage: npx vitest run --config vitest.storybook.config.ts
+export default defineConfig({
+  root: dirname,
+  resolve: {
+    symlinks: false,
+    alias: {
+      '@istracked/datagrid-core': path.resolve(dirname, 'packages/core/src'),
+      '@istracked/datagrid-react': path.resolve(dirname, 'packages/react/src'),
+      '@istracked/datagrid-extensions': path.resolve(dirname, 'packages/extensions/src'),
+      '@istracked/datagrid-mui': path.resolve(dirname, 'packages/mui/src')
+    }
+  },
+  plugins: [
+    storybookTest({
+      configDir: path.join(dirname, '.storybook'),
+    }),
+  ],
+  test: {
+    name: 'storybook',
+    browser: {
+      enabled: true,
+      headless: true,
+      provider: 'playwright',
+      instances: [{
+        browser: 'chromium'
+      }]
+    }
+  }
+});

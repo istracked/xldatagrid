@@ -1,8 +1,8 @@
 import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import type { ColumnDef, StatusOption } from '@istracked/datagrid-core';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -101,11 +101,10 @@ export const AllCellTypes: StoryObj = {
         Scroll horizontally to see every cell type. Double-click to edit.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeData()}
           columns={columns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           selectionMode="cell"
           keyboardNavigation
         />
@@ -140,12 +139,11 @@ export const ActionsColumn: StoryObj = {
           Action buttons rendered per row via the <code>actions</code> cell type.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={data}
             columns={cols as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
-          />
+            />
         </div>
       </div>
     );

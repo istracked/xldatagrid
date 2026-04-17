@@ -1,9 +1,9 @@
 import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import type { FilterState } from '@istracked/datagrid-core';
 import { makeEmployees, defaultColumns } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -19,11 +19,10 @@ export const BasicFiltering: StoryObj = {
         Columns with <code>filterable: true</code> show a filter icon in the header. The grid supports 12 filter operators.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(50)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           filtering={{ debounceMs: 200 }}
           sorting
         />
@@ -47,11 +46,10 @@ export const PreAppliedFilter: StoryObj = {
           Grid loads with <code>department = Engineering</code> already applied via <code>initialFilter</code>.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(50)}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             filtering
             initialFilter={initialFilter}
             sorting
@@ -78,11 +76,10 @@ export const CompositeFilter: StoryObj = {
           Shows rows where department is Engineering <strong>OR</strong> Design.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(50)}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
             filtering
             initialFilter={initialFilter}
             sorting

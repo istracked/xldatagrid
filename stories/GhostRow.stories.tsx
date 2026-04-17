@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DataGrid } from '@istracked/datagrid-react';
+import { MuiDataGrid } from '@istracked/datagrid-mui';
 import type { GhostRowConfig } from '@istracked/datagrid-core';
 import { makeEmployees, defaultColumns, Employee } from './data';
-import { allCellRenderers, storyContainer, gridContainer } from './helpers';
+import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
 
 const meta: Meta = {
@@ -21,11 +21,11 @@ export const BottomGhostRow: StoryObj = {
           An input row at the bottom for adding new records. Tab between cells, press <kbd>Enter</kbd> on the last cell to insert.
         </p>
         <div style={gridContainer}>
-          <DataGrid
+          <MuiDataGrid
             data={makeEmployees(5)}
             columns={defaultColumns as any}
             rowKey="id"
-            cellRenderers={allCellRenderers}
+
             ghostRow={{ position: 'bottom', placeholder: 'Add new employee...' } as GhostRowConfig<Employee>}
             onRowAdd={(row) => setLog((p) => [...p.slice(-4), JSON.stringify(row)])}
             keyboardNavigation
@@ -47,11 +47,10 @@ export const TopStickyGhostRow: StoryObj = {
         Ghost row pinned to the top of the scroll area. Scroll down — it stays visible.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(30)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           ghostRow={{ position: 'top', sticky: true, placeholder: 'New row (sticky top)...' } as GhostRowConfig<Employee>}
           keyboardNavigation
         />
@@ -68,11 +67,10 @@ export const AboveHeaderGhostRow: StoryObj = {
         The ghost row renders above the column headers.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(10)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           ghostRow={{ position: 'above-header', placeholder: 'New row above header...' } as GhostRowConfig<Employee>}
           keyboardNavigation
         />
@@ -89,11 +87,10 @@ export const GhostRowWithValidation: StoryObj = {
         Row-level validation: name is required. Try submitting without filling in the Name field.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(5)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           ghostRow={{
             position: 'bottom',
             placeholder: 'Name is required...',
@@ -115,11 +112,10 @@ export const GhostRowWithDefaults: StoryObj = {
         New rows are pre-filled with <code>department: Engineering</code> and <code>active: true</code>.
       </p>
       <div style={gridContainer}>
-        <DataGrid
+        <MuiDataGrid
           data={makeEmployees(5)}
           columns={defaultColumns as any}
           rowKey="id"
-          cellRenderers={allCellRenderers}
           ghostRow={{
             position: 'bottom',
             defaultValues: { department: 'Engineering', active: true },

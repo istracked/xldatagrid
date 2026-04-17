@@ -1,4 +1,5 @@
 import React from 'react';
+import type { CSSProperties } from 'react';
 import type { ControlAction } from '@istracked/datagrid-core';
 import * as styles from './ChromeColumn.styles';
 
@@ -10,6 +11,16 @@ export interface ChromeControlsCellProps {
   height: number;
 }
 
+const containerStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 2,
+  overflow: 'hidden',
+  maxWidth: '100%',
+  width: '100%',
+};
+
 export function ChromeControlsCell(props: ChromeControlsCellProps) {
   const { actions, rowId, rowIndex, width, height } = props;
 
@@ -20,20 +31,28 @@ export function ChromeControlsCell(props: ChromeControlsCellProps) {
       data-testid="chrome-controls-cell"
       aria-label="Row controls"
     >
-      {actions.map(action => (
-        <button
-          key={action.key}
-          style={styles.actionButton}
-          aria-label={action.label}
-          data-testid={`chrome-action-${action.key}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            action.onClick?.(rowId, rowIndex);
-          }}
-        >
-          {action.render ? (action.render(rowId, rowIndex) as React.ReactNode) : action.label}
-        </button>
-      ))}
+      <div style={containerStyle}>
+        {actions.map(action => {
+          const content = action.render
+            ? (action.render(rowId, rowIndex) as React.ReactNode)
+            : action.label;
+
+          return (
+            <button
+              key={action.key}
+              style={styles.actionButton}
+              aria-label={action.label}
+              data-testid={`chrome-action-${action.key}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                action.onClick?.(rowId, rowIndex);
+              }}
+            >
+              {content}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
