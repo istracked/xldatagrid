@@ -12,7 +12,9 @@
  * `requestIdleCallback` that synchronously calls `setTimeout(cb, 0)` on
  * real timers and wait for the hook to settle via `waitFor`. The hook
  * itself guards every setState behind an `isMountedRef`/`cancelled`
- * check so stray async work cannot bleed across test boundaries.
+ * check so stray async work cannot bleed across test boundaries, and
+ * memoises its array deps by content so the inline `fields={[…]}`
+ * literals these tests pass cannot trigger an infinite reschedule loop.
  */
 
 import { renderHook, waitFor } from '@testing-library/react';
@@ -175,15 +177,8 @@ describe('useBackgroundIndexer', () => {
     expect(result.current.isBusy).toBe(false);
   });
 
-  // TODO: these `waitFor`-based tests still wedge the vitest worker under
-  // React 19 + jsdom even after the hook was hardened with `isMountedRef` +
-  // safe setters in this same PR (see use-background-indexer.ts). Re-enabling
-  // the full flow needs a rework of the test harness (likely: synchronous
-  // flush helper that advances the stubbed idle queue without `waitFor`).
-  // Keeping the assertions here in `.skip` preserves intent and revives them
-  // once the harness is sorted; the hook itself is correct in production.
-  it.skip('calls buildIndex exactly once per field after flushing idle callbacks', async () => {
-    const buildIndex = vi.fn(makeIndex);
+  it('calls buildIndex exactly once per field after flushing idle callbacks', async () => {
+    const buildIndex = vi.fn((_data, _rowIds, field: string) => makeIndex(field));
     const adapter = makeAdapterSpy();
     const openAdapter = vi.fn(async () => adapter);
     const fields = ['name', 'city', 'age'];
@@ -207,7 +202,7 @@ describe('useBackgroundIndexer', () => {
     expect(Object.keys(result.current.indexes).sort()).toEqual(['age', 'city', 'name']);
   });
 
-  it.skip('does not call buildIndex synchronously during render', () => {
+  it('does not call buildIndex synchronously during render', () => {
     const buildIndex = vi.fn(makeIndex);
     const openAdapter = vi.fn(async () => makeAdapterSpy());
 
@@ -228,8 +223,8 @@ describe('useBackgroundIndexer', () => {
     unmount();
   });
 
-  it.skip('exposes built indexes keyed by field after flushing', async () => {
-    const buildIndex = vi.fn(makeIndex);
+  it('exposes built indexes keyed by field after flushing', async () => {
+    const buildIndex = vi.fn((_data, _rowIds, field: string) => makeIndex(field));
     const adapter = makeAdapterSpy();
     const openAdapter = vi.fn(async () => adapter);
 
@@ -255,7 +250,7 @@ describe('useBackgroundIndexer', () => {
     expect(result.current.indexes.city.field).toBe('city');
   });
 
-  it.skip('cancels pending idle callbacks on unmount', async () => {
+  it('cancels pending idle callbacks on unmount', async () => {
     const buildIndex = vi.fn(makeIndex);
     const openAdapter = vi.fn(async () => makeAdapterSpy());
 
@@ -276,13 +271,13 @@ describe('useBackgroundIndexer', () => {
     expect(cancelIdleCallbackSpy).toHaveBeenCalled();
   });
 
-  it.skip('uses cached payload when adapter returns a hit', async () => {
+  it('uses cached payload when adapter returns a hit', async () => {
     const cachedCity = makeIndex('city', 'cached-city-hash');
     const adapter = makeAdapterSpy({
       'g1::city': { payload: cachedCity, hash: cachedCity.hash },
     });
     const openAdapter = vi.fn(async () => adapter);
-    const buildIndex = vi.fn(makeIndex);
+    const buildIndex = vi.fn((_data, _rowIds, field: string) => makeIndex(field));
 
     const { result } = renderHook(() =>
       useBackgroundIndexer({

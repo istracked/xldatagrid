@@ -18,7 +18,7 @@
  * @module hooks/use-background-indexer
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 // -----------------------------------------------------------------------------
 // Type imports — sibling agents are still building these modules. We use the
@@ -234,6 +234,16 @@ export function useBackgroundIndexer(
     };
   }, []);
 
+  // Stabilise array dependencies by content. Callers frequently pass inline
+  // array literals (e.g. `fields={['a', 'b']}`) which create a fresh
+  // reference on every render. Using the raw arrays in the effect's deps
+  // would re-schedule the indexer on every render — and because the effect
+  // itself triggers a re-render via `setStatus`, that quickly degenerates
+  // into an infinite render loop. Hashing the contents to a stable key
+  // collapses identity-equal arrays into a single dep value.
+  const fieldsKey = useMemo(() => fields.join('\u0001'), [fields]);
+  const rowIdsKey = useMemo(() => rowIds.join('\u0001'), [rowIds]);
+
   useEffect(() => {
     if (disabled) {
       return undefined;
@@ -345,11 +355,13 @@ export function useBackgroundIndexer(
         idleHandle = null;
       }
     };
-    // `data`, `rowIds`, `fields` are compared by reference — the hook
-    // re-schedules when callers pass new references, which is the correct
-    // invalidation boundary.
+    // `fields`/`rowIds` are intentionally tracked by content (via the
+    // memoised keys above) so callers passing new array literals on every
+    // render don't trigger an infinite reschedule loop. `data` is still
+    // tracked by reference: callers should hand a stable rows array and
+    // mutate it through immutable updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gridId, data, rowIds, fields, disabled, chunkSize]);
+  }, [gridId, data, rowIdsKey, fieldsKey, disabled, chunkSize]);
 
   return { indexes, status, isBusy };
 }
