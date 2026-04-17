@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { MuiDataGrid } from '@istracked/datagrid-mui';
 import { createExcelMode } from '@istracked/datagrid-extensions';
 import type { ExcelModeConfig } from '@istracked/datagrid-extensions';
+import type { ContextMenuConfig } from '@istracked/datagrid-core';
 import { makeEmployees, defaultColumns, Employee } from './data';
 import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
@@ -208,6 +209,55 @@ export const EnterGoesRight: StoryObj = {
             selectionMode="cell"
             keyboardNavigation
             onCellValueChange={handleCellChange}
+          />
+        </div>
+      </div>
+    );
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Excel 365 / Full Skin — combines row numbers left, filter dropdown,
+// portaled context menu, and 1000 synthetic rows on the Segoe UI theme.
+// ---------------------------------------------------------------------------
+
+export const Excel365Skin: StoryObj = {
+  name: 'Excel 365 / Full Skin',
+  render: () => {
+    const data = useMemo(() => makeEmployees(1000), []);
+
+    const contextMenu: ContextMenuConfig = useMemo(
+      () => ({
+        items: [
+          { key: 'copy', label: 'Copy', shortcut: 'Ctrl+C', onClick: () => {} },
+          { key: 'paste', label: 'Paste', shortcut: 'Ctrl+V', onClick: () => {}, dividerAfter: true },
+          { key: 'delete', label: 'Delete Row', danger: true, onClick: () => {} },
+        ],
+      }),
+      [],
+    );
+
+    return (
+      <div style={storyContainer}>
+        <h2 style={styles.heading}>Excel 365 / Full Skin</h2>
+        <p style={styles.subtitle}>
+          All Excel-365 features combined — gutter left, filter dropdown, portaled
+          context menu, Segoe UI theme.
+        </p>
+        <div style={gridContainer}>
+          <MuiDataGrid
+            data={data}
+            columns={defaultColumns as any}
+            rowKey="id"
+            selectionMode="cell"
+            keyboardNavigation
+            sorting
+            filtering={{ debounceMs: 200 }}
+            showColumnMenu
+            contextMenu={contextMenu}
+            chrome={{
+              rowNumbers: { position: 'left' },
+            }}
           />
         </div>
       </div>

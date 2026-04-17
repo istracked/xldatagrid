@@ -337,7 +337,7 @@ function MegaGridSection() {
                 { key: 'delete', label: 'Del', onClick: (rowId: string) => log(`Delete row ${rowId}`) },
               ],
             },
-            rowNumbers: { reorderable: true },
+            rowNumbers: { position: 'left' },
           }}
           onRowReorder={({ sourceRowId, targetRowId }: { sourceRowId: string; targetRowId: string }) => log(`Reorder: ${sourceRowId} -> ${targetRowId}`)}
           onCellEdit={(rowId, field, value, prev) =>

@@ -65,6 +65,23 @@ export function evaluateFilter(value: CellValue, filter: FilterDescriptor): bool
     case 'isNull': return v == null;
     case 'isNotNull': return v != null;
 
+    // Value-list membership operators -- used by the Excel 365 filter menu to
+    // express a multi-value distinct-value filter. Comparison is case-sensitive
+    // against String(v). The sentinel '(blanks)' matches null/undefined/''.
+    case 'in': {
+      const list = Array.isArray(target) ? target : [String(target)];
+      if (list.length === 0) return false;
+      const isBlank = v == null || v === '';
+      if (isBlank) return list.includes('(blanks)');
+      return list.includes(String(v));
+    }
+    case 'notIn': {
+      const list = Array.isArray(target) ? target : [String(target)];
+      const isBlank = v == null || v === '';
+      if (isBlank) return !list.includes('(blanks)');
+      return !list.includes(String(v));
+    }
+
     // Unknown operators pass through as truthy by default
     default: return true;
   }

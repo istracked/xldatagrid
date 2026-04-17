@@ -198,6 +198,114 @@ describe('evaluateFilter — null operators', () => {
 });
 
 // ---------------------------------------------------------------------------
+// evaluateFilter — value-list membership (in / notIn)
+// ---------------------------------------------------------------------------
+
+describe('evaluateFilter — in / notIn', () => {
+  const f = (operator: FilterDescriptor['operator'], value: unknown): FilterDescriptor => ({
+    field: 'category',
+    operator,
+    value,
+  });
+
+  it("'in' matches when value is in array", () => {
+    expect(evaluateFilter('A', f('in', ['A', 'B', 'C']))).toBe(true);
+    expect(evaluateFilter('D', f('in', ['A', 'B', 'C']))).toBe(false);
+  });
+
+  it("'in' with string array matches numeric cell (\"42\" in [\"42\"])", () => {
+    expect(evaluateFilter(42, f('in', ['42']))).toBe(true);
+    expect(evaluateFilter(42, f('in', ['7']))).toBe(false);
+  });
+
+  it("'in' with Date cell coerces to its String() representation", () => {
+    const d = new Date('2023-06-15');
+    expect(evaluateFilter(d, f('in', [String(d)]))).toBe(true);
+  });
+
+  it("'in' is case-sensitive", () => {
+    expect(evaluateFilter('Alice', f('in', ['alice']))).toBe(false);
+    expect(evaluateFilter('Alice', f('in', ['Alice']))).toBe(true);
+  });
+
+  it("'in' with empty array never matches", () => {
+    expect(evaluateFilter('A', f('in', []))).toBe(false);
+    expect(evaluateFilter(null, f('in', []))).toBe(false);
+    expect(evaluateFilter('', f('in', []))).toBe(false);
+  });
+
+  it("'in' including '(blanks)' matches null and undefined cells", () => {
+    expect(evaluateFilter(null, f('in', ['A', '(blanks)']))).toBe(true);
+    expect(evaluateFilter(undefined, f('in', ['A', '(blanks)']))).toBe(true);
+    expect(evaluateFilter('', f('in', ['A', '(blanks)']))).toBe(true);
+  });
+
+  it("'in' without '(blanks)' does NOT match null/undefined/empty cells", () => {
+    expect(evaluateFilter(null, f('in', ['A', 'B']))).toBe(false);
+    expect(evaluateFilter(undefined, f('in', ['A', 'B']))).toBe(false);
+    expect(evaluateFilter('', f('in', ['A', 'B']))).toBe(false);
+  });
+
+  it("'notIn' negates 'in'", () => {
+    expect(evaluateFilter('A', f('notIn', ['A', 'B']))).toBe(false);
+    expect(evaluateFilter('C', f('notIn', ['A', 'B']))).toBe(true);
+    expect(evaluateFilter(42, f('notIn', ['42']))).toBe(false);
+    expect(evaluateFilter(7, f('notIn', ['42']))).toBe(true);
+  });
+
+  it("'notIn' including '(blanks)' excludes blank cells", () => {
+    expect(evaluateFilter(null, f('notIn', ['(blanks)']))).toBe(false);
+    expect(evaluateFilter(undefined, f('notIn', ['(blanks)']))).toBe(false);
+    expect(evaluateFilter('', f('notIn', ['(blanks)']))).toBe(false);
+    expect(evaluateFilter('A', f('notIn', ['(blanks)']))).toBe(true);
+  });
+
+  it("'notIn' without '(blanks)' keeps blank cells", () => {
+    expect(evaluateFilter(null, f('notIn', ['A']))).toBe(true);
+    expect(evaluateFilter(undefined, f('notIn', ['A']))).toBe(true);
+    expect(evaluateFilter('', f('notIn', ['A']))).toBe(true);
+  });
+
+  it("'in' coerces non-array filter.value to [String(value)]", () => {
+    expect(evaluateFilter('A', f('in', 'A'))).toBe(true);
+    expect(evaluateFilter('B', f('in', 'A'))).toBe(false);
+    expect(evaluateFilter(42, f('in', 42))).toBe(true);
+    expect(evaluateFilter(7, f('in', 42))).toBe(false);
+  });
+
+  it("'notIn' coerces non-array filter.value to [String(value)]", () => {
+    expect(evaluateFilter('A', f('notIn', 'A'))).toBe(false);
+    expect(evaluateFilter('B', f('notIn', 'A'))).toBe(true);
+  });
+
+  it("evaluateCompositeFilter still works when composite contains an 'in' clause (AND)", () => {
+    const filter: CompositeFilterDescriptor = {
+      logic: 'and',
+      filters: [
+        { field: 'active', operator: 'eq', value: true },
+        { field: 'role', operator: 'in', value: ['admin', 'editor'] },
+      ],
+    };
+    expect(evaluateCompositeFilter({ active: true, role: 'admin' }, filter)).toBe(true);
+    expect(evaluateCompositeFilter({ active: true, role: 'guest' }, filter)).toBe(false);
+    expect(evaluateCompositeFilter({ active: false, role: 'admin' }, filter)).toBe(false);
+  });
+
+  it("evaluateCompositeFilter still works when composite contains an 'in' clause (OR)", () => {
+    const filter: CompositeFilterDescriptor = {
+      logic: 'or',
+      filters: [
+        { field: 'role', operator: 'in', value: ['admin', 'editor'] },
+        { field: 'age', operator: 'gt', value: 50 },
+      ],
+    };
+    expect(evaluateCompositeFilter({ role: 'admin', age: 30 }, filter)).toBe(true);
+    expect(evaluateCompositeFilter({ role: 'guest', age: 60 }, filter)).toBe(true);
+    expect(evaluateCompositeFilter({ role: 'guest', age: 30 }, filter)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // evaluateCompositeFilter
 // ---------------------------------------------------------------------------
 

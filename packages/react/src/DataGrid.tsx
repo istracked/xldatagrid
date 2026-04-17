@@ -48,6 +48,10 @@ import { DataGridColumnMenu } from './header/DataGridColumnMenu';
 import { DataGridColumnGroupHeader } from './header/DataGridColumnGroupHeader';
 import { DataGridBody } from './body/DataGridBody';
 import { DataGridToolbar } from './toolbar/DataGridToolbar';
+import { DataGridColumnFilterMenu } from './header/column-filter-menu/DataGridColumnFilterMenu';
+import { FilterConditionDialog } from './header/column-filter-menu/FilterConditionDialog';
+import { useBackgroundIndexer } from './hooks/use-background-indexer';
+import type { CompositeFilterDescriptor, FilterDescriptor } from '@istracked/datagrid-core';
 import * as styles from './DataGrid.styles';
 
 /**
@@ -77,6 +81,14 @@ export interface DataGridProps<TData extends Record<string, unknown> = Record<st
   showGroupControls?: boolean;
   showColumnVisibilityMenu?: boolean;
   showColumnMenu?: boolean;
+  /**
+   * Enables the Excel 365-style column filter dropdown. When true, clicking
+   * the filter icon in a header cell opens a value-list + search dropdown
+   * backed by an IndexedDB-cached column index.
+   */
+  showFilterMenu?: boolean;
+  /** Stable id used as the IndexedDB cache key prefix for the column index. */
+  gridId?: string;
   groupControlRef?: string;
 }
 
@@ -170,6 +182,8 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     showGroupControls,
     showColumnVisibilityMenu,
     showColumnMenu,
+    showFilterMenu,
+    gridId,
     groupControlRef,
     ...config
   } = props;
@@ -383,8 +397,8 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     : controlsConfig ? controlsConfig
     : null;
   const resolvedRowNumberConfig: RowNumberColumnConfig | null =
-    rowNumberConfig === true ? { width: 50 }
-    : rowNumberConfig ? rowNumberConfig
+    rowNumberConfig === true ? { width: 50, widthMode: 'fixed', reorderable: true, position: 'left' }
+    : rowNumberConfig ? { position: 'left', ...rowNumberConfig }
     : null;
   const controlsWidth = resolvedControlsConfig?.width ?? 40;
   const rowNumberWidth = resolvedRowNumberConfig?.width ?? 50;
@@ -690,6 +704,150 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
   }, [model]);
 
   // ---------------------------------------------------------------------------
+  // Excel 365 column filter menu integration
+  // ---------------------------------------------------------------------------
+
+  const filterMenuEnabled = showFilterMenu === true;
+
+  // Fields eligible for the Excel filter dropdown: filterable + part of data.
+  const filterableFields = useMemo<string[]>(() => {
+    if (!filterMenuEnabled) return [];
+    return orderedVisibleColumns
+      .filter((c) => c.filterable !== false)
+      .map((c) => c.field);
+  }, [filterMenuEnabled, orderedVisibleColumns]);
+
+  // Background indexer feeds distinct values to the dropdown. The hook is
+  // always called (rules of hooks) but disabled when the feature is off.
+  const indexerState = useBackgroundIndexer({
+    gridId: gridId ?? 'default',
+    data: processedData as ReadonlyArray<Record<string, unknown>>,
+    rowIds,
+    fields: filterableFields,
+    disabled: !filterMenuEnabled,
+  });
+
+  type FilterMenuOpen = {
+    field: string;
+    anchor: { top: number; left: number; bottom: number; right: number };
+  } | null;
+
+  const [filterMenuOpen, setFilterMenuOpen] = useState<FilterMenuOpen>(null);
+  const [conditionDialogOpen, setConditionDialogOpen] = useState<{ field: string } | null>(null);
+
+  const handleFilterMenuTrigger = useCallback((field: string, anchor: DOMRect) => {
+    setFilterMenuOpen({
+      field,
+      anchor: {
+        top: anchor.top,
+        left: anchor.left,
+        bottom: anchor.bottom,
+        right: anchor.right,
+      },
+    });
+  }, []);
+
+  const closeFilterMenu = useCallback(() => setFilterMenuOpen(null), []);
+
+  // Active-filter lookup — flattens the composite filter one level deep.
+  const activeFilterFields = useMemo<Set<string>>(() => {
+    const set = new Set<string>();
+    const fs = state.filter;
+    if (!fs) return set;
+    function visit(node: CompositeFilterDescriptor | FilterDescriptor) {
+      if ('filters' in node) {
+        for (const child of node.filters) visit(child);
+      } else {
+        set.add(node.field);
+      }
+    }
+    visit(fs);
+    return set;
+  }, [state.filter]);
+
+  // Map filter → selected-values set for a given field (only when the sole
+  // predicate is an `in` operator — otherwise undefined so the checklist
+  // shows "all selected").
+  const selectedValuesByField = useMemo<Record<string, Set<string> | undefined>>(() => {
+    const out: Record<string, Set<string> | undefined> = {};
+    const fs = state.filter;
+    if (!fs) return out;
+    for (const child of fs.filters) {
+      if ('field' in child && child.operator === 'in' && Array.isArray(child.value)) {
+        out[child.field] = new Set(child.value.map(String));
+      }
+    }
+    return out;
+  }, [state.filter]);
+
+  // Replace or remove the filter predicate for a single field while preserving
+  // predicates on other fields.
+  const replaceFieldFilter = useCallback(
+    (field: string, replacement: FilterDescriptor | CompositeFilterDescriptor | null) => {
+      const prev = state.filter;
+      const otherFilters = prev
+        ? prev.filters.filter((child) => !('field' in child) || child.field !== field)
+        : [];
+      const nextChildren = replacement ? [...otherFilters, replacement] : otherFilters;
+      const next: CompositeFilterDescriptor | null =
+        nextChildren.length > 0 ? { logic: prev?.logic ?? 'and', filters: nextChildren } : null;
+      model.filter(next);
+      _onFilterChange?.(next);
+    },
+    [state.filter, model, _onFilterChange],
+  );
+
+  const handleApplyValueFilter = useCallback(
+    (field: string, values: Set<string> | undefined) => {
+      if (!values) {
+        replaceFieldFilter(field, null);
+        return;
+      }
+      replaceFieldFilter(field, {
+        field,
+        operator: 'in',
+        value: [...values],
+      });
+    },
+    [replaceFieldFilter],
+  );
+
+  const handleClearFieldFilter = useCallback(
+    (field: string) => replaceFieldFilter(field, null),
+    [replaceFieldFilter],
+  );
+
+  const handleOpenConditionDialog = useCallback((field: string) => {
+    setConditionDialogOpen({ field });
+  }, []);
+
+  const handleApplyConditionFilter = useCallback(
+    (field: string, composite: CompositeFilterDescriptor | null) => {
+      replaceFieldFilter(field, composite);
+    },
+    [replaceFieldFilter],
+  );
+
+  const resolveColumnDataType = useCallback(
+    (field: string): 'text' | 'number' | 'date' => {
+      const col = orderedVisibleColumns.find((c) => c.field === field);
+      const t = col?.cellType as string | undefined;
+      if (t === 'numeric' || t === 'number' || t === 'currency') return 'number';
+      if (t === 'calendar' || t === 'date' || t === 'datetime') return 'date';
+      return 'text';
+    },
+    [orderedVisibleColumns],
+  );
+
+  const resolveColumnTitle = useCallback(
+    (field: string): string => {
+      const col = orderedVisibleColumns.find((c) => c.field === field);
+      return (col?.title as string | undefined) ?? field;
+    },
+    [orderedVisibleColumns],
+  );
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
@@ -796,7 +954,43 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           rowNumberConfig={resolvedRowNumberConfig}
           rowNumberWidth={rowNumberWidth}
           onSelectAll={handleSelectAll}
+          onFilterMenuTrigger={filterMenuEnabled ? handleFilterMenuTrigger : undefined}
+          activeFilterFields={filterMenuEnabled ? activeFilterFields : undefined}
         />
+
+        {filterMenuEnabled && filterMenuOpen && (
+          <DataGridColumnFilterMenu
+            open={true}
+            field={filterMenuOpen.field}
+            title={resolveColumnTitle(filterMenuOpen.field)}
+            dataType={resolveColumnDataType(filterMenuOpen.field)}
+            anchor={filterMenuOpen.anchor}
+            distinctValues={indexerState.indexes[filterMenuOpen.field]?.distinctValues}
+            selectedValues={selectedValuesByField[filterMenuOpen.field]}
+            hasActiveFilter={activeFilterFields.has(filterMenuOpen.field)}
+            sortDir={state.sort.find((s) => s.field === filterMenuOpen.field)?.dir ?? null}
+            onSortAsc={() => handleColumnMenuSortAsc(filterMenuOpen.field)}
+            onSortDesc={() => handleColumnMenuSortDesc(filterMenuOpen.field)}
+            onClearFilter={() => handleClearFieldFilter(filterMenuOpen.field)}
+            onApplyValueFilter={(values) => handleApplyValueFilter(filterMenuOpen.field, values)}
+            onOpenCustomFilter={() => handleOpenConditionDialog(filterMenuOpen.field)}
+            onClose={closeFilterMenu}
+          />
+        )}
+
+        {filterMenuEnabled && conditionDialogOpen && (
+          <FilterConditionDialog
+            open={true}
+            field={conditionDialogOpen.field}
+            title={resolveColumnTitle(conditionDialogOpen.field)}
+            dataType={resolveColumnDataType(conditionDialogOpen.field)}
+            onApply={(filter) => {
+              handleApplyConditionFilter(conditionDialogOpen.field, filter);
+              setConditionDialogOpen(null);
+            }}
+            onClose={() => setConditionDialogOpen(null)}
+          />
+        )}
 
         <DataGridColumnMenu
           menuState={interaction.state.menu}

@@ -74,7 +74,7 @@ export const rowNumberCell = (width: number, height: number): CSSProperties => (
   userSelect: 'none',
   fontSize: 12,
   color: 'var(--dg-text-color, #64748b)',
-  background: 'var(--dg-header-bg, #f8fafc)',
+  background: 'var(--dg-row-number-bg, var(--dg-header-bg, #f3f2f1))',
 });
 
 export const rowNumberHeaderCell = (width: number, height: number): CSSProperties => ({
@@ -87,7 +87,7 @@ export const rowNumberHeaderCell = (width: number, height: number): CSSPropertie
   justifyContent: 'center',
   borderLeft: '1px solid var(--dg-border-color, #e2e8f0)',
   boxSizing: 'border-box',
-  background: 'var(--dg-header-bg, #f8fafc)',
+  background: 'var(--dg-row-number-bg, var(--dg-header-bg, #f3f2f1))',
   fontSize: 12,
   fontWeight: 600,
   color: 'var(--dg-text-color, #64748b)',

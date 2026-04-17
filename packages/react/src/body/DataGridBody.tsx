@@ -164,6 +164,34 @@ export function DataGridBody<TData extends Record<string, unknown>>(
   const ghostPosition = showGhostRow ? resolveGhostPosition(ghostRowConfig) : 'bottom';
   const ghostAtTop = ghostPosition === 'top' && showGhostRow;
 
+  // Row-number chrome column position (default: 'left' — Excel 365 convention).
+  // When 'left', render order is: controls, row-number, data cells.
+  // When 'right', render order is: controls, data cells, row-number (legacy).
+  const rowNumberPosition: 'left' | 'right' = rowNumberConfig?.position ?? 'left';
+  const rowNumberOnLeft = rowNumberPosition === 'left';
+
+  // -------------------------------------------------------------------------
+  // Render helper: row-number chrome cell (shared across both body paths)
+  // -------------------------------------------------------------------------
+
+  const renderRowNumberCell = (rowId: string, rowIdx: number) => {
+    if (!rowNumberConfig || !onRowNumberClick) return null;
+    return (
+      <ChromeRowNumberCell
+        key="__row-number__"
+        rowNumber={rowIdx + 1}
+        rowId={rowId}
+        width={rowNumberWidth ?? 50}
+        height={rowHeight}
+        reorderable={rowNumberConfig.reorderable !== false}
+        onSelect={onRowNumberClick}
+        onDragStart={onRowDragStart}
+        onDragOver={onRowDragOver}
+        onDrop={onRowDrop}
+      />
+    );
+  };
+
   // -------------------------------------------------------------------------
   // Find row by ID helper
   // -------------------------------------------------------------------------
@@ -385,22 +413,11 @@ export function DataGridBody<TData extends Record<string, unknown>>(
                 height={rowHeight}
               />
             )}
+            {rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
             {orderedVisibleColumns.map((col, colIdx) =>
               renderCell(col, colIdx, row, rowId, rowIdx)
             )}
-            {rowNumberConfig && onRowNumberClick && (
-              <ChromeRowNumberCell
-                rowNumber={rowIdx + 1}
-                rowId={rowId}
-                width={rowNumberWidth ?? 50}
-                height={rowHeight}
-                reorderable={rowNumberConfig.reorderable !== false}
-                onSelect={onRowNumberClick}
-                onDragStart={onRowDragStart}
-                onDragOver={onRowDragOver}
-                onDrop={onRowDrop}
-              />
-            )}
+            {!rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
           </div>
         );
       }
@@ -450,22 +467,11 @@ export function DataGridBody<TData extends Record<string, unknown>>(
               height={rowHeight}
             />
           )}
+          {rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
           {orderedVisibleColumns.map((col, colIdx) =>
             renderCell(col, colIdx, row, rowId, rowIdx)
           )}
-          {rowNumberConfig && onRowNumberClick && (
-            <ChromeRowNumberCell
-              rowNumber={rowIdx + 1}
-              rowId={rowId}
-              width={rowNumberWidth ?? 50}
-              height={rowHeight}
-              reorderable={rowNumberConfig.reorderable !== false}
-              onSelect={onRowNumberClick}
-              onDragStart={onRowDragStart}
-              onDragOver={onRowDragOver}
-              onDrop={onRowDrop}
-            />
-          )}
+          {!rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
         </div>
       );
     });

@@ -33,6 +33,32 @@ export const DefaultContextMenu: StoryObj = {
   ),
 };
 
+export const InsideTransformedAncestor: StoryObj = {
+  render: () => (
+    <div style={storyContainer}>
+      <h2 style={styles.heading}>Context Menu Inside Transformed Ancestor</h2>
+      <p style={styles.subtitle}>
+        Verifies the context menu positions at the cursor even when a CSS{' '}
+        <code>transform</code> ancestor would otherwise break{' '}
+        <code>position: fixed</code>.
+      </p>
+      <div style={{ transform: 'translate3d(0,0,0)', padding: 24 }}>
+        <div style={{ ...gridContainer, height: 480 }}>
+          <MuiDataGrid
+            data={makeEmployees(15)}
+            columns={defaultColumns as any}
+            rowKey="id"
+            contextMenu
+            sorting
+            selectionMode="cell"
+            keyboardNavigation
+          />
+        </div>
+      </div>
+    </div>
+  ),
+};
+
 export const CustomContextMenu: StoryObj = {
   render: () => {
     const [log, setLog] = useState<string[]>([]);

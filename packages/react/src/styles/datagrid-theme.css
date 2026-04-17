@@ -1,3 +1,5 @@
+@import url('./excel-365-theme.css');
+
 /* Light theme */
 .istracked-datagrid[data-theme="light"],
 .istracked-datagrid.dg-theme-light {

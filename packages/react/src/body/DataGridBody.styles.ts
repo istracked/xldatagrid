@@ -171,6 +171,26 @@ export const virtualizedRow = (opts: {
 });
 
 // ---------------------------------------------------------------------------
+// Row number chrome overrides for left (sticky) positioning
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns style overrides for the row-number cell when it is anchored on the
+ * left side of the data cells. Makes the cell `position: sticky` so it remains
+ * pinned during horizontal scroll. `stickyLeft` should be `controlsWidth` when
+ * the controls column is also pinned-left, otherwise `0`.
+ */
+export const rowNumberCellLeft = (
+  _width: number,
+  _height: number,
+  stickyLeft: number,
+): CSSProperties => ({
+  position: 'sticky',
+  left: stickyLeft,
+  zIndex: 5,
+});
+
+// ---------------------------------------------------------------------------
 // Empty state
 // ---------------------------------------------------------------------------
 

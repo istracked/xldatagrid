@@ -33,6 +33,15 @@ export interface DataGridHeaderProps<TData> {
   rowNumberConfig?: RowNumberColumnConfig | null;
   rowNumberWidth?: number;
   onSelectAll?: () => void;
+  /**
+   * When provided, the filter icon becomes clickable and opens the Excel 365
+   * column filter menu. Receives the field and the anchor rect of the header
+   * cell so the menu can position itself. Used in Excel-365 mode only; when
+   * omitted the filter icon remains decorative.
+   */
+  onFilterMenuTrigger?: (field: string, anchor: DOMRect) => void;
+  /** Fields with an active filter — renders a subtle highlight on the icon. */
+  activeFilterFields?: ReadonlySet<string>;
 }
 
 function getSortDirection(sortState: SortState, field: string): 'asc' | 'desc' | null {
@@ -75,6 +84,8 @@ export function DataGridHeader<TData>(props: DataGridHeaderProps<TData>) {
     rowNumberConfig,
     rowNumberWidth,
     onSelectAll,
+    onFilterMenuTrigger,
+    activeFilterFields,
   } = props;
 
   const handleResizeMouseDown = useCallback(
@@ -103,6 +114,21 @@ export function DataGridHeader<TData>(props: DataGridHeaderProps<TData>) {
     [onResizeStart, onResizeMove, onResizeEnd],
   );
 
+  // Row-number chrome column position (default: 'left' — Excel 365 convention).
+  // Mirrors the logic in DataGridBody so header + body stay in lockstep.
+  const rowNumberPosition: 'left' | 'right' = rowNumberConfig?.position ?? 'left';
+  const rowNumberOnLeft = rowNumberPosition === 'left';
+
+  const renderRowNumberHeaderCell = () =>
+    rowNumberConfig ? (
+      <ChromeRowNumberHeaderCell
+        key="__row-number-header__"
+        width={rowNumberWidth ?? 50}
+        height={headerHeight}
+        onSelectAll={onSelectAll}
+      />
+    ) : null;
+
   return (
     <>
       {/* Header */}
@@ -113,6 +139,7 @@ export function DataGridHeader<TData>(props: DataGridHeaderProps<TData>) {
         {controlsConfig && (
           <ChromeControlsHeaderCell width={controlsWidth ?? 40} height={headerHeight} />
         )}
+        {rowNumberOnLeft && renderRowNumberHeaderCell()}
         {columns.map((col, colIdx) => {
           const width = columnWidths[colIdx]?.width ?? 150;
           const sortDir = getSortDirection(sortState, col.field);
@@ -184,8 +211,20 @@ export function DataGridHeader<TData>(props: DataGridHeaderProps<TData>) {
               )}
               {/* Filter icon */}
               {isFilteringEnabled && (
-                <span data-testid="column-filter-icon" style={styles.filterIcon}>
-                  F
+                <span
+                  data-testid="column-filter-icon"
+                  data-active={activeFilterFields?.has(col.field) ? 'true' : undefined}
+                  role={onFilterMenuTrigger ? 'button' : undefined}
+                  style={styles.filterIcon}
+                  onClick={onFilterMenuTrigger ? (e) => {
+                    e.stopPropagation();
+                    const anchor = (e.currentTarget as HTMLElement)
+                      .closest('[role="columnheader"]')
+                      ?.getBoundingClientRect();
+                    if (anchor) onFilterMenuTrigger(col.field, anchor);
+                  } : undefined}
+                >
+                  {activeFilterFields?.has(col.field) ? '\u2714' : '\u25BC'}
                 </span>
               )}
               {/* Column menu trigger */}
@@ -216,9 +255,7 @@ export function DataGridHeader<TData>(props: DataGridHeaderProps<TData>) {
             </div>
           );
         })}
-        {rowNumberConfig && (
-          <ChromeRowNumberHeaderCell width={rowNumberWidth ?? 50} height={headerHeight} onSelectAll={onSelectAll} />
-        )}
+        {!rowNumberOnLeft && renderRowNumberHeaderCell()}
       </div>
 
       {/* Column drop indicator */}

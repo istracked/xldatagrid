@@ -78,6 +78,48 @@ export const RowNumbersOnly: StoryObj = {
   ),
 };
 
+export const RowNumbersLeft: StoryObj = {
+  render: () => (
+    <div style={storyContainer}>
+      <h2 style={styles.heading}>Row Numbers — Left Gutter (Excel 365 default)</h2>
+      <p style={styles.subtitle}>
+        Excel 365 default: row-number gutter on the left with greyed background.
+      </p>
+      <div style={gridContainer}>
+        <MuiDataGrid
+          data={makeEmployees(15)}
+          columns={defaultColumns as any}
+          rowKey="id"
+          chrome={{
+            rowNumbers: true,
+          }}
+        />
+      </div>
+    </div>
+  ),
+};
+
+export const RowNumbersRight: StoryObj = {
+  render: () => (
+    <div style={storyContainer}>
+      <h2 style={styles.heading}>Row Numbers — Right Gutter (Legacy)</h2>
+      <p style={styles.subtitle}>
+        Legacy behaviour: the row-number gutter is anchored on the right side.
+      </p>
+      <div style={gridContainer}>
+        <MuiDataGrid
+          data={makeEmployees(15)}
+          columns={defaultColumns as any}
+          rowKey="id"
+          chrome={{
+            rowNumbers: { position: 'right' },
+          }}
+        />
+      </div>
+    </div>
+  ),
+};
+
 export const ControlsAndRowNumbers: StoryObj = {
   render: () => (
     <div style={storyContainer}>

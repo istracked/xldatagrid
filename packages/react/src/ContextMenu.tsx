@@ -8,9 +8,17 @@
  *
  * @module ContextMenu
  */
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { ContextMenuItemDef } from '@istracked/datagrid-core';
 import * as styles from './ContextMenu.styles';
+
+/**
+ * SSR-safe `useLayoutEffect`: falls back to `useEffect` when `window` is
+ * undefined so server renders don't emit the React layout-effect warning.
+ */
+const useIsomorphicLayoutEffect =
+  typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 /**
  * Describes the open/closed state and screen position of a context menu,
@@ -67,29 +75,34 @@ export function ContextMenu({ state, items, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: state.x, y: state.y });
 
-  // Reposition the menu so it stays within the viewport boundaries
-  useEffect(() => {
+  // Reposition the menu so it stays within the viewport boundaries.
+  //
+  // Runs in a layout effect (synchronously before paint) so the menu never
+  // flashes at stale coordinates. We always re-seed `position` from the
+  // current `state.x/state.y` before clamping — this guarantees that on every
+  // open the menu starts at the triggering cursor coordinates, even if the
+  // initial `useState` seed captured the default (0, 0).
+  useIsomorphicLayoutEffect(() => {
     if (!state.open) return;
-    const menu = menuRef.current;
-    if (!menu) {
-      setPosition({ x: state.x, y: state.y });
-      return;
-    }
 
     let x = state.x;
     let y = state.y;
-    const rect = menu.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
 
-    if (x + rect.width > vw) {
-      x = vw - rect.width;
+    const menu = menuRef.current;
+    if (menu) {
+      const rect = menu.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      if (x + rect.width > vw) {
+        x = vw - rect.width;
+      }
+      if (y + rect.height > vh) {
+        y = vh - rect.height;
+      }
+      if (x < 0) x = 0;
+      if (y < 0) y = 0;
     }
-    if (y + rect.height > vh) {
-      y = vh - rect.height;
-    }
-    if (x < 0) x = 0;
-    if (y < 0) y = 0;
 
     setPosition({ x, y });
   }, [state.open, state.x, state.y]);
@@ -122,7 +135,12 @@ export function ContextMenu({ state, items, onClose }: ContextMenuProps) {
 
   const ctx = { rowId: state.rowId, field: state.field };
 
-  return (
+  // Render into document.body so ancestor CSS `transform`/`filter`/`perspective`
+  // (e.g. virtualized grid containers) can't hijack our `position: fixed` —
+  // without the portal, a transformed ancestor becomes the containing block
+  // and `top/left` are measured from the ancestor's origin instead of the
+  // viewport, causing the menu to jump to the far-left of the window.
+  return createPortal(
     <div
       ref={menuRef}
       role="menu"
@@ -137,7 +155,8 @@ export function ContextMenu({ state, items, onClose }: ContextMenuProps) {
           onClose={onClose}
         />
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }
 

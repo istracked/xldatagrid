@@ -69,7 +69,7 @@ export type SortState = SortDescriptor[];
  * `startsWith`, `endsWith`), range testing (`between`), and null checks
  * (`isNull`, `isNotNull`).
  */
-export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'startsWith' | 'endsWith' | 'between' | 'isNull' | 'isNotNull';
+export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'startsWith' | 'endsWith' | 'between' | 'isNull' | 'isNotNull' | 'in' | 'notIn';
 
 /**
  * A single-field filter predicate.
@@ -727,7 +727,7 @@ export interface RowGroup {
 export interface ChromeColumnsConfig {
   /** Far-left action column (e.g. magnifying glass, expand). */
   controls?: ControlsColumnConfig | boolean;
-  /** Far-right Excel-style row number column with selection and reorder. */
+  /** Excel-style row number column with selection and reorder. Positioned via `RowNumberColumnConfig.position` (default: 'left'). */
   rowNumbers?: RowNumberColumnConfig | boolean;
 }
 
@@ -758,7 +758,11 @@ export interface ControlAction {
 }
 
 /**
- * Configuration for the row-number column rendered at the far right of the grid.
+ * Configuration for the Excel-style row-number column.
+ *
+ * The column can be anchored on either side of the data cells via
+ * {@link RowNumberColumnConfig.position}. The cell background uses the
+ * `--dg-row-number-bg` token (default `#f3f2f1`, matching Excel 365 gutter).
  */
 export interface RowNumberColumnConfig {
   /** Width in pixels. Default: 50. */
@@ -767,6 +771,12 @@ export interface RowNumberColumnConfig {
   widthMode?: 'auto' | 'fixed';
   /** Whether rows can be reordered by dragging the row number cell. Default: true. */
   reorderable?: boolean;
+  /**
+   * Which side of the data cells the gutter renders on. Default: `'left'`
+   * (Excel 365 convention). When `'left'`, the cell is also sticky-left
+   * so horizontal scrolling keeps the gutter pinned.
+   */
+  position?: 'left' | 'right';
 }
 
 // ---------------------------------------------------------------------------
