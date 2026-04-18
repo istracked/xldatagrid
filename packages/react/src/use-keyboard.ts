@@ -5,7 +5,8 @@
  * keyboard events into {@link GridModel} mutations -- cell navigation,
  * selection extension, editing lifecycle, undo/redo, and boolean toggling.
  * Supports standard spreadsheet-like key bindings including arrow keys with
- * Shift (extend selection), Ctrl/Cmd (jump to edge), Tab (move within row),
+ * Shift (extend selection), Ctrl/Cmd (Excel "End" jump to the edge of the
+ * current data block), Ctrl+Shift (extend to that edge), Tab (move within row),
  * Enter (commit edit / begin edit), Escape (cancel), Home/End, F2, Delete,
  * Ctrl+A, and Ctrl+Z/Y.
  *
@@ -20,6 +21,7 @@ import {
   getLastCell,
   getNextCellInRow,
   getPrevCellInRow,
+  getEndJumpCell,
   ColumnDef,
   serializeRangeToText,
   parseTextToGrid,
@@ -130,23 +132,29 @@ export function useKeyboard<TData extends Record<string, unknown>>(
           e.key === 'ArrowLeft' ? 'left' :
           e.key === 'ArrowDown' ? 'down' : 'up';
 
-        if (e.shiftKey) {
+        if (e.ctrlKey || e.metaKey) {
+          // Ctrl/Cmd+Arrow jumps Excel "End" style: walk along the row/column and
+          // stop at the edge of the nearest populated block. Ctrl+Shift+Arrow
+          // extends the range to the same target instead of moving the caret.
+          const processedData = model.getProcessedData();
+          const getCellValue = (cell: CellAddress): unknown => {
+            const rowIndex = rowIds.indexOf(cell.rowId);
+            if (rowIndex < 0) return undefined;
+            const row = processedData[rowIndex] as Record<string, unknown> | undefined;
+            return row ? row[cell.field] : undefined;
+          };
+          const target = getEndJumpCell(current, dir, columns, rowIds, getCellValue);
+          if (target) {
+            if (e.shiftKey) {
+              model.extendTo(target);
+            } else {
+              model.select(target);
+            }
+          }
+        } else if (e.shiftKey) {
           // Shift+Arrow extends the selection range to the adjacent cell.
           const target = getNextCell(current, dir, columns, rowIds);
           if (target) model.extendTo(target);
-        } else if (e.ctrlKey || e.metaKey) {
-          // Ctrl/Cmd+Arrow jumps to the edge of the grid in that direction.
-          if (dir === 'right' || dir === 'left') {
-            const edge = dir === 'right'
-              ? getLastCell(columns, rowIds)
-              : getFirstCell(columns, rowIds);
-            if (edge) model.select({ rowId: current.rowId, field: edge.field });
-          } else {
-            const edge = dir === 'down'
-              ? getLastCell(columns, rowIds)
-              : getFirstCell(columns, rowIds);
-            if (edge) model.select({ rowId: edge.rowId, field: current.field });
-          }
         } else {
           // Plain arrow key moves selection by one cell.
           const next = getNextCell(current, dir, columns, rowIds);

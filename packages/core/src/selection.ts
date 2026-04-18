@@ -430,3 +430,118 @@ export function getPrevCellInRow(current: CellAddress, columns: ColumnDef<any>[]
   }
   return null;
 }
+
+/**
+ * Treats `null`, `undefined`, and the empty string as "blank" — matching the
+ * convention already used by the filtering module so that Excel-style "End"
+ * navigation agrees with how the rest of the grid judges emptiness.
+ *
+ * @param value - The cell value to classify.
+ * @returns `true` when the value should be considered an empty cell.
+ */
+export function isCellValueEmpty(value: unknown): boolean {
+  return value == null || value === '';
+}
+
+/**
+ * Computes the Excel-style "End mode" destination when Ctrl+Arrow is pressed.
+ *
+ * Semantics mirror Excel: starting from `current`, scan in `direction` along
+ * the same row or column and pick the landing cell using these rules, based on
+ * whether the current cell and its immediate neighbour are empty:
+ *
+ * - **current empty, neighbour empty** — jump to the first non-empty cell (or
+ *   the grid edge if every cell is empty).
+ * - **current empty, neighbour non-empty** — stop on that neighbour (the near
+ *   edge of the next populated block).
+ * - **current non-empty, neighbour empty** — skip the empty gap and land on
+ *   the first non-empty cell after it (or the grid edge if the run of empties
+ *   reaches all the way to the edge).
+ * - **current non-empty, neighbour non-empty** — continue through the current
+ *   populated run and stop on its last non-empty cell.
+ *
+ * `getCellValue` receives a cell address and returns that cell's stored value.
+ * This lets the helper stay decoupled from the storage model (processed data,
+ * plain array, virtualised view, etc.) — `isCellValueEmpty` decides emptiness.
+ *
+ * @param current - The starting cell address.
+ * @param direction - The direction to scan (`'up'`, `'down'`, `'left'`, `'right'`).
+ * @param columns - Full list of column definitions (hidden columns skipped).
+ * @param rowIds - Ordered list of all row identifiers.
+ * @param getCellValue - Reader that returns the raw value for a given cell.
+ * @returns The destination {@link CellAddress}, or `null` when no movement is possible
+ *   (e.g. already at the edge).
+ */
+export function getEndJumpCell(
+  current: CellAddress,
+  direction: 'up' | 'down' | 'left' | 'right',
+  columns: ColumnDef<any>[],
+  rowIds: string[],
+  getCellValue: (cell: CellAddress) => unknown,
+): CellAddress | null {
+  const visibleCols = columns.filter(c => c.visible !== false);
+
+  // Build the ordered sequence of cells we would visit if we kept pressing the
+  // plain arrow key from `current`, so the scan is direction-agnostic.
+  const sequence: CellAddress[] = [];
+  if (direction === 'left' || direction === 'right') {
+    const colIdx = visibleCols.findIndex(c => c.field === current.field);
+    if (colIdx === -1) return null;
+    if (direction === 'right') {
+      for (let i = colIdx + 1; i < visibleCols.length; i++) {
+        sequence.push({ rowId: current.rowId, field: visibleCols[i]!.field });
+      }
+    } else {
+      for (let i = colIdx - 1; i >= 0; i--) {
+        sequence.push({ rowId: current.rowId, field: visibleCols[i]!.field });
+      }
+    }
+  } else {
+    const rowIdx = rowIds.indexOf(current.rowId);
+    if (rowIdx === -1) return null;
+    if (direction === 'down') {
+      for (let i = rowIdx + 1; i < rowIds.length; i++) {
+        sequence.push({ rowId: rowIds[i]!, field: current.field });
+      }
+    } else {
+      for (let i = rowIdx - 1; i >= 0; i--) {
+        sequence.push({ rowId: rowIds[i]!, field: current.field });
+      }
+    }
+  }
+
+  // Already at the edge — no cell to jump to.
+  if (sequence.length === 0) return null;
+
+  const startEmpty = isCellValueEmpty(getCellValue(current));
+  const firstNeighbourEmpty = isCellValueEmpty(getCellValue(sequence[0]!));
+
+  // Case A: current is empty → find the first non-empty cell in `sequence`.
+  // If nothing is non-empty we land on the far edge. This covers both the
+  // "neighbour empty" and "neighbour non-empty" sub-cases from the doc-comment
+  // because `findIndex` returns 0 when the immediate neighbour is already populated.
+  if (startEmpty) {
+    const firstNonEmpty = sequence.findIndex(c => !isCellValueEmpty(getCellValue(c)));
+    if (firstNonEmpty !== -1) return sequence[firstNonEmpty]!;
+    return sequence[sequence.length - 1]!;
+  }
+
+  // Case B: current non-empty, neighbour empty → skip the empty run and land
+  // on the first non-empty cell after it (or on the far edge when the empty
+  // run extends all the way to the grid boundary, matching Excel).
+  if (firstNeighbourEmpty) {
+    for (let i = 1; i < sequence.length; i++) {
+      if (!isCellValueEmpty(getCellValue(sequence[i]!))) return sequence[i]!;
+    }
+    return sequence[sequence.length - 1]!;
+  }
+
+  // Case C: current non-empty and neighbour non-empty → walk through the
+  // populated run and stop at its last non-empty cell.
+  let lastNonEmpty = sequence[0]!;
+  for (let i = 1; i < sequence.length; i++) {
+    if (isCellValueEmpty(getCellValue(sequence[i]!))) break;
+    lastNonEmpty = sequence[i]!;
+  }
+  return lastNonEmpty;
+}
