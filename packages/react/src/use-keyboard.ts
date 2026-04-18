@@ -105,12 +105,34 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         }
         break;
       }
-      // --- Escape: cancel edit or clear selection ---
+      // --- Escape: cancel edit (keeps selection), or clear selection when idle ---
+      //
+      // Issue #11: Pressing Esc in edit mode must revert the cell value and
+      // keep the original cell selected. Because cell editors (e.g. TextCell)
+      // handle Escape at the input level first — calling `model.cancelEdit()`
+      // synchronously — by the time this native bubble-phase listener runs,
+      // `editing.cell` is already null. Without the `isEditor` guard below,
+      // the `else` branch would then wipe the selection.
+      //
+      // The event target tells us whether Esc was pressed inside an editor
+      // input/textarea: if so, the cell already cancelled the edit and we
+      // must preserve the selection. Otherwise (Esc pressed while the grid
+      // has focus and no edit is active), we keep the existing
+      // clear-selection behaviour.
       case 'Escape': {
         if (editing.cell) {
           model.cancelEdit();
+          e.preventDefault();
+          e.stopPropagation();
         } else {
-          model.clearSelectionState();
+          const target = e.target as HTMLElement | null;
+          const isEditor =
+            target instanceof HTMLInputElement ||
+            target instanceof HTMLTextAreaElement ||
+            (target != null && target.isContentEditable);
+          if (!isEditor) {
+            model.clearSelectionState();
+          }
         }
         break;
       }
