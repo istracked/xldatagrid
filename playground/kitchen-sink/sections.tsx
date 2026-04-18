@@ -1182,6 +1182,389 @@ export function ReadOnlySection() {
 }
 
 // ---------------------------------------------------------------------------
+// Section 28: Excel 365 Column Filter Menu
+//
+// Showcases the Excel-style header dropdown opted in via `showFilterMenu`:
+// - Sort ascending / descending from the menu itself
+// - "Clear filter from ..." entry when any predicate is active
+// - Text / Number / Date Filters submenu that opens the custom-condition dialog
+// - Search input for narrowing the value checklist
+// - (Select All) + (Blanks) + distinct-values checklist committed on OK
+// The 240-row fixture is deliberately beyond what a user wants to scroll —
+// it is what makes the search box and checklist pagination meaningful.
+// ---------------------------------------------------------------------------
+
+export function Excel365FilterMenuSection() {
+  const data = useMemo(() => makeEmployees(240), []);
+
+  // Pre-declare filterable on each column so the header renders the Excel
+  // filter icon for every column; `defaultColumns` only marks a subset.
+  const columns = useMemo(
+    () => defaultColumns.map(col => ({ ...col, filterable: true, sortable: true })),
+    [],
+  );
+
+  return (
+    <div style={sectionStyle}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <FilterList fontSize="small" color="action" />
+        <h2 style={headingStyle}>Excel 365 Column Filter Menu</h2>
+      </Box>
+      <p style={descStyle}>
+        Click the chevron icon on any column header to open the Excel-style filter dropdown. Try:
+        sort from inside the menu, type in the search box to narrow the value checklist, toggle
+        (Select All) / (Blanks), and click the "Text Filters" / "Number Filters" / "Date Filters"
+        entry to open the custom-condition dialog. The dropdown is portaled to the body and
+        stays anchored below the column header on scroll.
+      </p>
+      <div style={tallGridContainer}>
+        <MuiDataGrid
+          data={data}
+          columns={columns as any}
+          rowKey="id"
+          showFilterMenu
+          showColumnMenu
+          gridId="excel365-filter-menu-demo"
+          sorting={{ mode: 'multi' }}
+          filtering={{ debounceMs: 200 }}
+          selectionMode="cell"
+          keyboardNavigation
+        />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section 29: Filter Condition Dialog — two-clause AND / OR custom filter
+//
+// The same grid as above, but pre-filtered via the `in` operator (the shape
+// the value checklist produces). The intent is to open the "Custom Filter…"
+// entry from the Excel dropdown and build two chained clauses (e.g. "contains
+// Eng" AND "contains ing") — the dialog itself is accessible (role="dialog",
+// focus trap, labelled inputs) and its output is committed as a
+// CompositeFilterDescriptor scoped to the field.
+// ---------------------------------------------------------------------------
+
+export function FilterConditionDialogSection() {
+  const data = useMemo(() => makeEmployees(240), []);
+
+  const columns = useMemo(
+    () => defaultColumns.map(col => ({ ...col, filterable: true, sortable: true })),
+    [],
+  );
+
+  return (
+    <div style={sectionStyle}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <FilterList fontSize="small" color="action" />
+        <h2 style={headingStyle}>Filter Condition Dialog</h2>
+      </Box>
+      <p style={descStyle}>
+        Open the filter dropdown on the Department column, then click "Text Filters → Custom
+        Filter…". The dialog lets you compose two clauses with AND / OR. It is fully keyboard-
+        accessible: Tab cycles within the dialog, Enter applies, Escape cancels. The composite
+        predicate is applied on OK and scoped to the target field only, so it composes with
+        filters on other columns.
+      </p>
+      <div style={tallGridContainer}>
+        <MuiDataGrid
+          data={data}
+          columns={columns as any}
+          rowKey="id"
+          showFilterMenu
+          gridId="filter-condition-dialog-demo"
+          sorting={{ mode: 'multi' }}
+          filtering={{ debounceMs: 200 }}
+          selectionMode="cell"
+          keyboardNavigation
+        />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section 30: `in` / `notIn` Filter Operators
+//
+// Demonstrates the two new multi-value operators the Excel dropdown depends
+// on. The grid is initialised with an `in` predicate on Department and a
+// `notIn` predicate on Role, composed via `and`. These operators are
+// first-class citizens — they evaluate array values directly, coerce
+// non-string cells via String(), and short-circuit on an empty array.
+// ---------------------------------------------------------------------------
+
+export function InNotInOperatorsSection() {
+  const data = useMemo(() => makeEmployees(120), []);
+
+  return (
+    <div style={sectionStyle}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <FilterList fontSize="small" color="action" />
+        <h2 style={headingStyle}>`in` / `notIn` Filter Operators</h2>
+      </Box>
+      <p style={descStyle}>
+        Pre-filtered with two multi-value predicates joined by AND: Department
+        <code> in [Engineering, Sales]</code> AND Role <code>notIn [Intern]</code>. Both
+        operators are evaluated directly against array values — this is what the Excel-style
+        checklist commits when the user clicks OK.
+      </p>
+      <div style={tallGridContainer}>
+        <MuiDataGrid
+          data={data}
+          columns={defaultColumns as any}
+          rowKey="id"
+          filtering={{ debounceMs: 200 }}
+          sorting={{ mode: 'multi' }}
+          initialFilter={{
+            logic: 'and',
+            filters: [
+              { field: 'department', operator: 'in', value: ['Engineering', 'Sales'] },
+              { field: 'role', operator: 'notIn', value: ['Intern'] },
+            ],
+          }}
+          selectionMode="cell"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section 31: Background IndexedDB Search Index
+//
+// Enabling `showFilterMenu` activates the `useBackgroundIndexer` hook: it
+// walks the configured fields one at a time on idle callbacks (or
+// setTimeout(0) on browsers without rIC), derives distinct values, and
+// persists them to IndexedDB under a gridId-scoped namespace. On first
+// mount the index is built; on subsequent mounts (remount, page reload)
+// the cache is hit and the checklist appears instantly.
+// ---------------------------------------------------------------------------
+
+export function BackgroundIndexerSection() {
+  const data = useMemo(() => makeEmployees(10_000), []);
+
+  const columns = useMemo(
+    () => defaultColumns.map(col => ({ ...col, filterable: true, sortable: true })),
+    [],
+  );
+
+  return (
+    <div style={sectionStyle}>
+      <h2 style={headingStyle}>Background IndexedDB Search Index</h2>
+      <p style={descStyle}>
+        10 000 rows. The first time this section mounts, the Excel filter menu shows "Indexing…"
+        for a column while the background indexer walks the dataset on <code>requestIdleCallback</code>
+        and persists distinct values to IndexedDB (namespaced by <code>gridId</code>). Refresh
+        the page — the second load hits the IndexedDB cache and the checklist is available
+        instantly. Open devtools → Application → IndexedDB → <code>istracked-datagrid-index</code>
+        to inspect the stored payload.
+      </p>
+      <div style={tallGridContainer}>
+        <MuiDataGrid
+          data={data}
+          columns={columns as any}
+          rowKey="id"
+          showFilterMenu
+          gridId="background-indexer-demo-10k"
+          sorting={{ mode: 'multi' }}
+          filtering={{ debounceMs: 200 }}
+          selectionMode="range"
+          keyboardNavigation
+        />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section 32: Row-Number Gutter (Left vs Right)
+//
+// Default is `position: 'left'` (Excel 365 convention) with sticky-under-
+// scroll so horizontal scrolling keeps the gutter pinned. `position: 'right'`
+// is opt-in; it floats after the last data column and scrolls with it. Each
+// grid uses wide columns that overflow the viewport so the scroll behaviour
+// is actually observable.
+// ---------------------------------------------------------------------------
+
+export function RowNumberGutterSection() {
+  const data = useMemo(() => makeEmployees(30), []);
+
+  // Force horizontal overflow by widening every column.
+  const wideColumns = useMemo(
+    () => defaultColumns.map(col => ({ ...col, width: Math.max(col.width ?? 150, 200) })),
+    [],
+  );
+
+  const variantLabelStyle: React.CSSProperties = {
+    margin: 0, fontSize: 13, fontWeight: 600, color: '#475569',
+  };
+
+  return (
+    <div style={sectionStyle}>
+      <h2 style={headingStyle}>Row-Number Gutter — Left (default) vs Right</h2>
+      <p style={descStyle}>
+        Scroll each grid horizontally. The left gutter stays sticky-pinned (Excel 365 style);
+        the right gutter floats after the last data column and scrolls with the content.
+      </p>
+
+      <h3 style={variantLabelStyle}>Left gutter (default, sticky-under-scroll)</h3>
+      <div style={miniGridContainer}>
+        <MuiDataGrid
+          data={data}
+          columns={wideColumns as any}
+          rowKey="id"
+          selectionMode="row"
+          chrome={{ rowNumbers: { position: 'left' } }}
+        />
+      </div>
+
+      <h3 style={variantLabelStyle}>Right gutter (opt-in, scrolls with content)</h3>
+      <div style={miniGridContainer}>
+        <MuiDataGrid
+          data={data}
+          columns={wideColumns as any}
+          rowKey="id"
+          selectionMode="row"
+          chrome={{ rowNumbers: { position: 'right' } }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section 33: Context Menu in a CSS-Transformed Ancestor
+//
+// Regression guard for the portal-positioning fix: any ancestor with a CSS
+// `transform` establishes a new containing block for `position: fixed`
+// descendants. Before the fix, right-clicking a cell opened the context
+// menu at offset (20,20) relative to the true cursor position because the
+// portal's `position: fixed` coordinates were being resolved against the
+// transformed ancestor instead of the viewport. The current implementation
+// portals into `document.body` and uses viewport coords so the menu lands
+// exactly under the cursor regardless of ancestor transforms.
+// ---------------------------------------------------------------------------
+
+export function ContextMenuInTransformedAncestorSection() {
+  const [log, setLog] = useState<string[]>([]);
+  const data = useMemo(() => makeEmployees(10), []);
+
+  const menuConfig: ContextMenuConfig = useMemo(() => ({
+    items: [
+      {
+        key: 'copy',
+        label: 'Copy Cell',
+        shortcut: 'Ctrl+C',
+        onClick: (ctx: { rowId: string | null; field: string | null }) =>
+          setLog(prev => [`Copy [${ctx.rowId ?? '-'}].${ctx.field ?? '-'}`, ...prev].slice(0, 20)),
+      },
+      {
+        key: 'paste',
+        label: 'Paste',
+        shortcut: 'Ctrl+V',
+        onClick: () => setLog(prev => ['Paste', ...prev].slice(0, 20)),
+        dividerAfter: true,
+      },
+      {
+        key: 'delete',
+        label: 'Delete Row',
+        danger: true,
+        onClick: (ctx: { rowId: string | null; field: string | null }) =>
+          setLog(prev => [`Delete ${ctx.rowId ?? '-'}`, ...prev].slice(0, 20)),
+      },
+    ],
+  }), []);
+
+  // Transformed ancestor: any non-identity transform establishes a new
+  // containing block for `position: fixed` descendants. Before the portal
+  // fix, this would push the menu 20px off the cursor on both axes.
+  const transformedWrapper: React.CSSProperties = {
+    transform: 'translate3d(20px, 20px, 0)',
+    transformStyle: 'preserve-3d',
+    padding: 8,
+    border: '1px dashed #94a3b8',
+    borderRadius: 8,
+    background: '#fafafa',
+  };
+
+  return (
+    <div style={sectionStyle}>
+      <h2 style={headingStyle}>Context Menu in a Transformed Ancestor</h2>
+      <p style={descStyle}>
+        The grid below is wrapped in a container with{' '}
+        <code>transform: translate3d(20px, 20px, 0)</code>. Right-click any cell — the context
+        menu must appear exactly under the cursor, not offset by the ancestor's transform.
+        The fix portals the menu to <code>document.body</code> and positions it in viewport
+        coordinates instead of inheriting the transformed containing block.
+      </p>
+      <div style={transformedWrapper}>
+        <div style={miniGridContainer}>
+          <MuiDataGrid
+            data={data}
+            columns={defaultColumns as any}
+            rowKey="id"
+            contextMenu={menuConfig}
+            selectionMode="cell"
+            sorting
+          />
+        </div>
+      </div>
+      <EventLog entries={log} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section 34: Excel 365 Theme
+//
+// Tokens are scoped — importing the stylesheet alone does not touch any
+// other grid. A root element must carry either `.dg-theme-excel365` or
+// `data-theme="excel365"`. We wrap the grid in a div with the class; the
+// grid root inherits the cascaded custom properties, including the
+// `--dg-row-number-bg` token (#f3f2f1, Excel's gutter colour).
+// ---------------------------------------------------------------------------
+
+export function Excel365ThemeSection() {
+  const data = useMemo(() => makeEmployees(40), []);
+
+  const columns = useMemo(
+    () => defaultColumns.map(col => ({ ...col, filterable: true, sortable: true })),
+    [],
+  );
+
+  return (
+    <div style={sectionStyle}>
+      <h2 style={headingStyle}>Excel 365 Theme</h2>
+      <p style={descStyle}>
+        Tokens scoped to <code>.dg-theme-excel365</code> (or{' '}
+        <code>[data-theme="excel365"]</code>). The Segoe UI / Calibri stack, 12px baseline,
+        20px row height, and Excel green accent all come from the scoped stylesheet — including
+        the <code>--dg-row-number-bg</code> token (#f3f2f1) visible on the row-number gutter.
+        The theme is strictly opt-in: other grids on the page keep their own tokens.
+      </p>
+      <div className="dg-theme-excel365" style={{ borderRadius: 8, overflow: 'hidden' }}>
+        <div style={tallGridContainer}>
+          <MuiDataGrid
+            data={data}
+            columns={columns as any}
+            rowKey="id"
+            showFilterMenu
+            showColumnMenu
+            gridId="excel365-theme-demo"
+            sorting={{ mode: 'multi' }}
+            filtering={{ debounceMs: 200 }}
+            selectionMode="cell"
+            keyboardNavigation
+            chrome={{ rowNumbers: { position: 'left' } }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Section 27: Chrome Columns
 // ---------------------------------------------------------------------------
 

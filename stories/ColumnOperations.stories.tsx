@@ -127,4 +127,16 @@ export const ColumnMenu: StoryObj = {
       </div>
     </div>
   ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The column menu (sort / hide / freeze) and the Excel 365 filter menu are ' +
+          'mutually exclusive — opening one closes the other so only a single popup is ' +
+          'attached to a header at any time. The filter chevron itself is now a real ' +
+          '<button> element with aria-label="Filter <column>" and aria-haspopup="menu", ' +
+          'so keyboard and screen-reader users can reach the dropdown without a mouse.',
+      },
+    },
+  },
 };

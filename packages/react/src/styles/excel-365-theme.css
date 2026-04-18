@@ -1,0 +1,52 @@
+/* Excel 365 theme — opt-in only.
+ *
+ * Tokens are defined ONLY under the `.dg-theme-excel365` scope (or the
+ * equivalent `data-theme="excel365"` attribute). Consumers must place one of
+ * those classes/attributes on the grid root (or an ancestor) to activate.
+ * This file intentionally does NOT define `:root` tokens, so merely importing
+ * it has no effect on unrelated consumers.
+ */
+
+/* Scoped opt-in variant — applies Excel tokens under an explicit class */
+.dg-theme-excel365,
+.istracked-datagrid.dg-theme-excel365,
+.istracked-datagrid[data-theme="excel365"] {
+  --dg-font-family: "Segoe UI", "Calibri", system-ui, -apple-system, sans-serif;
+  --dg-font-size: 12px;
+  --dg-font-size-header: 12px;
+  --dg-font-size-cell: 11px;
+  --dg-row-height: 20px;
+  --dg-header-height: 22px;
+
+  --dg-bg-color: #ffffff;
+  --dg-text-color: #1b1b1b;
+  --dg-muted-text: #605e5c;
+
+  --dg-border-color: #d4d4d4;
+  --dg-grid-line: #e1dfdd;
+
+  --dg-header-bg: #f3f2f1;
+  --dg-header-hover-bg: #e8e8e8;
+  --dg-header-active-bg: #d4d4d4;
+
+  --dg-row-number-bg: #f3f2f1;
+  --dg-row-number-text: #605e5c;
+
+  --dg-primary-color: #217346;
+  --dg-primary-hover: #1a5d38;
+  --dg-primary-contrast: #ffffff;
+
+  --dg-selection-color: #caead8;
+  --dg-selection-border: #217346;
+  --dg-hover-bg: #e8e8e8;
+
+  --dg-menu-bg: #ffffff;
+  --dg-menu-hover-bg: #f3f2f1;
+  --dg-menu-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --dg-menu-border: 1px solid #d4d4d4;
+
+  --dg-error-color: #a4262c;
+  --dg-warning-color: #ca5010;
+
+  color-scheme: light;
+}

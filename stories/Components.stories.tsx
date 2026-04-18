@@ -32,6 +32,14 @@ const wrapperComponents: [string, string][] = [
 ];
 
 export const ComponentList: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Reference catalogue of every MUI cell renderer wrapped by datagrid-mui, plus the top-level wrapper utilities. See also the "Components New In Branch" story for the Excel-365 column filter menu components shipped on feat/excel-365-column-menu.',
+      },
+    },
+  },
   render: () => (
     <div style={styles.introWrapper}>
       <h1 style={styles.introTitle}>MUI Component Reference</h1>
@@ -76,6 +84,79 @@ export const ComponentList: StoryObj = {
           ))}
         </tbody>
       </table>
+    </div>
+  ),
+};
+
+// ---------------------------------------------------------------------------
+// New-in-branch components (feat/excel-365-column-menu)
+//
+// The Excel-365 column filter menu and its condition dialog live in the
+// @istracked/datagrid-react package as internal sub-components of DataGrid.
+// They are not standalone imports a consumer wires directly — instead they
+// are activated via the `showFilterMenu` prop on DataGrid / MuiDataGrid,
+// which mounts and positions them internally. This story documents what
+// ships in the branch without attempting to render them outside that
+// orchestration.
+// ---------------------------------------------------------------------------
+
+const newInBranchComponents: [string, string, string][] = [
+  [
+    'DataGridColumnFilterMenu',
+    'packages/react/src/header/column-filter-menu/DataGridColumnFilterMenu.tsx',
+    'Excel-365 column header dropdown: sort asc/desc, clear filter, Text/Number/Date Filters submenu, search box, distinct-value checklist, and OK/Cancel. Rendered automatically when showFilterMenu is true on DataGrid / MuiDataGrid; positioned against the filter-icon anchor via a DOMRect passed from the header.',
+  ],
+  [
+    'FilterConditionDialog',
+    'packages/react/src/header/column-filter-menu/FilterConditionDialog.tsx',
+    'Accessible modal (role="dialog", aria-modal, focus trap) launched from the filter menu\'s "Custom filter…" entry. Builds composite AND/OR two-clause predicates and emits a CompositeFilterDescriptor back to the grid model.',
+  ],
+];
+
+export const Components_NewInBranch: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'New sub-components introduced on feat/excel-365-column-menu. These are orchestrated internally by DataGrid when showFilterMenu is enabled, so activate them from the Kitchen Sink or Filtering stories rather than mounting them directly.',
+      },
+    },
+  },
+  render: () => (
+    <div style={styles.introWrapper}>
+      <h1 style={styles.introTitle}>Components — New In Branch</h1>
+      <p style={styles.introSubtitle}>
+        Added on <code>feat/excel-365-column-menu</code>. Enable via the
+        {' '}<code>showFilterMenu</code> prop on <code>DataGrid</code> or
+        {' '}<code>MuiDataGrid</code>.
+      </p>
+
+      <h2>Filter Menu Components</h2>
+      <table style={styles.introTable}>
+        <thead>
+          <tr>
+            <th style={styles.introTh}>Component</th>
+            <th style={styles.introTh}>Source</th>
+            <th style={styles.introTh}>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          {newInBranchComponents.map(([name, src, desc]) => (
+            <tr key={name}>
+              <td style={styles.introTd}><strong>{name}</strong></td>
+              <td style={{ ...styles.introTd, fontFamily: 'monospace', fontSize: 12 }}>{src}</td>
+              <td style={styles.introTd}>{desc}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <h2>How to see them</h2>
+      <ul>
+        <li>Open <strong>Pages/Kitchen Sink &gt; Everything At Once</strong> — the main kitchen-sink story enables <code>showFilterMenu</code> and the left row-number gutter by default.</li>
+        <li>Click the filter chevron in any filterable column header to open <code>DataGridColumnFilterMenu</code>.</li>
+        <li>Choose <em>Custom filter…</em> from the Text/Number/Date Filters submenu to launch <code>FilterConditionDialog</code>.</li>
+      </ul>
     </div>
   ),
 };

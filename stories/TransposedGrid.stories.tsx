@@ -101,6 +101,14 @@ const singleEntityFields: TransposedField[] = [
 ];
 
 export const SingleEntity: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'One entity rendered as a form-like layout. In transposed/form mode the row-number gutter still honours the `position` contract — it defaults to left-sticky but can be flipped to right via `chrome.rowNumbers.position`.',
+      },
+    },
+  },
   render: () => {
     const employees = makeEmployees(1);
     const entityKeys = employees.map((e) => e.id);

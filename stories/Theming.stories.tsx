@@ -104,3 +104,145 @@ export const ThemeSwitcher: StoryObj = {
     );
   },
 };
+
+export const Theme_Excel365Scoped: StoryObj = {
+  name: 'Excel 365 — scoped opt-in (class and data-attr)',
+  render: () => (
+    <div style={storyContainer}>
+      <h2 style={styles.heading}>Excel 365 — Scoped Opt-In</h2>
+      <p style={styles.subtitle}>
+        The Excel-365 tokens live under <code>.dg-theme-excel365</code> and{' '}
+        <code>[data-theme="excel365"]</code> — <strong>not</strong> on{' '}
+        <code>:root</code>. That means importing the stylesheet has no effect
+        on unrelated grids, and multiple themes can coexist on one page
+        without leaking tokens across grid instances.
+      </p>
+
+      <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
+          <p style={styles.subtitle}>
+            <strong>Class form:</strong>{' '}
+            <code>&lt;div className="dg-theme-excel365"&gt;</code> wrapping the
+            grid.
+          </p>
+          <div className="dg-theme-excel365" style={{ ...gridContainer }}>
+            <MuiDataGrid
+              data={makeEmployees(15)}
+              columns={defaultColumns as any}
+              rowKey="id"
+              sorting
+              selectionMode="cell"
+              chrome={{ rowNumbers: { position: 'left' } }}
+            />
+          </div>
+        </div>
+
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
+          <p style={styles.subtitle}>
+            <strong>Data-attribute form:</strong> <code>theme="excel365"</code>{' '}
+            on the grid, which renders{' '}
+            <code>data-theme="excel365"</code> on the root.
+          </p>
+          <div style={{ ...gridContainer }}>
+            <MuiDataGrid
+              data={makeEmployees(15)}
+              columns={defaultColumns as any}
+              rowKey="id"
+              theme="excel365"
+              sorting
+              selectionMode="cell"
+              chrome={{ rowNumbers: { position: 'left' } }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <p style={styles.subtitle}>
+        Default-themed grid below demonstrates that the Excel-365 tokens are
+        <strong> not </strong> leaking onto unrelated instances on the same
+        page.
+      </p>
+      <div style={{ ...gridContainer }}>
+        <MuiDataGrid
+          data={makeEmployees(8)}
+          columns={defaultColumns as any}
+          rowKey="id"
+          theme="light"
+          sorting
+          selectionMode="cell"
+        />
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The Excel-365 tokens are scoped to `.dg-theme-excel365` and `[data-theme="excel365"]` — they are **not** defined on `:root`. This story demonstrates both opt-in forms side by side: a `<div className="dg-theme-excel365">` wrapper on the left, and the `theme="excel365"` prop (which emits `data-theme="excel365"` on the grid root) on the right. A third, default-themed grid is rendered below to confirm that the Excel tokens do not leak onto unrelated instances, so multiple themes can coexist on one page.',
+      },
+    },
+  },
+};
+
+export const Theme_RowNumberBg: StoryObj = {
+  name: 'Row number gutter token (--dg-row-number-bg)',
+  render: () => (
+    <div style={storyContainer}>
+      <h2 style={styles.heading}>Row Number Gutter Token</h2>
+      <p style={styles.subtitle}>
+        The new <code>--dg-row-number-bg</code> token controls the row-number
+        gutter background. Under the Excel-365 theme it defaults to the Excel
+        gutter grey <code>#f3f2f1</code>.
+      </p>
+
+      <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
+          <p style={styles.subtitle}>
+            <strong>Excel-365 default:</strong> gutter uses{' '}
+            <code>#f3f2f1</code>.
+          </p>
+          <div style={{ ...gridContainer }}>
+            <MuiDataGrid
+              data={makeEmployees(12)}
+              columns={defaultColumns as any}
+              rowKey="id"
+              theme="excel365"
+              sorting
+              selectionMode="cell"
+              chrome={{ rowNumbers: { position: 'left' } }}
+            />
+          </div>
+        </div>
+
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
+          <p style={styles.subtitle}>
+            <strong>Custom override:</strong>{' '}
+            <code>--dg-row-number-bg: #fef3c7</code> (warm amber).
+          </p>
+          <div style={{ ...gridContainer }}>
+            <MuiDataGrid
+              data={makeEmployees(12)}
+              columns={defaultColumns as any}
+              rowKey="id"
+              theme={{
+                '--dg-row-number-bg': '#fef3c7',
+                '--dg-row-number-text': '#78350f',
+              }}
+              sorting
+              selectionMode="cell"
+              chrome={{ rowNumbers: { position: 'left' } }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Shows the new `--dg-row-number-bg` token, which colours the row-number gutter. Under the Excel-365 theme the token defaults to the Excel gutter grey `#f3f2f1`; consumers can override it per grid by passing a `theme` object containing the token. The row-number cell falls back to `--dg-header-bg` when the token is unset, so non-Excel themes remain visually consistent with their header styling.',
+      },
+    },
+  },
+};

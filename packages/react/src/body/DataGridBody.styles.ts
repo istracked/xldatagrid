@@ -1,19 +1,44 @@
+/**
+ * Inline-style factories consumed by {@link ./DataGridBody}.
+ *
+ * Each export returns a `React.CSSProperties` object (or is a static one) and
+ * is applied via the `style` prop rather than a CSS class. The body
+ * intentionally uses inline styles so that per-row values (height, width,
+ * offset, frozen-left offset, selection and error state) can be computed at
+ * render time without a CSS-in-JS runtime. CSS custom properties
+ * (`var(--dg-*)`) are used for all themable tokens so a host application can
+ * override colours, spacing and borders via its own stylesheet.
+ *
+ * Helpers are grouped by concern (scroll container, data cells, group header
+ * rows, aggregate rows, data rows, row-number overrides, empty state).
+ */
 import type { CSSProperties } from 'react';
 
 // ---------------------------------------------------------------------------
 // Scrollable body
 // ---------------------------------------------------------------------------
 
+/** Static style for the outer scroll container that owns the vertical (and
+ *  horizontal) scroll. `position: relative` is required so absolutely-
+ *  positioned virtualised rows inside {@link virtualizedBodyWrapper} anchor
+ *  to it. */
 export const scrollableBody: CSSProperties = {
   flex: 1,
   overflow: 'auto',
   position: 'relative',
 };
 
+/** Wrapper for the grouped render path. Grouped rendering does not use
+ *  virtualisation, so only the total width is fixed; height flows from the
+ *  stacked group / aggregate / data rows. */
 export const groupedBodyWrapper = (totalWidth: number): CSSProperties => ({
   width: totalWidth,
 });
 
+/** Spacer wrapper for the virtualised (non-grouped) render path. Its height
+ *  equals `totalSize` from the virtualiser so the scrollbar thumb reflects
+ *  the full dataset; individual rows are placed inside via
+ *  `position: absolute; top: rowIdx * rowHeight`. */
 export const virtualizedBodyWrapper = (
   totalHeight: number,
   totalWidth: number,
@@ -27,6 +52,9 @@ export const virtualizedBodyWrapper = (
 // Cells
 // ---------------------------------------------------------------------------
 
+/** Style for a single data cell. Encodes fixed width (no flex growth),
+ *  selection outline, validation-error border, frozen-column stickiness and
+ *  the editable cursor affordance. */
 export const cell = (opts: {
   width: number;
   height: number;
@@ -56,6 +84,9 @@ export const cell = (opts: {
   background: opts.frozen ? 'var(--dg-header-bg, #f8fafc)' : undefined,
 });
 
+/** Style for the fallback `<input>` editor used when no custom cell renderer
+ *  is configured. Strips the native input chrome so it visually matches the
+ *  surrounding cell. */
 export const cellInput: CSSProperties = {
   width: '100%',
   height: '100%',
@@ -66,12 +97,16 @@ export const cellInput: CSSProperties = {
   background: 'transparent',
 };
 
+/** Style for the read-only display span inside a cell; clips with an
+ *  ellipsis when the formatted value is wider than the cell. */
 export const cellValueText: CSSProperties = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
 };
 
+/** Style for the small inline validation-error label rendered at the bottom
+ *  of a cell whose value failed an error-severity validation. */
 export const validationError: CSSProperties = {
   position: 'absolute',
   bottom: 0,
@@ -85,6 +120,8 @@ export const validationError: CSSProperties = {
 // Row group header
 // ---------------------------------------------------------------------------
 
+/** Style for a row-group header row. `depth` indents the label to reflect
+ *  nesting when multiple group levels are configured. */
 export const groupHeaderRow = (opts: {
   height: number;
   totalWidth: number;
@@ -102,10 +139,13 @@ export const groupHeaderRow = (opts: {
   boxSizing: 'border-box',
 });
 
+/** Style for the expand/collapse triangle glyph inside a group header. */
 export const groupExpandIcon: CSSProperties = {
   marginRight: 8,
 };
 
+/** Style for the `(N)` group member count shown next to a group header
+ *  label. */
 export const groupCount: CSSProperties = {
   marginLeft: 8,
   color: '#94a3b8',
@@ -115,6 +155,8 @@ export const groupCount: CSSProperties = {
 // Aggregate row
 // ---------------------------------------------------------------------------
 
+/** Style for the aggregate row that follows an expanded group header when
+ *  `rowGroupConfig.aggregates` is configured. */
 export const groupAggregateRow = (height: number, totalWidth: number): CSSProperties => ({
   display: 'flex',
   height,
@@ -124,6 +166,9 @@ export const groupAggregateRow = (height: number, totalWidth: number): CSSProper
   fontStyle: 'italic',
 });
 
+/** Style for a single cell inside the aggregate row. Mirrors the data-cell
+ *  box model (fixed width, right border, padding) but without selection or
+ *  error chrome. */
 export const aggregateCell = (width: number): CSSProperties => ({
   width,
   minWidth: width,
@@ -139,6 +184,9 @@ export const aggregateCell = (width: number): CSSProperties => ({
 // Data rows
 // ---------------------------------------------------------------------------
 
+/** Style for a data row on the grouped render path. Uses normal flow (no
+ *  absolute positioning) since grouped rendering does not virtualise.
+ *  `isEven` selects the zebra-striping background token. */
 export const dataRow = (opts: {
   height: number;
   totalWidth: number;
@@ -153,6 +201,9 @@ export const dataRow = (opts: {
     : 'var(--dg-row-bg-alt, #f8fafc)',
 });
 
+/** Style for a data row on the virtualised (non-grouped) render path.
+ *  Absolutely positioned at `top` inside the virtualised wrapper so rows
+ *  outside `rowRange` can be skipped entirely. */
 export const virtualizedRow = (opts: {
   height: number;
   totalWidth: number;
@@ -171,9 +222,31 @@ export const virtualizedRow = (opts: {
 });
 
 // ---------------------------------------------------------------------------
+// Row number chrome overrides for left (sticky) positioning
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns style overrides for the row-number cell when it is anchored on the
+ * left side of the data cells. Makes the cell `position: sticky` so it remains
+ * pinned during horizontal scroll. `stickyLeft` should be `controlsWidth` when
+ * the controls column is also pinned-left, otherwise `0`.
+ */
+export const rowNumberCellLeft = (
+  _width: number,
+  _height: number,
+  stickyLeft: number,
+): CSSProperties => ({
+  position: 'sticky',
+  left: stickyLeft,
+  zIndex: 5,
+});
+
+// ---------------------------------------------------------------------------
 // Empty state
 // ---------------------------------------------------------------------------
 
+/** Style for the "No data" placeholder shown when `processedData` is
+ *  empty on the non-grouped render path. */
 export const emptyState: CSSProperties = {
   padding: 24,
   textAlign: 'center',

@@ -66,20 +66,41 @@ export type SortState = SortDescriptor[];
  *
  * Operators range from simple equality checks (`eq`, `neq`) through relational
  * comparisons (`gt`, `gte`, `lt`, `lte`), string matching (`contains`,
- * `startsWith`, `endsWith`), range testing (`between`), and null checks
- * (`isNull`, `isNotNull`).
+ * `startsWith`, `endsWith`), range testing (`between`), null checks
+ * (`isNull`, `isNotNull`), and value-list membership (`in`, `notIn`).
+ *
+ * The `in` / `notIn` operators back the Excel 365-style column filter menu:
+ * the user picks a set of distinct values from a checklist and rows are kept
+ * (or dropped) based on set membership. They expect the descriptor's `value`
+ * to be either a `string[]` or a `Set<string>`; see {@link FilterDescriptor}
+ * for the runtime semantics and the sentinel `'(blanks)'` convention used to
+ * match empty cells.
  */
-export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'startsWith' | 'endsWith' | 'between' | 'isNull' | 'isNotNull';
+export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'startsWith' | 'endsWith' | 'between' | 'isNull' | 'isNotNull' | 'in' | 'notIn';
 
 /**
  * A single-field filter predicate.
+ *
+ * The shape of `value` is operator-dependent:
+ * - scalar operators (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`,
+ *   `startsWith`, `endsWith`) expect a single reference value of a type
+ *   compatible with the cell being tested;
+ * - `between` expects a two-element `[min, max]` tuple (inclusive bounds);
+ * - `isNull` / `isNotNull` ignore `value` entirely;
+ * - `in` / `notIn` expect either an array of strings or a `Set<string>` of
+ *   allowed values. Cells are coerced to strings (via `String(cell)`) before
+ *   comparison, comparison is case-sensitive, and the literal string
+ *   `'(blanks)'` inside the list matches `null`, `undefined`, and `''`.
  */
 export interface FilterDescriptor {
   /** The data-field name to filter on. */
   field: string;
   /** The comparison operator. */
   operator: FilterOperator;
-  /** The reference value (or value pair for `between`). */
+  /**
+   * The reference value. Its concrete type depends on {@link operator};
+   * see the interface docstring for the per-operator contract.
+   */
   value: unknown;
 }
 
@@ -87,7 +108,11 @@ export interface FilterDescriptor {
  * A recursive, tree-structured filter expression that combines leaf
  * {@link FilterDescriptor} nodes with boolean logic (`and` / `or`).
  *
- * Nesting allows arbitrarily complex filter predicates to be expressed.
+ * Nesting allows arbitrarily complex filter predicates to be expressed: each
+ * entry in `filters` may itself be a composite, so the tree has no depth
+ * limit. Evaluation is short-circuit-free — every child is visited — but
+ * the precompile step in `applyFiltering` hoists expensive value-list targets
+ * into `Set`s once per call so per-row cost stays O(1) regardless of depth.
  */
 export interface CompositeFilterDescriptor {
   /** Boolean combinator applied to child filters. */
@@ -721,13 +746,18 @@ export interface RowGroup {
 // ---------------------------------------------------------------------------
 
 /**
- * Configuration for the optional chrome columns that flank the data columns:
- * a controls column on the far left and a row-number column on the far right.
+ * Configuration for the optional chrome columns that flank the data columns.
+ *
+ * Chrome columns are non-data presentation columns rendered outside the
+ * user's schema: a controls column (pinned on the far left) and a row-number
+ * gutter (side is configurable via {@link RowNumberColumnConfig.position}).
+ * Each slot accepts either a boolean (quick enable/disable with defaults) or
+ * a configuration object for fine-grained control.
  */
 export interface ChromeColumnsConfig {
   /** Far-left action column (e.g. magnifying glass, expand). */
   controls?: ControlsColumnConfig | boolean;
-  /** Far-right Excel-style row number column with selection and reorder. */
+  /** Excel-style row number column with selection and reorder. Positioned via `RowNumberColumnConfig.position` (default: 'left'). */
   rowNumbers?: RowNumberColumnConfig | boolean;
 }
 
@@ -758,7 +788,16 @@ export interface ControlAction {
 }
 
 /**
- * Configuration for the row-number column rendered at the far right of the grid.
+ * Configuration for the Excel-style row-number column.
+ *
+ * The column renders a gutter of row numbers used for whole-row selection,
+ * drag-to-reorder handles, and as a visual anchor during scrolling. It can be
+ * anchored on either side of the data cells via
+ * {@link RowNumberColumnConfig.position}; the default `'left'` matches the
+ * Excel 365 convention and keeps the gutter sticky during horizontal scrolls.
+ *
+ * The cell background is themed via the `--dg-row-number-bg` CSS token
+ * (default `#f3f2f1`, matching the Excel 365 gutter colour).
  */
 export interface RowNumberColumnConfig {
   /** Width in pixels. Default: 50. */
@@ -767,6 +806,13 @@ export interface RowNumberColumnConfig {
   widthMode?: 'auto' | 'fixed';
   /** Whether rows can be reordered by dragging the row number cell. Default: true. */
   reorderable?: boolean;
+  /**
+   * Which side of the data cells the gutter renders on. Default: `'left'`
+   * (Excel 365 convention). When `'left'`, the cell is also sticky-left
+   * so horizontal scrolling keeps the gutter pinned; when `'right'`, the
+   * gutter floats after the last data column and scrolls with it.
+   */
+  position?: 'left' | 'right';
 }
 
 // ---------------------------------------------------------------------------

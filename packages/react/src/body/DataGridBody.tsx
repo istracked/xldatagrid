@@ -1,3 +1,38 @@
+/**
+ * DataGridBody — the virtualised body renderer for the data grid.
+ *
+ * Responsibilities:
+ *  - Drive the virtualisation loop for the non-grouped render path: compute
+ *    which rows fall inside `rowRange` and absolutely-position each visible
+ *    row at `rowIdx * rowHeight` inside a sized spacer.
+ *  - Drive the grouped render path: walk `groupedView` and emit group header
+ *    rows, optional aggregate rows, and data rows, honouring the collapsed /
+ *    expanded state in `rowGroupExpanded`.
+ *  - Compose the per-row chrome columns around the data cells. Each rendered
+ *    row has (optionally) a `ChromeControlsCell`, a `ChromeRowNumberCell`,
+ *    the data cells from `orderedVisibleColumns`, and — depending on the
+ *    configured row-number `position` — the row-number cell on the left or
+ *    on the right of the data cells.
+ *  - Render each data cell via the `renderCell` closure, which handles cell
+ *    selection, the double-click-to-edit interaction, invocation of custom
+ *    `cellRenderers`, the fallback `<input>` editor, validation display,
+ *    frozen-column sticky offsets, and the context-menu hook.
+ *  - Integrate the `GhostRow` for the blank append-row slot, positioning it
+ *    at the top or bottom of either the grouped or virtualised wrapper
+ *    according to `ghostRowConfig.position`.
+ *  - Forward drag/drop events from the row-number cell (row reordering) and
+ *    context-menu events from the row container (row-level menu) up to the
+ *    owning `DataGrid`.
+ *
+ * Related modules:
+ *  - {@link ../DataGrid} — the owning component that wires model state,
+ *    virtualisation and keyboard handling and renders this component.
+ *  - {@link ../chrome/ChromeControlsCell} and
+ *    {@link ../chrome/ChromeRowNumberCell} — the pinned chrome column cells.
+ *  - {@link ../GhostRow} — the appendable blank row at top/bottom.
+ *  - {@link ./DataGridBody.styles} — inline CSSProperties factories used
+ *    across both render paths.
+ */
 import React from 'react';
 import {
   ColumnDef,
@@ -51,6 +86,30 @@ function resolveGhostPosition<T extends Record<string, unknown> = Record<string,
 // Props
 // ---------------------------------------------------------------------------
 
+/**
+ * Props for {@link DataGridBody}.
+ *
+ * The body is a controlled renderer: the owning `DataGrid` owns all state
+ * (selection, editing, grouping, virtualisation range, validation) and passes
+ * it down through these props. The body emits user intent back via the
+ * `onCellEdit`, `onValidationError`, `onContextMenu`, `onGroupToggle`,
+ * `onGroupChange`, `onRowNumberClick`, `onRowDrag*`, `onRowDrop` and
+ * `onRowAdd` callbacks.
+ *
+ * Props are grouped by concern below; the non-trivial ones:
+ *  - **Virtualization** — `rowRange` defines the currently-visible slice and
+ *    `totalSize` the scroll spacer. `scrollRef` / `handleScroll` let the
+ *    parent observe scroll events.
+ *  - **Grouping** — `groupedView` is the pre-computed flat list of group
+ *    header / aggregate / data rows. When non-null the grouped render path is
+ *    taken (no virtualisation).
+ *  - **Chrome columns** — `controlsConfig` and `rowNumberConfig` turn the
+ *    respective pinned chrome columns on; their widths and click/drag hooks
+ *    are supplied separately so the body can remain agnostic of how the
+ *    owning grid wires row-selection and reordering behaviour.
+ *  - **Ghost row** — `ghostRowConfig` may be a boolean or a config object and
+ *    its `position` (top/bottom) is resolved via `resolveGhostPosition`.
+ */
 export interface DataGridBodyProps<TData extends Record<string, unknown>> {
   // Data
   processedData: TData[];
@@ -163,6 +222,77 @@ export function DataGridBody<TData extends Record<string, unknown>>(
 
   const ghostPosition = showGhostRow ? resolveGhostPosition(ghostRowConfig) : 'bottom';
   const ghostAtTop = ghostPosition === 'top' && showGhostRow;
+
+  // Row-number chrome column position.
+  //
+  // Defaults to 'left' to match the Excel 365 convention: row numbers sit to
+  // the left of the data cells, immediately after the (optional) controls
+  // column. Consumers that want the legacy layout (row numbers pinned at the
+  // far right of the row) set `rowNumberConfig.position = 'right'`.
+  //
+  // Render order within a row is:
+  //   position: 'left'  →  [controls] [row-number] [data cells...]
+  //   position: 'right' →  [controls] [data cells...] [row-number]
+  //
+  // `rowNumberOnLeft` is cached here because both render paths (grouped and
+  // non-grouped) branch on it twice per row and we want a single source of
+  // truth.
+  const rowNumberPosition: 'left' | 'right' = rowNumberConfig?.position ?? 'left';
+  const rowNumberOnLeft = rowNumberPosition === 'left';
+
+  // -------------------------------------------------------------------------
+  // Render helper: row-number chrome cell (shared across both body paths)
+  // -------------------------------------------------------------------------
+
+  // Horizontal offset at which the row-number cell should be `position:
+  // sticky` when rendered on the left. The row-number gutter must stay
+  // visible during horizontal scroll (Excel-style) *and* must not overlap the
+  // controls column when one is configured. The offset therefore is:
+  //
+  //   - `controlsWidth ?? 40`  when a controls column is active (the default
+  //                            controls-column width is 40px), so the sticky
+  //                            row-number cell is pinned immediately to the
+  //                            right of the controls column.
+  //   - `0`                    when no controls column is configured; the
+  //                            row-number cell pins to the left edge.
+  //   - `undefined`            when the row number is rendered on the right;
+  //                            the cell does not need sticky-left positioning
+  //                            in that case (the chrome cell omits the
+  //                            sticky style when `stickyLeft` is undefined).
+  const rowNumberStickyLeft = rowNumberOnLeft
+    ? (controlsConfig ? (controlsWidth ?? 40) : 0)
+    : undefined;
+
+  // Render the row-number chrome cell for a given row.
+  //
+  // Factored into a helper so the grouped and non-grouped render paths can
+  // share identical props/key/offset wiring and to keep the two call sites
+  // (left-of-data and right-of-data) symmetrical. Returns null when the
+  // caller hasn't opted into row numbers — both the config object and a
+  // click handler are required before a cell is rendered, matching the
+  // pre-refactor behaviour.
+  //
+  // The `key="__row-number__"` is stable across re-renders and distinct from
+  // any column `field` value so React can reconcile this child independently
+  // of the data-cell list whose keys are `col.field`.
+  const renderRowNumberCell = (rowId: string, rowIdx: number) => {
+    if (!rowNumberConfig || !onRowNumberClick) return null;
+    return (
+      <ChromeRowNumberCell
+        key="__row-number__"
+        rowNumber={rowIdx + 1}
+        rowId={rowId}
+        width={rowNumberWidth ?? 50}
+        height={rowHeight}
+        reorderable={rowNumberConfig.reorderable !== false}
+        stickyLeft={rowNumberStickyLeft}
+        onSelect={onRowNumberClick}
+        onDragStart={onRowDragStart}
+        onDragOver={onRowDragOver}
+        onDrop={onRowDrop}
+      />
+    );
+  };
 
   // -------------------------------------------------------------------------
   // Find row by ID helper
@@ -385,22 +515,11 @@ export function DataGridBody<TData extends Record<string, unknown>>(
                 height={rowHeight}
               />
             )}
+            {rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
             {orderedVisibleColumns.map((col, colIdx) =>
               renderCell(col, colIdx, row, rowId, rowIdx)
             )}
-            {rowNumberConfig && onRowNumberClick && (
-              <ChromeRowNumberCell
-                rowNumber={rowIdx + 1}
-                rowId={rowId}
-                width={rowNumberWidth ?? 50}
-                height={rowHeight}
-                reorderable={rowNumberConfig.reorderable !== false}
-                onSelect={onRowNumberClick}
-                onDragStart={onRowDragStart}
-                onDragOver={onRowDragOver}
-                onDrop={onRowDrop}
-              />
-            )}
+            {!rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
           </div>
         );
       }
@@ -450,22 +569,11 @@ export function DataGridBody<TData extends Record<string, unknown>>(
               height={rowHeight}
             />
           )}
+          {rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
           {orderedVisibleColumns.map((col, colIdx) =>
             renderCell(col, colIdx, row, rowId, rowIdx)
           )}
-          {rowNumberConfig && onRowNumberClick && (
-            <ChromeRowNumberCell
-              rowNumber={rowIdx + 1}
-              rowId={rowId}
-              width={rowNumberWidth ?? 50}
-              height={rowHeight}
-              reorderable={rowNumberConfig.reorderable !== false}
-              onSelect={onRowNumberClick}
-              onDragStart={onRowDragStart}
-              onDragOver={onRowDragOver}
-              onDrop={onRowDrop}
-            />
-          )}
+          {!rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
         </div>
       );
     });

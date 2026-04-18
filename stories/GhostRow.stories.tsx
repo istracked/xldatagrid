@@ -12,6 +12,14 @@ const meta: Meta = {
 export default meta;
 
 export const BottomGhostRow: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Bottom ghost row for inserting new records. When a row-number gutter is enabled, the ghost row renders below the last data row and the left-sticky gutter continues to run alongside it.',
+      },
+    },
+  },
   render: () => {
     const [log, setLog] = useState<string[]>([]);
     return (

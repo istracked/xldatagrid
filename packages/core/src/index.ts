@@ -1,12 +1,20 @@
 /**
  * Public entry point for the `@datagrid/core` package.
  *
- * Re-exports every public symbol from the core sub-modules so that consumers
- * can import everything from a single path:
+ * This barrel is the single import surface consumed by downstream packages
+ * (notably `@istracked/datagrid-react`) and by application code embedding the
+ * grid directly. It stitches together the framework-agnostic building blocks
+ * of the data grid — state containers, selection and sort engines, the plugin
+ * host, and the persisted search-index primitives — so that every public
+ * symbol from any sub-module is reachable from a single import path:
  *
  * ```ts
  * import { EventBus, GridConfig, ColumnDef } from '@datagrid/core';
  * ```
+ *
+ * The re-export order is intentionally bottom-up: leaf types first, then
+ * feature modules that depend on them, then cross-cutting subsystems like
+ * plugins and undo/redo that observe the rest.
  *
  * Modules re-exported:
  * - **types** — shared interfaces, type aliases, and enumerations.
@@ -22,21 +30,39 @@
  * - **grouping** — row and column grouping engine.
  * - **plugin** — extension loading and lifecycle orchestration.
  * - **undo-redo** — command-based undo/redo stack.
+ * - **transposed** — form-mode (field-per-row) grid configuration helpers.
+ * - **search-index** — prefix trie, column-index builders, and IDB adapter.
  *
  * @module core
  */
 
+// Foundational interfaces, enums, and type aliases that every other module below depends on.
 export * from './types';
+// Publish/subscribe EventBus used as the spine for cross-subsystem communication.
 export * from './events';
+// Grid state container — rows, pagination state, row-level lifecycle.
 export * from './grid-model';
+// Column definition resolution, width/pin normalization, and related helpers.
 export * from './column-model';
+// Active cell and range selection models plus keyboard-driven selection transitions.
 export * from './selection';
+// Sort-state container, comparator factories, and multi-column sort coordination.
 export * from './sorting';
+// Filter predicate types, evaluation, and active-filter bookkeeping.
 export * from './filtering';
+// Viewport-aware row/column virtualization primitives for large datasets.
 export * from './virtualization';
+// Cell-editing lifecycle: begin/commit/cancel edits and value validation hooks.
 export * from './editing';
+// Clipboard serialization and parsing for copy/paste interoperability with spreadsheets.
 export * from './clipboard';
+// Row and column grouping engine, including aggregation scaffolding.
 export * from './grouping';
+// Plugin host: registration, dependency resolution, and lifecycle orchestration.
 export * from './plugin';
+// Command-based undo/redo stack built on top of the event bus.
 export * from './undo-redo';
+// Form-mode helpers that derive a standard GridConfig from a TransposedGridConfig.
 export * from './transposed';
+// Per-column search indexing: prefix trie, builders, and the IndexedDB persistence adapter.
+export * from './search-index';

@@ -1,3 +1,21 @@
+/**
+ * Behavioural tests for the filtering module.
+ *
+ * Covers the three public entry points of `../filtering`:
+ * - `evaluateFilter` — per-operator leaf semantics, including the Excel-style
+ *   `in` / `notIn` value-list operators and the `'(blanks)'` sentinel used to
+ *   match empty cells.
+ * - `evaluateCompositeFilter` — AND / OR combination of leaves, including
+ *   arbitrarily nested composites.
+ * - `applyFiltering` — row-level integration, reference-identity fast paths
+ *   for the no-op case, and the `Set`-precompile path that accelerates
+ *   `in` / `notIn` without mutating the caller's descriptor.
+ *
+ * Each `describe` block groups tests around a single invariant so regressions
+ * stay scoped. Fixture data and assertions below must not be edited by any
+ * automated docstring pass.
+ */
+
 import { evaluateFilter, evaluateCompositeFilter, applyFiltering } from '../filtering';
 import { FilterDescriptor, CompositeFilterDescriptor } from '../types';
 
@@ -5,6 +23,8 @@ import { FilterDescriptor, CompositeFilterDescriptor } from '../types';
 // evaluateFilter
 // ---------------------------------------------------------------------------
 
+// String operators (`eq`, `neq`, `contains`, `startsWith`, `endsWith`) must be
+// case-insensitive for substring matching and must not throw on empty targets.
 describe('evaluateFilter — text operators', () => {
   const f = (operator: FilterDescriptor['operator'], value: unknown): FilterDescriptor => ({
     field: 'name',
@@ -69,6 +89,8 @@ describe('evaluateFilter — text operators', () => {
   });
 });
 
+// Relational (`gt`, `gte`, `lt`, `lte`) and range (`between`) operators on
+// numbers. `between` must reject malformed targets (non-array or wrong arity).
 describe('evaluateFilter — numeric operators', () => {
   const f = (operator: FilterDescriptor['operator'], value: unknown): FilterDescriptor => ({
     field: 'score',
@@ -121,6 +143,8 @@ describe('evaluateFilter — numeric operators', () => {
   });
 });
 
+// Equality on boolean cells: strict `===` without truthiness coercion, so
+// `true` only matches `true` and `false` only matches `false`.
 describe('evaluateFilter — boolean operators', () => {
   const f = (value: unknown): FilterDescriptor => ({ field: 'active', operator: 'eq', value });
 
@@ -141,6 +165,9 @@ describe('evaluateFilter — boolean operators', () => {
   });
 });
 
+// Date comparisons: equality uses epoch milliseconds (so two `Date` objects
+// with the same instant match), and relational ops delegate to the native
+// `Date` ordering.
 describe('evaluateFilter — Date operators', () => {
   const d1 = new Date('2022-01-01');
   const d2 = new Date('2023-06-15');
@@ -167,6 +194,9 @@ describe('evaluateFilter — Date operators', () => {
   });
 });
 
+// Null-presence operators treat `null` and `undefined` identically (via
+// `v == null`), and relational ops must short-circuit to `false` rather than
+// comparing against null/undefined and producing surprising results.
 describe('evaluateFilter — null operators', () => {
   it('isNull passes for null', () => {
     expect(evaluateFilter(null, { field: 'x', operator: 'isNull', value: null })).toBe(true);
@@ -198,9 +228,161 @@ describe('evaluateFilter — null operators', () => {
 });
 
 // ---------------------------------------------------------------------------
+// evaluateFilter — value-list membership (in / notIn)
+// ---------------------------------------------------------------------------
+
+// Value-list membership operators used by the Excel 365 filter menu.
+// Cells are coerced via `String(cell)` (so the number `42` matches the
+// string `'42'`), comparison is case-sensitive, `'(blanks)'` is a sentinel
+// for null/undefined/empty, a non-array `value` is treated as a one-element
+// list, and a `Set<string>` target is accepted as a pre-built fast path.
+describe('evaluateFilter — in / notIn', () => {
+  const f = (operator: FilterDescriptor['operator'], value: unknown): FilterDescriptor => ({
+    field: 'category',
+    operator,
+    value,
+  });
+
+  it("'in' matches when value is in array", () => {
+    expect(evaluateFilter('A', f('in', ['A', 'B', 'C']))).toBe(true);
+    expect(evaluateFilter('D', f('in', ['A', 'B', 'C']))).toBe(false);
+  });
+
+  it("'in' with string array matches numeric cell (\"42\" in [\"42\"])", () => {
+    expect(evaluateFilter(42, f('in', ['42']))).toBe(true);
+    expect(evaluateFilter(42, f('in', ['7']))).toBe(false);
+  });
+
+  it("'in' with Date cell coerces to its String() representation", () => {
+    const d = new Date('2023-06-15');
+    expect(evaluateFilter(d, f('in', [String(d)]))).toBe(true);
+  });
+
+  it("'in' is case-sensitive", () => {
+    expect(evaluateFilter('Alice', f('in', ['alice']))).toBe(false);
+    expect(evaluateFilter('Alice', f('in', ['Alice']))).toBe(true);
+  });
+
+  it("'in' with empty array never matches", () => {
+    expect(evaluateFilter('A', f('in', []))).toBe(false);
+    expect(evaluateFilter(null, f('in', []))).toBe(false);
+    expect(evaluateFilter('', f('in', []))).toBe(false);
+  });
+
+  it("'in' including '(blanks)' matches null and undefined cells", () => {
+    expect(evaluateFilter(null, f('in', ['A', '(blanks)']))).toBe(true);
+    expect(evaluateFilter(undefined, f('in', ['A', '(blanks)']))).toBe(true);
+    expect(evaluateFilter('', f('in', ['A', '(blanks)']))).toBe(true);
+  });
+
+  it("'in' without '(blanks)' does NOT match null/undefined/empty cells", () => {
+    expect(evaluateFilter(null, f('in', ['A', 'B']))).toBe(false);
+    expect(evaluateFilter(undefined, f('in', ['A', 'B']))).toBe(false);
+    expect(evaluateFilter('', f('in', ['A', 'B']))).toBe(false);
+  });
+
+  it("'notIn' negates 'in'", () => {
+    expect(evaluateFilter('A', f('notIn', ['A', 'B']))).toBe(false);
+    expect(evaluateFilter('C', f('notIn', ['A', 'B']))).toBe(true);
+    expect(evaluateFilter(42, f('notIn', ['42']))).toBe(false);
+    expect(evaluateFilter(7, f('notIn', ['42']))).toBe(true);
+  });
+
+  it("'notIn' including '(blanks)' excludes blank cells", () => {
+    expect(evaluateFilter(null, f('notIn', ['(blanks)']))).toBe(false);
+    expect(evaluateFilter(undefined, f('notIn', ['(blanks)']))).toBe(false);
+    expect(evaluateFilter('', f('notIn', ['(blanks)']))).toBe(false);
+    expect(evaluateFilter('A', f('notIn', ['(blanks)']))).toBe(true);
+  });
+
+  it("'notIn' without '(blanks)' keeps blank cells", () => {
+    expect(evaluateFilter(null, f('notIn', ['A']))).toBe(true);
+    expect(evaluateFilter(undefined, f('notIn', ['A']))).toBe(true);
+    expect(evaluateFilter('', f('notIn', ['A']))).toBe(true);
+  });
+
+  it("'in' coerces non-array filter.value to [String(value)]", () => {
+    expect(evaluateFilter('A', f('in', 'A'))).toBe(true);
+    expect(evaluateFilter('B', f('in', 'A'))).toBe(false);
+    expect(evaluateFilter(42, f('in', 42))).toBe(true);
+    expect(evaluateFilter(7, f('in', 42))).toBe(false);
+  });
+
+  it("'notIn' coerces non-array filter.value to [String(value)]", () => {
+    expect(evaluateFilter('A', f('notIn', 'A'))).toBe(false);
+    expect(evaluateFilter('B', f('notIn', 'A'))).toBe(true);
+  });
+
+  it("evaluateCompositeFilter still works when composite contains an 'in' clause (AND)", () => {
+    const filter: CompositeFilterDescriptor = {
+      logic: 'and',
+      filters: [
+        { field: 'active', operator: 'eq', value: true },
+        { field: 'role', operator: 'in', value: ['admin', 'editor'] },
+      ],
+    };
+    expect(evaluateCompositeFilter({ active: true, role: 'admin' }, filter)).toBe(true);
+    expect(evaluateCompositeFilter({ active: true, role: 'guest' }, filter)).toBe(false);
+    expect(evaluateCompositeFilter({ active: false, role: 'admin' }, filter)).toBe(false);
+  });
+
+  it("evaluateCompositeFilter still works when composite contains an 'in' clause (OR)", () => {
+    const filter: CompositeFilterDescriptor = {
+      logic: 'or',
+      filters: [
+        { field: 'role', operator: 'in', value: ['admin', 'editor'] },
+        { field: 'age', operator: 'gt', value: 50 },
+      ],
+    };
+    expect(evaluateCompositeFilter({ role: 'admin', age: 30 }, filter)).toBe(true);
+    expect(evaluateCompositeFilter({ role: 'guest', age: 60 }, filter)).toBe(true);
+    expect(evaluateCompositeFilter({ role: 'guest', age: 30 }, filter)).toBe(false);
+  });
+
+  // The fast-path: callers (and the applyFiltering precompile step) may pass a
+  // pre-built Set for O(1) membership testing instead of an array.
+  it("'in' accepts a Set<string> target with the same semantics as an array", () => {
+    expect(evaluateFilter('A', f('in', new Set(['A', 'B', 'C'])))).toBe(true);
+    expect(evaluateFilter('D', f('in', new Set(['A', 'B', 'C'])))).toBe(false);
+    expect(evaluateFilter(42, f('in', new Set(['42'])))).toBe(true);
+    expect(evaluateFilter(7, f('in', new Set(['42'])))).toBe(false);
+  });
+
+  it("'in' with empty Set never matches", () => {
+    expect(evaluateFilter('A', f('in', new Set()))).toBe(false);
+    expect(evaluateFilter(null, f('in', new Set()))).toBe(false);
+    expect(evaluateFilter('', f('in', new Set()))).toBe(false);
+  });
+
+  it("'in' Set including '(blanks)' matches null/undefined/empty cells", () => {
+    expect(evaluateFilter(null, f('in', new Set(['A', '(blanks)'])))).toBe(true);
+    expect(evaluateFilter(undefined, f('in', new Set(['A', '(blanks)'])))).toBe(true);
+    expect(evaluateFilter('', f('in', new Set(['A', '(blanks)'])))).toBe(true);
+    expect(evaluateFilter(null, f('in', new Set(['A', 'B'])))).toBe(false);
+  });
+
+  it("'notIn' accepts a Set<string> target with the same semantics as an array", () => {
+    expect(evaluateFilter('A', f('notIn', new Set(['A', 'B'])))).toBe(false);
+    expect(evaluateFilter('C', f('notIn', new Set(['A', 'B'])))).toBe(true);
+    expect(evaluateFilter(42, f('notIn', new Set(['42'])))).toBe(false);
+    expect(evaluateFilter(7, f('notIn', new Set(['42'])))).toBe(true);
+  });
+
+  it("'notIn' Set including '(blanks)' excludes blank cells", () => {
+    expect(evaluateFilter(null, f('notIn', new Set(['(blanks)'])))).toBe(false);
+    expect(evaluateFilter(undefined, f('notIn', new Set(['(blanks)'])))).toBe(false);
+    expect(evaluateFilter('', f('notIn', new Set(['(blanks)'])))).toBe(false);
+    expect(evaluateFilter('A', f('notIn', new Set(['(blanks)'])))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // evaluateCompositeFilter
 // ---------------------------------------------------------------------------
 
+// Composite evaluation combines leaf results with AND / OR and recurses
+// through nested composites. Assertions cover pass/fail for both combinators
+// and confirm arbitrarily nested trees evaluate correctly.
 describe('evaluateCompositeFilter', () => {
   it('AND logic passes when all filters match', () => {
     const filter: CompositeFilterDescriptor = {
@@ -270,6 +452,10 @@ describe('evaluateCompositeFilter', () => {
 // applyFiltering
 // ---------------------------------------------------------------------------
 
+// Row-level integration: reference-identity fast paths for the no-op case,
+// non-mutation of caller state, and the `Set`-precompile path that turns
+// `in` / `notIn` array targets into O(1) membership tests without ever
+// touching the caller's descriptor.
 describe('applyFiltering', () => {
   const data = [
     { id: 1, name: 'Alice', age: 30, active: true },
@@ -341,5 +527,68 @@ describe('applyFiltering', () => {
     };
     applyFiltering(data, filter);
     expect(data).toEqual(original);
+  });
+
+  // The Set precompile path: applyFiltering must produce identical results to
+  // the array path, must not mutate the caller's descriptor, and must work for
+  // 'in' nested inside composites.
+  it("filters with 'in' value-list operator (array target)", () => {
+    const filter: CompositeFilterDescriptor = {
+      logic: 'and',
+      filters: [{ field: 'name', operator: 'in', value: ['Alice', 'Charlie'] }],
+    };
+    const result = applyFiltering(data, filter);
+    expect(result.map(r => r.name)).toEqual(['Alice', 'Charlie']);
+  });
+
+  it("filters with 'in' value-list operator (Set target, same result as array)", () => {
+    const filter: CompositeFilterDescriptor = {
+      logic: 'and',
+      filters: [{ field: 'name', operator: 'in', value: new Set(['Alice', 'Charlie']) }],
+    };
+    const result = applyFiltering(data, filter);
+    expect(result.map(r => r.name)).toEqual(['Alice', 'Charlie']);
+  });
+
+  it("filters with 'notIn' value-list operator", () => {
+    const filter: CompositeFilterDescriptor = {
+      logic: 'and',
+      filters: [{ field: 'name', operator: 'notIn', value: ['Bob', 'Diana'] }],
+    };
+    const result = applyFiltering(data, filter);
+    expect(result.map(r => r.name)).toEqual(['Alice', 'Charlie']);
+  });
+
+  it("does not mutate caller's filter descriptor when precompiling 'in' arrays to Sets", () => {
+    const arrayValue = ['Alice', 'Charlie'];
+    const inLeaf = { field: 'name', operator: 'in' as const, value: arrayValue };
+    const filter: CompositeFilterDescriptor = {
+      logic: 'and',
+      filters: [inLeaf],
+    };
+    applyFiltering(data, filter);
+    // Caller's descriptor and value array remain untouched.
+    expect(inLeaf.value).toBe(arrayValue);
+    expect(Array.isArray(inLeaf.value)).toBe(true);
+    expect(arrayValue).toEqual(['Alice', 'Charlie']);
+    expect(filter.filters[0]).toBe(inLeaf);
+  });
+
+  it("precompiles 'in' inside nested composite filters", () => {
+    const filter: CompositeFilterDescriptor = {
+      logic: 'and',
+      filters: [
+        { field: 'active', operator: 'eq', value: true },
+        {
+          logic: 'or',
+          filters: [
+            { field: 'name', operator: 'in', value: ['Alice'] },
+            { field: 'age', operator: 'gt', value: 40 },
+          ],
+        },
+      ],
+    };
+    const result = applyFiltering(data, filter);
+    expect(result.map(r => r.name)).toEqual(['Alice', 'Charlie']);
   });
 });
