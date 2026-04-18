@@ -1,4 +1,12 @@
-# xldatagrid
+# iAsBuilt - xldatagrid
+
+
+<p align="center" style="background-color: white; border-radius: 15px; display: inline-block; padding: 10px;">
+    <!-- simple logo -->
+    <img src="https://iasbuilt.com/images/logo-negative.svg" alt="iAsBuilt Logo" width="200" />
+    </br></br></br></br>
+</p>
+
 
 A high-performance, fully-featured datagrid component library for React 19. Built as a pnpm monorepo with a framework-agnostic core, a React rendering layer, a plugin-based extension system, and first-class Material UI integration.
 
