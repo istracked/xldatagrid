@@ -140,18 +140,35 @@ export const masterDetailPre: CSSProperties = {
 // Theming story
 // ---------------------------------------------------------------------------
 
+// Palette values below are pulled from the ingested `istracked/tokens`
+// presets (`darkThemeTokens` / `lightThemeTokens`) so the Theming story
+// wrappers frame each grid in the same chrome colours the grid itself
+// paints from. Updating the token repo and re-running `pnpm sync:tokens`
+// will flow through here automatically.
+import { darkThemeTokens, lightThemeTokens } from '@istracked/datagrid-react';
+
+const darkRowBg = darkThemeTokens['--dg-row-bg'] ?? '#0f172a';
+const darkTextColor = darkThemeTokens['--dg-text-color'] ?? '#f1f5f9';
+const darkBorderColor = darkThemeTokens['--dg-border-color'] ?? '#334155';
+const darkHeaderBg = darkThemeTokens['--dg-header-bg'] ?? '#1e293b';
+
+const lightRowBg = lightThemeTokens['--dg-row-bg'] ?? '#ffffff';
+const lightTextColor = lightThemeTokens['--dg-text-color'] ?? '#1e293b';
+const lightBorderColor = lightThemeTokens['--dg-border-color'] ?? '#e2e8f0';
+const lightHeaderBg = lightThemeTokens['--dg-header-bg'] ?? '#f8fafc';
+
 export const themingDarkWrapper: CSSProperties = {
-  background: '#0f172a',
-  color: '#f1f5f9',
+  background: darkRowBg,
+  color: darkTextColor,
 };
 
 export const themingDarkGridBorder: CSSProperties = {
-  borderColor: '#334155',
+  borderColor: darkBorderColor,
 };
 
 export const themingSwitcherWrapper = (dark: boolean): CSSProperties => ({
-  background: dark ? '#0f172a' : '#ffffff',
-  color: dark ? '#f1f5f9' : '#1e293b',
+  background: dark ? darkRowBg : lightRowBg,
+  color: dark ? darkTextColor : lightTextColor,
   transition: 'all 0.3s',
 });
 
@@ -160,12 +177,12 @@ export const themingSwitcherButton = (dark: boolean): CSSProperties => ({
   borderRadius: 6,
   border: '1px solid',
   cursor: 'pointer',
-  background: dark ? '#334155' : '#f1f5f9',
-  color: dark ? '#f1f5f9' : '#1e293b',
+  background: dark ? darkHeaderBg : lightHeaderBg,
+  color: dark ? darkTextColor : lightTextColor,
 });
 
 export const themingSwitcherGridBorder = (dark: boolean): CSSProperties => ({
-  borderColor: dark ? '#334155' : '#e2e8f0',
+  borderColor: dark ? darkBorderColor : lightBorderColor,
 });
 
 // ---------------------------------------------------------------------------

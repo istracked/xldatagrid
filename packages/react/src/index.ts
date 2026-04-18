@@ -11,6 +11,7 @@
 export { DataGrid } from './DataGrid';
 export type { DataGridProps, CellRendererProps } from './DataGrid';
 export { resolveThemeStyle, LIGHT_THEME, DARK_THEME } from './DataGrid';
+export { lightThemeTokens, darkThemeTokens, toDatagridThemeTokens } from './styles/tokens';
 export { GhostRow } from './GhostRow';
 export { MasterDetail } from './MasterDetail';
 export type { MasterDetailProps, DetailComponentProps } from './MasterDetail';
