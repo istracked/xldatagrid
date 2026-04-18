@@ -187,9 +187,19 @@ export function resolveThemeStyle(
   theme: 'light' | 'dark' | Record<string, string> | undefined,
 ): React.CSSProperties {
   if (!theme) return {};
-  if (theme === 'light') return LIGHT_THEME as unknown as React.CSSProperties;
-  if (theme === 'dark') return DARK_THEME as unknown as React.CSSProperties;
-  return theme as unknown as React.CSSProperties;
+  if (theme === 'light') return { ...LIGHT_THEME } as unknown as React.CSSProperties;
+  if (theme === 'dark') return { ...DARK_THEME } as unknown as React.CSSProperties;
+  // A string preset we do not recognise (e.g. `"excel365"`) is handled
+  // entirely via CSS — the grid root receives `data-theme="…"` and the
+  // matching stylesheet provides the tokens. Returning the string itself
+  // here would cause callers to spread it as indexed character properties
+  // into `style`, which React DOM then rejects with
+  // `TypeError: Indexed property setter is not supported` inside
+  // `setValueForStyle`. A custom token map is copied into a plain object
+  // for the same reason — callers treat the result as a writable
+  // `React.CSSProperties` bag and must not receive a frozen/exotic object.
+  if (typeof theme === 'string') return {};
+  return { ...theme } as unknown as React.CSSProperties;
 }
 
 export { LIGHT_THEME, DARK_THEME };
