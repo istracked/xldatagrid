@@ -169,6 +169,27 @@ export const rowNumberHeaderCell = (width: number, height: number): CSSPropertie
 });
 
 /**
+ * Icon-wrapper style applied to the optional icon supplied via
+ * `chrome.getChromeCellContent`. The icon sits flush against the text (small
+ * inline-flex wrapper so the icon centres vertically and clips to the cell
+ * height without forcing it to grow).
+ */
+export const rowNumberIcon: CSSProperties = {
+  // Inline-flex so the icon centres with the text baseline.
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  // Small gap before any following text, matching the surrounding typography.
+  marginRight: 4,
+  // Never shrink — text wins the clipping contest first.
+  flexShrink: 0,
+  // Icons sized via their own width/height; constrain here so very large
+  // icons cannot push the cell height beyond the row.
+  maxHeight: '100%',
+  lineHeight: 1,
+};
+
+/**
  * Visual overlay applied to a row-number cell that is the drag source during a
  * row-reorder interaction.
  */

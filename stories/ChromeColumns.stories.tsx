@@ -291,6 +291,160 @@ export const CustomActions: StoryObj = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Row-level chrome APIs (issue #14)
+//
+// The stories below demonstrate the three per-row resolvers that hang off
+// `chrome`: `getRowBorder`, `getRowBackground`, and `getChromeCellContent`.
+// They are the public extension points that downstream features such as
+// row-click selection, Shift+Arrow range highlighting, and the transposed
+// field column build on top of — so each story also shows the single
+// callback signature those features will reuse.
+// ---------------------------------------------------------------------------
+
+export const RowBackground_ByCategory: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '`chrome.getRowBackground(row, rowId, rowIndex)` returns a CSS colour (HEX preferred) applied to the row container. Returning null inherits the default zebra background. Downstream features like the Shift+Arrow range highlight (#16) reuse this API to paint active ranges.',
+      },
+    },
+  },
+  render: () => (
+    <div style={storyContainer}>
+      <h2 style={styles.heading}>Row Background — per-row HEX tint</h2>
+      <p style={styles.subtitle}>
+        Each row's background is resolved from its <code>department</code>. Return
+        null to fall back to the default zebra striping.
+      </p>
+      <div style={gridContainer}>
+        <MuiDataGrid
+          data={makeEmployees(12)}
+          columns={subsetColumns as any}
+          rowKey="id"
+          chrome={{
+            rowNumbers: true,
+            getRowBackground: (row: any) => {
+              switch (row.department) {
+                case 'Engineering': return '#eff6ff';
+                case 'Design': return '#f5f3ff';
+                case 'Marketing': return '#fffbeb';
+                case 'Sales': return '#ecfdf5';
+                default: return null;
+              }
+            },
+          }}
+        />
+      </div>
+    </div>
+  ),
+};
+
+export const RowBorder_HighlightSelected: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '`chrome.getRowBorder(row, rowId, rowIndex)` returns a {color, style, width, sides} descriptor applied to the row container. Returning null leaves the stock separator untouched. The Shift+Arrow range styling (#16) can use this to paint a dashed border around the active range.',
+      },
+    },
+  },
+  render: () => {
+    const [accentIds, setAccentIds] = useState<Set<string>>(new Set(['1', '4']));
+    return (
+      <div style={storyContainer}>
+        <h2 style={styles.heading}>Row Border — per-row outline</h2>
+        <p style={styles.subtitle}>
+          Rows 1 and 4 are highlighted with a dashed red border. Click a row
+          number to toggle the accent on that row. All four sides are painted
+          by default; pass <code>sides: ['top', 'bottom']</code> for a band.
+        </p>
+        <div style={gridContainer}>
+          <MuiDataGrid
+            data={makeEmployees(10)}
+            columns={subsetColumns as any}
+            rowKey="id"
+            chrome={{
+              rowNumbers: true,
+              getRowBorder: (_row: any, rowId: string) =>
+                accentIds.has(rowId)
+                  ? { color: '#dc2626', style: 'dashed', width: 2 }
+                  : null,
+              getChromeCellContent: (_row: any, rowId: string) => ({
+                // Render the digit as before, but route the click through our
+                // toggle so the demo is interactive without touching the
+                // row-click selection story.
+                onClick: (evt) => {
+                  evt.stopPropagation();
+                  setAccentIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(rowId)) next.delete(rowId);
+                    else next.add(rowId);
+                    return next;
+                  });
+                },
+              }),
+            }}
+          />
+        </div>
+      </div>
+    );
+  },
+};
+
+export const ChromeCellContent_StatusIcons: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '`chrome.getChromeCellContent(row, rowId, rowIndex)` replaces the row-number digit with `{ text, icon, onClick }`. The `onClick` handler receives the native `MouseEvent` — call `stopPropagation()` to suppress the default row-selection click. Row-click selection (#15) and the transposed field column (#18) both hook into this API.',
+      },
+    },
+  },
+  render: () => {
+    const [log, setLog] = useState<string[]>([]);
+    return (
+      <div style={storyContainer}>
+        <h2 style={styles.heading}>Chrome Cell Content — icon + text</h2>
+        <p style={styles.subtitle}>
+          The row-number gutter shows a star icon for active employees and a
+          dash for inactive ones. Clicking the gutter also logs the row id;
+          selection still fires because the handler does not call{' '}
+          <code>stopPropagation()</code>.
+        </p>
+        <div style={gridContainer}>
+          <MuiDataGrid
+            data={makeEmployees(10)}
+            columns={subsetColumns as any}
+            rowKey="id"
+            chrome={{
+              rowNumbers: { width: 64 },
+              getChromeCellContent: (row: any, rowId: string) => ({
+                text: row.active ? 'on' : 'off',
+                icon: (
+                  <span style={{ color: row.active ? '#10b981' : '#94a3b8' }}>
+                    {row.active ? '\u2605' : '\u2013'}
+                  </span>
+                ),
+                onClick: (_evt, id) => {
+                  // Note: do NOT stopPropagation — row selection should still
+                  // fire so the click behaves like the default chrome click.
+                  setLog((p) => [...p.slice(-4), `gutter-click row ${id}`]);
+                  void rowId;
+                },
+              }),
+            }}
+          />
+        </div>
+        <pre style={styles.logPre}>
+          {log.length ? log.join('\n') : '(click the gutter icons)'}
+        </pre>
+      </div>
+    );
+  },
+};
+
 export const DragReorder: StoryObj = {
   render: () => {
     const [log, setLog] = useState<string[]>([]);
