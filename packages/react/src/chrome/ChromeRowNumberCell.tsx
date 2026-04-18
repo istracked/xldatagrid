@@ -36,6 +36,24 @@ export interface ChromeRowNumberCellProps {
    * of any preceding sticky chrome columns (e.g. controls width) or `0`.
    */
   stickyLeft?: number;
+  /**
+   * Optional text override. When provided (non-empty), rendered in place of
+   * the default `rowNumber` digit. Supplied by the grid's
+   * `chrome.getChromeCellContent` resolver.
+   */
+  contentText?: string;
+  /**
+   * Optional icon node rendered before the text/digit. Supplied by the grid's
+   * `chrome.getChromeCellContent` resolver.
+   */
+  contentIcon?: React.ReactNode;
+  /**
+   * Optional secondary click handler that runs in addition to `onSelect`.
+   * Supplied by the grid's `chrome.getChromeCellContent` resolver; receives
+   * the native `MouseEvent` so callers may `stopPropagation` to suppress
+   * selection.
+   */
+  onContentClick?: (evt: MouseEvent, rowId: string, rowIndex: number) => void;
   onSelect: (rowId: string, shiftKey: boolean, metaKey: boolean) => void;
   onDragStart?: (rowId: string, rowIndex: number) => void;
   onDragOver?: (rowId: string, rowIndex: number) => void;
@@ -50,15 +68,49 @@ export interface ChromeRowNumberCellProps {
  * short-circuit when reordering is disabled.
  */
 export function ChromeRowNumberCell(props: ChromeRowNumberCellProps) {
-  const { rowNumber, rowId, width, height, isSelected, reorderable, stickyLeft, onSelect, onDragStart, onDragOver, onDrop } = props;
+  const { rowNumber, rowId, width, height, isSelected, reorderable, stickyLeft, contentText, contentIcon, onContentClick, onSelect, onDragStart, onDragOver, onDrop } = props;
 
   // Click handler: stop propagation so the row-number click does not also
   // trigger cell-level selection, then forward shift/meta modifiers so the
   // caller can implement range/toggle selection semantics.
+  //
+  // The chrome-content `onClick` supplied by `chrome.getChromeCellContent`
+  // runs first so consumers may `stopPropagation` on the native event to
+  // suppress the default row-selection behaviour. Because React's
+  // `e.stopPropagation()` also flips `e.nativeEvent.cancelBubble`, we wrap
+  // the native event in a thin proxy that records whether the consumer's
+  // handler (and only theirs) called `stopPropagation`.
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    let consumerStopped = false;
+    if (onContentClick) {
+      const native = e.nativeEvent as MouseEvent;
+      // Proxy `stopPropagation` on the native event so invocations inside the
+      // consumer's handler are observable without inspecting post-React-mutation
+      // state. `preventDefault` is forwarded too so consumers can use either
+      // idiom to signal "I handled this".
+      const originalStop = native.stopPropagation.bind(native);
+      const originalPrevent = native.preventDefault.bind(native);
+      native.stopPropagation = () => {
+        consumerStopped = true;
+        originalStop();
+      };
+      native.preventDefault = () => {
+        consumerStopped = true;
+        originalPrevent();
+      };
+      try {
+        onContentClick(native, rowId, rowNumber - 1);
+      } finally {
+        // Restore native methods so downstream listeners (none here, but
+        // future-proof) see the prototype methods rather than our proxies.
+        native.stopPropagation = originalStop;
+        native.preventDefault = originalPrevent;
+      }
+      if (consumerStopped) return;
+    }
     onSelect(rowId, e.shiftKey, e.metaKey || e.ctrlKey);
-  }, [rowId, onSelect]);
+  }, [rowId, rowNumber, onContentClick, onSelect]);
 
   // Drag-start: gated by `reorderable`. When disabled, cancel the native drag
   // entirely. Otherwise advertise a move-effect payload carrying the row id
@@ -96,6 +148,23 @@ export function ChromeRowNumberCell(props: ChromeRowNumberCellProps) {
     ...(stickyLeft !== undefined ? { position: 'sticky' as const, left: stickyLeft, zIndex: 5 } : {}),
   };
 
+  // Content override: when either text or icon is supplied via
+  // `chrome.getChromeCellContent`, render them in place of the default digit.
+  // Icon renders before text when both are present. An empty `contentText`
+  // is ignored so an accidental `''` return from the resolver falls back to
+  // the default row number.
+  const hasCustomContent = Boolean(contentIcon) || (typeof contentText === 'string' && contentText.length > 0);
+  const renderedContent = hasCustomContent ? (
+    <>
+      {contentIcon ? <span data-testid="chrome-row-content-icon" style={styles.rowNumberIcon}>{contentIcon as React.ReactNode}</span> : null}
+      {typeof contentText === 'string' && contentText.length > 0 ? (
+        <span data-testid="chrome-row-content-text">{contentText}</span>
+      ) : null}
+    </>
+  ) : (
+    rowNumber
+  );
+
   return (
     <div
       style={cellStyle}
@@ -103,14 +172,14 @@ export function ChromeRowNumberCell(props: ChromeRowNumberCellProps) {
       data-testid="chrome-row-number"
       data-row-number={rowNumber}
       data-row-id={rowId}
-      aria-label={`Row ${rowNumber}`}
+      aria-label={typeof contentText === 'string' && contentText.length > 0 ? contentText : `Row ${rowNumber}`}
       draggable={reorderable}
       onClick={handleClick}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      {rowNumber}
+      {renderedContent}
     </div>
   );
 }
