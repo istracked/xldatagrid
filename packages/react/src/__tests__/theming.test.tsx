@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { DataGrid, LIGHT_THEME, DARK_THEME } from '../DataGrid';
+import darkTokens from '../styles/tokens/dark.json';
+import lightTokens from '../styles/tokens/light.json';
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
@@ -267,5 +269,65 @@ describe('Theming', () => {
     const grid = screen.getByRole('grid');
     expect(grid.style.transition).toContain('color');
     expect(grid.style.transition).toContain('background');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Token-driven palette (issue #17)
+  //
+  // The light and dark presets are projections of the `istracked/tokens`
+  // design-token tree; the grid must not carry its own hand-tuned colours.
+  // These checks pin the row-background and header-background tokens to the
+  // values ingested from `src/styles/tokens/{light,dark}.json`, so a future
+  // token-repo upgrade is the only way they can change.
+  // ---------------------------------------------------------------------------
+
+  it('dark theme row backgrounds track the ingested dark tokens', () => {
+    const expectedDefault = (
+      darkTokens as any
+    ).color.datagrid.row.bg.default.$value.toLowerCase();
+    const expectedAlt = (
+      darkTokens as any
+    ).color.datagrid.row.bg.alt.$value.toLowerCase();
+
+    renderGrid({ theme: 'dark' });
+    // Both row-bg tokens must be set on the grid container; the prior bug
+    // was that they were undefined, so rows fell back to hard-coded light
+    // defaults regardless of theme.
+    expect(getGridStyle('--dg-row-bg')).toBe(expectedDefault);
+    expect(getGridStyle('--dg-row-bg-alt')).toBe(expectedAlt);
+
+    // Cross-check: the `DARK_THEME` constant used by the preset resolver
+    // exposes the same values.
+    expect(DARK_THEME['--dg-row-bg']).toBe(expectedDefault);
+    expect(DARK_THEME['--dg-row-bg-alt']).toBe(expectedAlt);
+  });
+
+  it('dark theme header background tracks the ingested dark token', () => {
+    const expectedHeader = (
+      darkTokens as any
+    ).color.datagrid.header.bg.default.$value.toLowerCase();
+
+    renderGrid({ theme: 'dark' });
+    expect(getGridStyle('--dg-header-bg')).toBe(expectedHeader);
+    expect(DARK_THEME['--dg-header-bg']).toBe(expectedHeader);
+
+    // The header must remain one tone lighter than the default row
+    // background so it reads as an elevated surface rather than a well —
+    // this was the "header too dark" half of issue #17.
+    const rowDefault = DARK_THEME['--dg-row-bg'];
+    expect(expectedHeader).not.toBe(rowDefault);
+  });
+
+  it('light theme row and header backgrounds track the ingested light tokens', () => {
+    const expectedRow = (
+      lightTokens as any
+    ).color.datagrid.row.bg.default.$value.toLowerCase();
+    const expectedHeader = (
+      lightTokens as any
+    ).color.datagrid.header.bg.default.$value.toLowerCase();
+
+    renderGrid({ theme: 'light' });
+    expect(getGridStyle('--dg-row-bg')).toBe(expectedRow);
+    expect(getGridStyle('--dg-header-bg')).toBe(expectedHeader);
   });
 });
