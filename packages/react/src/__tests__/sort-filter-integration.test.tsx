@@ -765,3 +765,117 @@ describe('filter integration', () => {
     expect(onFilterChange).toHaveBeenCalledWith(filterState);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Regression: "Clear Filter from <col>" must also drop predicates emitted
+// by the custom-condition dialog, which arrive as nested composites rather
+// than flat leaves. See issue #7.
+// ---------------------------------------------------------------------------
+
+describe('filter integration — clear custom condition filter (#7)', () => {
+  function getNameCells(): string[] {
+    return screen
+      .getAllByRole('gridcell')
+      .filter((c) => c.getAttribute('data-field') === 'name')
+      .map((c) => c.textContent?.trim() ?? '');
+  }
+
+  it('clears a custom text filter applied via the condition dialog', async () => {
+    const onFilterChange = vi.fn();
+    render(
+      <DataGrid
+        data={makeSortData()}
+        columns={sortColumns}
+        rowKey="id"
+        filtering={true}
+        showFilterMenu
+        sorting
+        onFilterChange={onFilterChange}
+      />
+    );
+
+    // Sanity: all three rows are visible initially.
+    expect(getNameCells().sort()).toEqual(['Alice', 'Bob', 'Charlie']);
+
+    // Open the column filter menu for "name".
+    const nameHeader = screen.getByRole('columnheader', { name: /^name/i });
+    const chevron = within(nameHeader).getByTestId('column-filter-icon');
+    fireEvent.click(chevron);
+
+    // Open the Text Filters… custom-condition dialog.
+    fireEvent.click(screen.getByTestId('column-filter-conditions'));
+
+    // Build: name contains "li" (matches Charlie and Alice).
+    fireEvent.change(screen.getByTestId('filter-cond-op-1'), { target: { value: 'contains' } });
+    fireEvent.change(screen.getByTestId('filter-cond-val-1'), { target: { value: 'li' } });
+    fireEvent.click(screen.getByTestId('filter-cond-ok'));
+
+    // Filter is active → Charlie + Alice visible, Bob gone.
+    expect(getNameCells().sort()).toEqual(['Alice', 'Charlie']);
+    // The dialog emits a composite child; onFilterChange must have received it.
+    const lastFilterCall = onFilterChange.mock.calls.at(-1)![0];
+    expect(lastFilterCall).toEqual({
+      logic: 'and',
+      filters: [
+        {
+          logic: 'and',
+          filters: [{ field: 'name', operator: 'contains', value: 'li' }],
+        },
+      ],
+    });
+
+    // Re-open the menu and click "Clear Filter from 'Name'".
+    fireEvent.click(within(nameHeader).getByTestId('column-filter-icon'));
+    const clearBtn = screen.getByTestId('column-filter-clear');
+    expect(clearBtn).not.toHaveAttribute('aria-disabled');
+    fireEvent.click(clearBtn);
+
+    // After clearing, all rows must be visible again and the filter state null.
+    expect(getNameCells().sort()).toEqual(['Alice', 'Bob', 'Charlie']);
+    expect(onFilterChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('clears a custom filter even when mixed with a filter on a different field', async () => {
+    const onFilterChange = vi.fn();
+    render(
+      <DataGrid
+        data={makeSortData()}
+        columns={sortColumns}
+        rowKey="id"
+        filtering={true}
+        showFilterMenu
+        sorting
+        onFilterChange={onFilterChange}
+        // Pre-seed a filter on a different column (`age > 28`). Clearing the
+        // name-column custom filter must not touch this one.
+        initialFilter={{
+          logic: 'and',
+          filters: [{ field: 'age', operator: 'gt', value: 28 }],
+        }}
+      />
+    );
+
+    // Apply a custom-condition filter on `name`.
+    const nameHeader = screen.getByRole('columnheader', { name: /^name/i });
+    fireEvent.click(within(nameHeader).getByTestId('column-filter-icon'));
+    fireEvent.click(screen.getByTestId('column-filter-conditions'));
+    fireEvent.change(screen.getByTestId('filter-cond-op-1'), { target: { value: 'contains' } });
+    fireEvent.change(screen.getByTestId('filter-cond-val-1'), { target: { value: 'li' } });
+    fireEvent.click(screen.getByTestId('filter-cond-ok'));
+
+    // Only Charlie (age 35 > 28 AND name contains "li").
+    expect(getNameCells()).toEqual(['Charlie']);
+
+    // Clear the name filter; the `age > 28` predicate must stay in place.
+    fireEvent.click(within(nameHeader).getByTestId('column-filter-icon'));
+    fireEvent.click(screen.getByTestId('column-filter-clear'));
+
+    // With only `age > 28`: Charlie (35) and Bob (30) pass, Alice (25) filtered out.
+    expect(getNameCells().sort()).toEqual(['Bob', 'Charlie']);
+    const lastCall = onFilterChange.mock.calls.at(-1)![0];
+    expect(lastCall).toEqual({
+      logic: 'and',
+      filters: [{ field: 'age', operator: 'gt', value: 28 }],
+    });
+  });
+});
