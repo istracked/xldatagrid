@@ -1164,7 +1164,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
         )}
 
         {/*
-         * The legacy column menu (sort, hide, freeze) continues to mount
+         * The legacy column menu (hide, freeze) continues to mount
          * unconditionally — it coexists with the Excel dropdown rather than
          * being replaced by it. Visibility is driven by the interaction
          * reducer's `menu` discriminant, so rendering the component while no
@@ -1174,10 +1174,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           menuState={interaction.state.menu}
           headerHeight={headerHeight}
           hasColumnGroups={!!columnGroupConfig}
-          isSortingEnabled={isSortingEnabled}
           getColumnFrozen={getColumnFrozenByField}
-          onSortAsc={handleColumnMenuSortAsc}
-          onSortDesc={handleColumnMenuSortDesc}
           onHide={handleColumnMenuHide}
           onFreeze={handleColumnMenuFreeze}
           onUnfreeze={handleColumnMenuUnfreeze}
