@@ -880,6 +880,19 @@ export interface GridConfig<TData = Record<string, unknown>> {
   pageSize?: number;
   /** Whether arrow-key / tab navigation is active. */
   keyboardNavigation?: boolean;
+  /**
+   * Controls how Shift + Arrow key combinations are interpreted.
+   *
+   * - `'scroll'` (default) — Shift + Arrow scrolls the viewport by roughly
+   *   half a screen in the arrow's direction; the current selection is left
+   *   untouched. Up / Down scroll vertically; Left / Right scroll horizontally.
+   * - `'rangeSelect'` — Shift + Arrow extends the current rectangular range
+   *   selection by one cell in the arrow's direction while preserving the
+   *   anchor, so every intermediate cell becomes part of the range.
+   *
+   * Plain Arrow and Ctrl / Cmd + Arrow are never affected by this flag.
+   */
+  shiftArrowBehavior?: 'scroll' | 'rangeSelect';
   /** Visual theme — a preset name or a custom token map. */
   theme?: 'light' | 'dark' | Record<string, string>;
 }

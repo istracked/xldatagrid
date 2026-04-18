@@ -25,7 +25,7 @@ export const FullKeyboardSupport: StoryObj = {
           <tbody>
             {[
               ['Arrow keys', 'Move selection'],
-              ['Shift + Arrow', 'Extend range selection'],
+              ['Shift + Arrow', 'Pan viewport (scroll) — default; switch to range-extend via shiftArrowBehavior'],
               ['Tab / Shift+Tab', 'Move to next/previous cell'],
               ['Enter', 'Start editing / commit + move down'],
               ['Escape', 'Cancel edit / clear selection'],
@@ -56,6 +56,74 @@ export const FullKeyboardSupport: StoryObj = {
           selectionMode="range"
           keyboardNavigation
           sorting
+        />
+      </div>
+    </div>
+  ),
+};
+
+/**
+ * Shift + Arrow in the default `'scroll'` mode. The viewport pans by roughly
+ * half a screen per keystroke; the selection is left alone.
+ */
+export const ShiftArrowScroll: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Default `shiftArrowBehavior: "scroll"`. Click a cell to select it, then hold Shift and press the arrow keys — the viewport pans by ~½ screen in the arrow direction while the selection stays put. Useful for quickly surveying large grids without losing your place.',
+      },
+    },
+  },
+  render: () => (
+    <div style={storyContainer}>
+      <h2 style={styles.heading}>Shift + Arrow — Scroll Viewport (default)</h2>
+      <p style={styles.subtitle}>
+        Click a cell, then press <kbd>Shift</kbd> + arrow keys to pan the viewport. Selection does not change.
+      </p>
+      <div style={gridContainer}>
+        <MuiDataGrid
+          data={makeEmployees(200)}
+          columns={defaultColumns as any}
+          rowKey="id"
+          selectionMode="range"
+          keyboardNavigation
+          shiftArrowBehavior="scroll"
+        />
+      </div>
+    </div>
+  ),
+};
+
+/**
+ * Shift + Arrow in the alternative `'rangeSelect'` mode. Each keystroke
+ * extends the rectangular range by one cell in the arrow direction; the
+ * anchor cell stays fixed and every cell in the rectangle is included in
+ * the selection (this fixes the "only 2 cells selected" bug in #16).
+ */
+export const ShiftArrowRangeSelect: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Opt-in `shiftArrowBehavior: "rangeSelect"`. Shift + Arrow keys extend the rectangular range one cell at a time. Every cell between the anchor and the current focus is part of the selection — press Shift+Right twice from A1 and B1, C1 are both included.',
+      },
+    },
+  },
+  render: () => (
+    <div style={storyContainer}>
+      <h2 style={styles.heading}>Shift + Arrow — Extend Range Selection</h2>
+      <p style={styles.subtitle}>
+        Click a cell, then press <kbd>Shift</kbd> + arrow keys to grow the selection rectangle.
+      </p>
+      <div style={gridContainer}>
+        <MuiDataGrid
+          data={makeEmployees(20)}
+          columns={defaultColumns as any}
+          rowKey="id"
+          selectionMode="range"
+          keyboardNavigation
+          shiftArrowBehavior="rangeSelect"
         />
       </div>
     </div>

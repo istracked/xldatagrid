@@ -34,6 +34,12 @@ import {
  * (rather than a React `onKeyDown` prop) so that the grid container can
  * capture keyboard events regardless of which internal element has focus.
  *
+ * Shift + Arrow behaviour is configurable via the grid's
+ * {@link GridConfig.shiftArrowBehavior} option (see that option's docstring
+ * for branch semantics). When the `'scroll'` branch is active, the optional
+ * `scrollRef` parameter is used as the viewport whose `scrollBy` is invoked
+ * to move roughly half a screen per keystroke.
+ *
  * @typeParam TData - Row data shape; must be a string-keyed record.
  *
  * @param model - The {@link GridModel} instance to mutate in response to
@@ -42,18 +48,23 @@ import {
  *   `keydown` listener is attached to this element.
  * @param enabled - When `false`, all keyboard handling is skipped. Defaults
  *   to `true`.
+ * @param scrollRef - Optional React ref pointing at the scrollable body
+ *   container. Required for the `'scroll'` Shift+Arrow branch to have any
+ *   visible effect; when omitted, the branch becomes a no-op.
  *
  * @example
  * ```tsx
  * const containerRef = useRef<HTMLDivElement>(null);
- * useKeyboard(model, containerRef);
+ * const scrollRef = useRef<HTMLDivElement>(null);
+ * useKeyboard(model, containerRef, true, scrollRef);
  * return <div ref={containerRef} tabIndex={0}>...</div>;
  * ```
  */
 export function useKeyboard<TData extends Record<string, unknown>>(
   model: GridModel<TData>,
   containerRef: React.RefObject<HTMLDivElement | null>,
-  enabled: boolean = true
+  enabled: boolean = true,
+  scrollRef?: React.RefObject<HTMLDivElement | null>,
 ) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
@@ -121,8 +132,6 @@ export function useKeyboard<TData extends Record<string, unknown>>(
       case 'ArrowUp': {
         // Don't navigate while editing
         if (editing.cell) return;
-        e.preventDefault();
-        if (!current) return;
 
         // Map the key name to a cardinal direction string.
         const dir =
@@ -130,11 +139,38 @@ export function useKeyboard<TData extends Record<string, unknown>>(
           e.key === 'ArrowLeft' ? 'left' :
           e.key === 'ArrowDown' ? 'down' : 'up';
 
-        if (e.shiftKey) {
-          // Shift+Arrow extends the selection range to the adjacent cell.
-          const target = getNextCell(current, dir, columns, rowIds);
-          if (target) model.extendTo(target);
-        } else if (e.ctrlKey || e.metaKey) {
+        if (e.shiftKey && !(e.ctrlKey || e.metaKey)) {
+          // Shift+Arrow: dispatch to the configured branch.
+          // The config controls whether Shift+Arrow scrolls the viewport by
+          // roughly half a screen (default) or extends the rectangular range
+          // selection by one cell. Ctrl/Cmd+Arrow is handled below regardless.
+          const cfg = (state.config ?? {}) as Partial<{ shiftArrowBehavior: 'scroll' | 'rangeSelect' }>;
+          const behavior = cfg.shiftArrowBehavior ?? 'scroll';
+          e.preventDefault();
+          if (behavior === 'rangeSelect') {
+            // Anchor the extension to the current *focus* (not the anchor) so
+            // successive Shift+Arrow keystrokes compound — stepping right
+            // twice from A1 must reach C1, not stall at B1. The anchor is
+            // preserved implicitly by `extendTo`, which only updates the
+            // focus. Every cell inside the normalised rectangle is selected
+            // by the body's range checker, fixing the "only 2 cells selected"
+            // bug reported in #16.
+            const focus = selection?.focus ?? current;
+            if (!focus) return;
+            const target = getNextCell(focus, dir, columns, rowIds);
+            if (target) model.extendTo(target);
+          } else {
+            // 'scroll' branch — move the viewport half a screen without
+            // changing the selection.
+            scrollViewportHalfScreen(scrollRef?.current ?? null, dir);
+          }
+          break;
+        }
+
+        e.preventDefault();
+        if (!current) return;
+
+        if (e.ctrlKey || e.metaKey) {
           // Ctrl/Cmd+Arrow jumps to the edge of the grid in that direction.
           if (dir === 'right' || dir === 'left') {
             const edge = dir === 'right'
@@ -300,7 +336,7 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         break;
       }
     }
-  }, [model, enabled]);
+  }, [model, enabled, scrollRef]);
 
   // useEffect is necessary here because we need to imperatively attach/detach a
   // native DOM event listener on the container element after it mounts.
@@ -310,6 +346,37 @@ export function useKeyboard<TData extends Record<string, unknown>>(
     el.addEventListener('keydown', handleKeyDown);
     return () => el.removeEventListener('keydown', handleKeyDown);
   }, [containerRef, handleKeyDown]);
+}
+
+/**
+ * Scrolls a viewport element by roughly half its visible size in a given
+ * cardinal direction. Used by the default `shiftArrowBehavior: 'scroll'`
+ * branch of Shift + Arrow so a single keystroke jumps ~0.5 screens without
+ * affecting the current selection.
+ *
+ * When `el` is `null`, the call is a silent no-op (consumers who care should
+ * pass a ref pointing at the scrollable body). The scroll is best-effort:
+ * browsers without `scrollBy` support will simply ignore the call.
+ *
+ * @param el - The scrollable container element, or `null`.
+ * @param dir - Cardinal direction to scroll in.
+ */
+function scrollViewportHalfScreen(
+  el: HTMLDivElement | null,
+  dir: 'up' | 'down' | 'left' | 'right',
+): void {
+  if (!el) return;
+  const w = el.clientWidth || 0;
+  const h = el.clientHeight || 0;
+  // Half-screen jump matches the Excel viewport-pan convention.
+  const dx = dir === 'right' ? Math.round(w / 2) : dir === 'left' ? -Math.round(w / 2) : 0;
+  const dy = dir === 'down' ? Math.round(h / 2) : dir === 'up' ? -Math.round(h / 2) : 0;
+  if (typeof el.scrollBy === 'function') {
+    el.scrollBy({ left: dx, top: dy, behavior: 'auto' });
+  } else {
+    el.scrollLeft += dx;
+    el.scrollTop += dy;
+  }
 }
 
 function resolveRangeIndices(
