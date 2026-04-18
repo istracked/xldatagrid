@@ -54,35 +54,53 @@ export const virtualizedBodyWrapper = (
 
 /** Style for a single data cell. Encodes fixed width (no flex growth),
  *  selection outline, validation-error border, frozen-column stickiness and
- *  the editable cursor affordance. */
+ *  the editable cursor affordance.
+ *
+ *  The `inRange` flag signals that the cell is part of a multi-cell
+ *  rectangular selection but is not the anchor; such cells get a tinted
+ *  range-background so the selection reads as a cohesive block rather than
+ *  a field of separately outlined cells (the default visual for single-cell
+ *  selection). The background uses the `--dg-range-bg` CSS token so a host
+ *  application can override it via its own stylesheet.
+ *
+ *  TODO: restyle with chrome API primitives once the chrome column API
+ *  (issue #14) lands — the range background should share tokens with the
+ *  row-number gutter's active-range highlight.
+ */
 export const cell = (opts: {
   width: number;
   height: number;
   selected: boolean;
+  inRange?: boolean;
   hasError: boolean;
   frozen: 'left' | 'right' | null;
   frozenLeftOffset: number;
   editable: boolean;
-}): CSSProperties => ({
-  width: opts.width,
-  minWidth: opts.width,
-  maxWidth: opts.width,
-  height: opts.height,
-  display: 'flex',
-  alignItems: 'center',
-  padding: 'var(--dg-cell-padding, 0 12px)',
-  borderRight: '1px solid var(--dg-border-color, #e2e8f0)',
-  boxSizing: 'border-box',
-  outline: opts.selected ? '2px solid var(--dg-selection-border, #3b82f6)' : 'none',
-  outlineOffset: -2,
-  overflow: 'hidden',
-  cursor: opts.editable ? 'text' : 'default',
-  border: opts.hasError ? '2px solid var(--dg-error-color, #ef4444)' : undefined,
-  position: opts.frozen ? 'sticky' : 'relative',
-  left: opts.frozen === 'left' ? opts.frozenLeftOffset : undefined,
-  zIndex: opts.frozen ? 2 : undefined,
-  background: opts.frozen ? 'var(--dg-header-bg, #f8fafc)' : undefined,
-});
+}): CSSProperties => {
+  const frozenBg = opts.frozen ? 'var(--dg-header-bg, #f8fafc)' : undefined;
+  const rangeBg = opts.inRange ? 'var(--dg-range-bg, rgba(59, 130, 246, 0.12))' : undefined;
+  return {
+    width: opts.width,
+    minWidth: opts.width,
+    maxWidth: opts.width,
+    height: opts.height,
+    display: 'flex',
+    alignItems: 'center',
+    padding: 'var(--dg-cell-padding, 0 12px)',
+    borderRight: '1px solid var(--dg-border-color, #e2e8f0)',
+    boxSizing: 'border-box',
+    outline: opts.selected ? '2px solid var(--dg-selection-border, #3b82f6)' : 'none',
+    outlineOffset: -2,
+    overflow: 'hidden',
+    cursor: opts.editable ? 'text' : 'default',
+    border: opts.hasError ? '2px solid var(--dg-error-color, #ef4444)' : undefined,
+    position: opts.frozen ? 'sticky' : 'relative',
+    left: opts.frozen === 'left' ? opts.frozenLeftOffset : undefined,
+    zIndex: opts.frozen ? 2 : undefined,
+    // Frozen background wins over the range tint so pinned columns stay legible.
+    background: frozenBg ?? rangeBg,
+  };
+};
 
 /** Style for the fallback `<input>` editor used when no custom cell renderer
  *  is configured. Strips the native input chrome so it visually matches the
