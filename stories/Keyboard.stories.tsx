@@ -37,6 +37,8 @@ export const FullKeyboardSupport: StoryObj = {
               ['Ctrl+Y / Ctrl+Shift+Z', 'Redo'],
               ['Home / End', 'First/last column in row'],
               ['Ctrl+Home / Ctrl+End', 'First/last cell in grid'],
+              ['Tab (to header)', 'Focus the per-column filter button'],
+              ['Enter / Space (on filter button)', 'Open the column filter menu'],
             ].map(([key, desc]) => (
               <tr key={key}>
                 <td style={styles.keyboardTdKey}><kbd>{key}</kbd></td>

@@ -30,6 +30,14 @@ export const CellSelection: StoryObj = {
 };
 
 export const RowSelection: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Clicking anywhere on a row selects the entire row. When the row-number gutter is enabled, clicking a row-number cell also selects the row — the new sticky-left positioning of the gutter does not change this behaviour; shift/ctrl modifiers still extend or toggle the selection.',
+      },
+    },
+  },
   render: () => (
     <div style={storyContainer}>
       <h2 style={styles.heading}>Row Selection</h2>

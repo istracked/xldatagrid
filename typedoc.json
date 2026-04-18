@@ -4,6 +4,8 @@
   "entryPoints": [
     "packages/core/src/index.ts",
     "packages/react/src/index.ts",
+    "packages/react/src/hooks/index.ts",
+    "packages/react/src/header/column-filter-menu/index.ts",
     "packages/extensions/src/index.ts",
     "packages/mui/src/index.ts"
   ],
