@@ -46,6 +46,7 @@ import {
   GhostRowConfig,
   GhostRowPosition,
   GridModel,
+  SelectionMode,
 } from '@istracked/datagrid-core';
 import type { ControlsColumnConfig, RowNumberColumnConfig, RowBorderStyle, ChromeCellContent } from '@istracked/datagrid-core';
 import { CellRendererProps } from '../DataGrid';
@@ -169,6 +170,13 @@ export interface DataGridBodyProps<TData extends Record<string, unknown>> {
   onRowDragOver?: (rowId: string, rowIndex: number) => void;
   onRowDrop?: (rowId: string, rowIndex: number) => void;
 
+  // Selection mode governs how a data-cell click is interpreted. In `'row'`
+  // mode, clicks on data cells (issue #15) are routed through
+  // `onRowNumberClick` so the chrome column's row-selection handler is the
+  // single source of truth for "select this row" — whether the click
+  // originated in the row-number gutter or anywhere in the row body.
+  selectionMode?: SelectionMode;
+
   // Chrome-level row presentation hooks (issue #14). Each is evaluated per
   // rendered row; returning nullish preserves the stock presentation.
   getRowBorder?: (row: TData, rowId: string, rowIndex: number) => RowBorderStyle | null | undefined;
@@ -249,6 +257,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     getRowBorder,
     getRowBackground,
     getChromeCellContent,
+    selectionMode,
     showGhostRow,
     ghostRowConfig,
     readOnly,
@@ -386,6 +395,29 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     const hasError = cellError !== null && cellError.severity === 'error';
     const frozen = getColumnFrozen(col);
 
+    // Click dispatch (issue #15):
+    //
+    // In `selectionMode === 'row'`, a click anywhere in a data cell must
+    // select the entire row — the same behaviour the chrome row-number
+    // gutter already provides on its own cell clicks. Rather than
+    // maintaining a second code path for row selection, we fan every
+    // row-level click through the same `onRowNumberClick` callback the
+    // chrome column uses. That is the "one click path for 'select this
+    // row'" the issue calls for: consumers (or the owning DataGrid) only
+    // wire row-selection once and it handles every click source.
+    //
+    // For all other selection modes the pre-existing cell-level selection
+    // contract is preserved verbatim — `model.select(cellAddr)` selects a
+    // single cell and `onRowNumberClick`, when present, still runs
+    // independently from chrome gutter clicks.
+    const handleCellClick = (e: React.MouseEvent) => {
+      if (selectionMode === 'row' && onRowNumberClick) {
+        onRowNumberClick(rowId, e.shiftKey, e.metaKey || e.ctrlKey);
+        return;
+      }
+      model.select(cellAddr);
+    };
+
     return (
       <div
         key={col.field}
@@ -407,7 +439,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         data-field={col.field}
         data-row-id={rowId}
         title={hasError ? cellError!.message : undefined}
-        onClick={() => model.select(cellAddr)}
+        onClick={handleCellClick}
         onContextMenu={(e) => onContextMenu(e, rowId, col.field)}
         onDoubleClick={() => {
           if (col.editable !== false && !readOnly) {
