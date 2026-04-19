@@ -11,7 +11,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import type { FilterDescriptor, CompositeFilterDescriptor } from '@istracked/datagrid-core';
-import { stripField, MAX_FILTER_DEPTH } from '../filter-utils';
+import { stripField, MAX_FILTER_DEPTH } from '@istracked/datagrid-core';
 
 // ---------------------------------------------------------------------------
 // Helpers

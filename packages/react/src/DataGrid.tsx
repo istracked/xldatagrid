@@ -72,7 +72,6 @@ import { DataGridToolbar } from './toolbar/DataGridToolbar';
 import { DataGridColumnFilterMenu } from './header/column-filter-menu/DataGridColumnFilterMenu';
 import { FilterConditionDialog } from './header/column-filter-menu/FilterConditionDialog';
 import { useBackgroundIndexer } from './hooks/use-background-indexer';
-import { stripField } from './filter-utils';
 import type { CompositeFilterDescriptor, FilterDescriptor } from '@istracked/datagrid-core';
 import * as styles from './DataGrid.styles';
 import { lightThemeTokens, darkThemeTokens } from './styles/tokens';
