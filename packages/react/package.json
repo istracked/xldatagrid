@@ -21,7 +21,9 @@
   "dependencies": {
     "@istracked/datagrid-core": "workspace:*",
     "dompurify": "^3.2.4",
-    "jotai": "^2.12.3"
+    "jotai": "^2.12.3",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "peerDependencies": {
     "react": "^19.0.0",
