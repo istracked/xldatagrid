@@ -54,6 +54,7 @@ import {
   getVisibleRowsWithGroups,
   isCellInRange,
   createSelectionChecker,
+  isRowFullySelected,
   stripField,
 } from '@istracked/datagrid-core';
 import { useGridWithAtoms } from './use-grid';
@@ -496,6 +497,10 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     if (rowIdx === -1 || colIdx === -1) return false;
     return selectionChecker(rowIdx, colIdx);
   }, [hasMultiCellRange, selectionChecker, rowIds, orderedVisibleColumns]);
+
+  const isRowSelected = useCallback((rowId: string): boolean => {
+    return isRowFullySelected(state.selection, rowId, orderedVisibleColumns);
+  }, [state.selection, orderedVisibleColumns]);
 
   const isEditingCell = useCallback((rowId: string, field: string): boolean => {
     const cell = state.editing.cell;
@@ -1349,6 +1354,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           scrollRef={scrollRef}
           handleScroll={handleScroll}
           isSelected={isSelected}
+          isRowSelected={isRowSelected}
           isInRange={isInRange}
           isEditingCell={isEditingCell}
           getCellType={getCellType}

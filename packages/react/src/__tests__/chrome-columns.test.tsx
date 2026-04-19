@@ -133,11 +133,13 @@ describe('Row Number Column', () => {
     const rowNumberCells = screen.getAllByTestId('chrome-row-number');
     fireEvent.click(rowNumberCells[0]!);
 
-    // All cells in the first row should have selection outline
+    // With row-level outline: the row container gets the outline and per-cell
+    // outlines are suppressed.
     const row = document.querySelector('[data-row-id="1"][role="row"]') as HTMLElement;
+    expect(row.style.outline).toContain('2px solid');
     const cells = row.querySelectorAll('[role="gridcell"]');
     cells.forEach((cell) => {
-      expect((cell as HTMLElement).style.outline).toContain('2px solid');
+      expect((cell as HTMLElement).style.outline).toBe('none');
     });
   });
 
@@ -169,19 +171,25 @@ describe('Row Number Column', () => {
     // Ctrl+click (metaKey for macOS) row 3
     fireEvent.click(rowNumberCells[2]!, { metaKey: true });
 
-    // Row 1 and row 3 should both be selected
-    ['1', '3'].forEach((rowId) => {
-      const row = document.querySelector(`[data-row-id="${rowId}"][role="row"]`) as HTMLElement;
-      const cells = row.querySelectorAll('[role="gridcell"]');
-      cells.forEach((cell) => {
-        expect((cell as HTMLElement).style.outline).toContain('2px solid');
-      });
+    // Row 3 is the last-selected (primary) range: it gets the row-level
+    // outline and its cells are suppressed.
+    const row3 = document.querySelector('[data-row-id="3"][role="row"]') as HTMLElement;
+    expect(row3.style.outline).toContain('2px solid');
+    row3.querySelectorAll('[role="gridcell"]').forEach((cell) => {
+      expect((cell as HTMLElement).style.outline).toBe('none');
     });
 
-    // Row 2 should NOT be selected
+    // Row 1 is in the selection via ranges but is not the primary range, so
+    // cells retain their per-cell outlines.
+    const row1 = document.querySelector('[data-row-id="1"][role="row"]') as HTMLElement;
+    row1.querySelectorAll('[role="gridcell"]').forEach((cell) => {
+      expect((cell as HTMLElement).style.outline).toContain('2px solid');
+    });
+
+    // Row 2 should NOT be selected — no outline on row or cells.
     const row2 = document.querySelector('[data-row-id="2"][role="row"]') as HTMLElement;
-    const row2Cells = row2.querySelectorAll('[role="gridcell"]');
-    row2Cells.forEach((cell) => {
+    expect(row2.style.outline ?? '').not.toContain('2px solid');
+    row2.querySelectorAll('[role="gridcell"]').forEach((cell) => {
       expect((cell as HTMLElement).style.outline).not.toContain('2px solid');
     });
   });

@@ -77,8 +77,12 @@ export const cell = (opts: {
   frozen: 'left' | 'right' | null;
   frozenLeftOffset: number;
   editable: boolean;
+  suppressSelectionOutline?: boolean;
 }): CSSProperties => {
   const frozenBg = opts.frozen ? 'var(--dg-header-bg, #f8fafc)' : undefined;
+  const outlineValue = opts.suppressSelectionOutline
+    ? 'none'
+    : opts.selected ? '2px solid var(--dg-selection-border, #3b82f6)' : 'none';
   return {
     width: opts.width,
     minWidth: opts.width,
@@ -89,7 +93,7 @@ export const cell = (opts: {
     padding: 'var(--dg-cell-padding, 0 12px)',
     borderRight: '1px solid var(--dg-border-color, #e2e8f0)',
     boxSizing: 'border-box',
-    outline: opts.selected ? '2px solid var(--dg-selection-border, #3b82f6)' : 'none',
+    outline: outlineValue,
     outlineOffset: -2,
     overflow: 'hidden',
     cursor: opts.editable ? 'text' : 'default',
@@ -254,6 +258,7 @@ export const dataRow = (opts: {
   isEven: boolean;
   background?: string | null;
   border?: RowBorderOverride | null;
+  rowSelected?: boolean;
 }): CSSProperties => ({
   display: 'flex',
   height: opts.height,
@@ -264,6 +269,10 @@ export const dataRow = (opts: {
     : 'var(--dg-row-bg-alt, #f8fafc)'),
   // Border override last so it replaces any default edge styling above.
   ...rowBorderOverrideStyle(opts.border),
+  ...(opts.rowSelected ? {
+    outline: '2px solid var(--dg-selection-border, #3b82f6)',
+    outlineOffset: -2,
+  } : {}),
 });
 
 /** Style for a data row on the virtualised (non-grouped) render path.
@@ -277,6 +286,7 @@ export const virtualizedRow = (opts: {
   isEven: boolean;
   background?: string | null;
   border?: RowBorderOverride | null;
+  rowSelected?: boolean;
 }): CSSProperties => ({
   display: 'flex',
   position: 'absolute',
@@ -288,6 +298,10 @@ export const virtualizedRow = (opts: {
     ? 'var(--dg-row-bg, #ffffff)'
     : 'var(--dg-row-bg-alt, #f8fafc)'),
   ...rowBorderOverrideStyle(opts.border),
+  ...(opts.rowSelected ? {
+    outline: '2px solid var(--dg-selection-border, #3b82f6)',
+    outlineOffset: -2,
+  } : {}),
 });
 
 // ---------------------------------------------------------------------------

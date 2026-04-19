@@ -16,6 +16,7 @@ import {
   getPrevCellInRow,
   getEndJumpCell,
   isCellValueEmpty,
+  isRowFullySelected,
 } from '../selection';
 import { CellAddress, ColumnDef } from '../types';
 
@@ -501,5 +502,37 @@ describe('getEndJumpCell', () => {
     // r1 populated; age is hidden so the only visible neighbour is city.
     expect(getEndJumpCell({ rowId: 'r1', field: 'name' }, 'right', withHidden, endRowIds, get))
       .toEqual({ rowId: 'r1', field: 'city' });
+  });
+});
+
+describe('isRowFullySelected', () => {
+  it('returns true when range spans anchor-to-focus across all columns on the same row', () => {
+    const s = selectRow(createSelection('row'), 'r2', cols);
+    expect(isRowFullySelected(s, 'r2', cols)).toBe(true);
+  });
+
+  it('returns false for a partial-row range (not all columns covered)', () => {
+    const s = createSelection('cell');
+    const partial = {
+      ...s,
+      range: { anchor: { rowId: 'r1', field: 'name' }, focus: { rowId: 'r1', field: 'age' } },
+      ranges: [{ anchor: { rowId: 'r1', field: 'name' }, focus: { rowId: 'r1', field: 'age' } }],
+    };
+    expect(isRowFullySelected(partial, 'r1', cols)).toBe(false);
+  });
+
+  it('returns false when range is null', () => {
+    const s = createSelection('row');
+    expect(isRowFullySelected(s, 'r1', cols)).toBe(false);
+  });
+
+  it('returns false when the range belongs to a different row', () => {
+    const s = selectRow(createSelection('row'), 'r1', cols);
+    expect(isRowFullySelected(s, 'r2', cols)).toBe(false);
+  });
+
+  it('returns false when columns list is empty', () => {
+    const s = selectRow(createSelection('row'), 'r1', cols);
+    expect(isRowFullySelected(s, 'r1', [])).toBe(false);
   });
 });

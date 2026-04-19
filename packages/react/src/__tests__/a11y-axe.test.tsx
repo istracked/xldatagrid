@@ -201,4 +201,25 @@ describe('DataGrid axe-core a11y scans', () => {
     const results = await axe(container, axeOptions);
     expect(results).toHaveNoViolations();
   });
+
+  it('row-level outline after rowheader click has no violations (guards against wrapper div under role="row")', async () => {
+    const { container, getAllByTestId } = render(
+      <DataGrid
+        data={makeRows()}
+        columns={plainColumns}
+        rowKey="id"
+        selectionMode="row"
+        chrome={{ rowNumbers: { enabled: true, width: 40 } }}
+      />,
+    );
+
+    // Click the rowheader for the first row to activate the row-level outline.
+    const rowNumberCells = getAllByTestId('chrome-row-number');
+    act(() => {
+      fireEvent.click(rowNumberCells[0]!);
+    });
+
+    const results = await axe(container, axeOptions);
+    expect(results).toHaveNoViolations();
+  });
 });

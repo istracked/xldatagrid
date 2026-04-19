@@ -432,6 +432,35 @@ export function getPrevCellInRow(current: CellAddress, columns: ColumnDef<any>[]
 }
 
 /**
+ * Returns `true` when the current selection range covers every column in the
+ * given row — i.e. the anchor and focus are both on `rowId` and span from the
+ * first to the last column field (in either order).
+ *
+ * This is the predicate used to decide whether to paint the row-level outline
+ * instead of per-cell outlines (CSS-only row-selection outline, path #1).
+ *
+ * @param state - Current selection state.
+ * @param rowId - The row to test.
+ * @param columns - Full list of column definitions.
+ * @returns `true` when the active range is a full-row selection for `rowId`.
+ */
+export function isRowFullySelected(
+  state: SelectionState,
+  rowId: string,
+  columns: ColumnDef<any>[],
+): boolean {
+  if (!state.range || columns.length === 0) return false;
+  const { anchor, focus } = state.range;
+  if (anchor.rowId !== rowId || focus.rowId !== rowId) return false;
+  const firstField = columns[0]!.field;
+  const lastField = columns[columns.length - 1]!.field;
+  return (
+    (anchor.field === firstField && focus.field === lastField) ||
+    (anchor.field === lastField && focus.field === firstField)
+  );
+}
+
+/**
  * Treats `null`, `undefined`, and the empty string as "blank" — matching the
  * convention already used by the filtering module so that Excel-style "End"
  * navigation agrees with how the rest of the grid judges emptiness.
