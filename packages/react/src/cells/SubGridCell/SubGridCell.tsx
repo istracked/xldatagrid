@@ -47,6 +47,17 @@ interface SubGridCellProps<TData = Record<string, unknown>> {
   onCommit: (value: CellValue) => void;
   /** Callback to discard changes (unused). */
   onCancel: () => void;
+  /**
+   * Stable identifier of the parent grid. Used to construct the child grid's
+   * stable id (`${gridId}-row-${rowId}-subgrid`) for aria-controls linkage.
+   * When not provided the aria-controls attribute is omitted.
+   */
+  gridId?: string;
+  /**
+   * Row identifier for the parent row that this cell belongs to. Combined with
+   * `gridId` to build the aria-controls value pointing at the nested grid.
+   */
+  rowId?: string;
 }
 
 function parseRows(value: CellValue): Record<string, unknown>[] {
@@ -72,6 +83,8 @@ function parseRows(value: CellValue): Record<string, unknown>[] {
 export const SubGridCell = React.memo(function SubGridCell<TData extends Record<string, unknown> = Record<string, unknown>>({
   value,
   rowIndex,
+  gridId,
+  rowId: rowIdProp,
 }: SubGridCellProps<TData>) {
   const rows = parseRows(value);
   const ctx = useContext(GridContext);
@@ -109,6 +122,17 @@ export const SubGridCell = React.memo(function SubGridCell<TData extends Record<
     model.toggleSubGridExpansion(id);
   };
 
+  // Resolve the row id: prefer the explicit prop, fall back to index-based
+  // lookup so existing usages without the prop still work.
+  const resolvedRowId = rowIdProp ?? (model ? model.getRowIds()[rowIndex] : undefined);
+
+  // Stable child-grid id used for ARIA linkage. Format:
+  //   `${gridId}-row-${rowId}-subgrid`
+  // When either piece is unavailable the aria-controls attribute is omitted
+  // so assistive-technology fallback is graceful.
+  const childGridId =
+    gridId && resolvedRowId ? `${gridId}-row-${resolvedRowId}-subgrid` : undefined;
+
   return (
     <div style={styles.container(0)}>
       <button
@@ -117,6 +141,7 @@ export const SubGridCell = React.memo(function SubGridCell<TData extends Record<
         data-expanded={isExpanded ? 'true' : 'false'}
         aria-label={isExpanded ? 'Collapse sub-grid' : 'Expand sub-grid'}
         aria-expanded={isExpanded}
+        aria-controls={childGridId}
         onClick={onClick}
         style={styles.toggleButton}
       >
