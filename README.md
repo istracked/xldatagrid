@@ -151,27 +151,72 @@ against the unzipped directory:
 pnpm exec playwright show-report ./playwright-report
 ```
 
-#### Recording new tests with codegen
+#### Recording new tests with Claude Code + Playwright MCP
 
-Playwright's built-in generator drives the browser and emits test code as
-you click, type, and navigate:
+[Playwright MCP](https://github.com/microsoft/playwright-mcp) exposes
+Playwright as a Model Context Protocol server so Claude Code can drive
+the browser directly — navigating, clicking, typing, reading the
+accessibility tree — and emit a ready-to-run spec from what it
+observed. Compared to the `codegen` CLI the workflow is
+conversational: describe the flow, let the agent exercise it against
+a live Storybook, review the generated spec, then commit.
 
-```bash
-# 1) start Storybook separately so codegen can attach to it
-pnpm run storybook
+1. Register the MCP server with Claude Code. In the repo root, add a
+   `.mcp.json` (checked in) or the project-local override at
+   `.claude/settings.json` → `mcpServers`:
 
-# 2) in a second terminal, open codegen against the story you want to cover
-pnpm exec playwright codegen http://localhost:6006/iframe.html?id=basic-grid--default
-```
+   ```json
+   {
+     "mcpServers": {
+       "playwright": {
+         "command": "pnpm",
+         "args": ["dlx", "@playwright/mcp@latest"]
+       }
+     }
+   }
+   ```
 
-As you interact with the page, codegen writes selectors (preferring
-`getByRole` / `getByLabel` / `getByTestId` over CSS) and actions to a
-side panel. Copy the generated test body into a new `e2e/*.spec.ts` file,
-then run it with `pnpm exec playwright test e2e/<your-spec>.spec.ts`.
+   One-off: the first invocation downloads the Playwright browsers
+   under the MCP server's cache. Re-running `pnpm run
+   test:e2e:install` afterwards keeps the repo-local cache in sync.
 
-Tip: prefer role-based selectors from the generator's suggestions — they
-survive layout refactors and exercise a11y wiring, which is exactly what
-the existing `grid-subgrid.spec.ts` relies on.
+2. Start Storybook so the MCP server has a live target:
+
+   ```bash
+   pnpm run storybook
+   ```
+
+3. In Claude Code, describe the test you want — for example:
+
+   > Record a Playwright spec that opens
+   > `http://localhost:6006/iframe.html?id=basic-grid--default`,
+   > tabs into the grid, arrow-navigates to row 3 column 2, and
+   > asserts the focused cell's `aria-selected` is `true`. Save it
+   > to `e2e/grid-focus.spec.ts`.
+
+   The agent drives the browser through the MCP tools, verifies each
+   step against the live DOM, and writes the spec file directly into
+   `e2e/`. Selectors are picked from the accessibility tree, so the
+   output prefers `getByRole` / `getByLabel` / `getByTestId` by
+   default.
+
+4. Run and tighten:
+
+   ```bash
+   pnpm exec playwright test e2e/grid-focus.spec.ts
+   ```
+
+   Iterate in natural language ("prefer `getByRole` over the
+   generated CSS", "add an explicit wait for the sub-grid's
+   `role=grid` to mount", "replace the hard-coded port with the
+   config-relative `page.goto('/iframe.html?id=…')`") until the spec
+   is stable on a cold run.
+
+Prefer role-based selectors — they survive layout refactors and
+exercise the same a11y wiring `grid-subgrid.spec.ts` relies on.
+Replace any absolute `localhost:6006` URLs from the initial recording
+with the config-relative `page.goto('/iframe.html?id=…')` so the spec
+survives port changes and CI.
 
 #### Recording tests with the Playwright CRX Chrome extension
 
