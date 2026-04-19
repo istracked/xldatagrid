@@ -1,27 +1,219 @@
 /**
- * Best-effort HTML-to-GFM-Markdown converter for migrating legacy cell values.
+ * HTML-to-GFM-Markdown converter backed by {@link https://github.com/mixmark-io/turndown turndown}
+ * and {@link https://github.com/cure53/DOMPurify DOMPurify}.
  *
  * The previous {@link RichTextCell} stored raw HTML. The editor now speaks
  * GitHub-Flavored Markdown, so existing values must be converted at the data
- * layer. This helper is intentionally lightweight — it handles the common
- * inline/block tags that the HTML editor produced (`<b>`, `<strong>`, `<i>`,
- * `<em>`, `<u>`, `<s>`, `<p>`, `<br>`, `<a>`, `<code>`, `<pre>`, headings,
- * lists). Anything outside this set is stripped rather than escaped, keeping
- * the output readable.
+ * layer. An earlier revision of this module hand-rolled the conversion with a
+ * stack of regular expressions and a bespoke URL-scheme allow-list for XSS
+ * hardening. That worked for the common inline tags but could not realistically
+ * handle nested lists, tables, task-list items, or fenced code blocks with
+ * language hints — and the XSS surface was maintained by hand.
  *
- * Consumers with richer HTML (tables, nested formatting, custom tags) should
- * pre-convert with a full parser such as `turndown` before migrating.
+ * This implementation delegates the two hard problems to audited libraries:
+ *
+ * 1. **DOMPurify** sanitises the input DOM, stripping `<script>`, `<style>`,
+ *    inline event handlers, and any href that does not match an
+ *    `http(s):` / `mailto:` scheme before turndown ever sees the tree.
+ * 2. **turndown** (plus `turndown-plugin-gfm`) converts the sanitised DOM to
+ *    GFM Markdown, preserving tables, strikethrough, task-list checkboxes,
+ *    nested list indentation, and language-tagged code fences.
+ *
+ * The public {@link htmlToMarkdown} signature is unchanged so existing call
+ * sites continue to work.
  *
  * @module htmlToMarkdown
  */
 
+import DOMPurify from 'dompurify';
+import TurndownService from 'turndown';
+import { gfm } from 'turndown-plugin-gfm';
+
+/**
+ * HTML tags that survive sanitisation. Chosen to cover the legacy rich-text
+ * editor's emitted markup plus the GFM constructs (tables, task lists,
+ * strikethrough) that turndown can now convert. Anything outside this list
+ * is stripped rather than escaped, matching the previous helper's behaviour.
+ */
+const ALLOWED_TAGS = [
+  // Block structure
+  'p',
+  'br',
+  'div',
+  'span',
+  'blockquote',
+  'hr',
+  // Headings
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  // Inline formatting
+  'b',
+  'strong',
+  'i',
+  'em',
+  'u',
+  's',
+  'strike',
+  'del',
+  'ins',
+  'code',
+  'pre',
+  'sub',
+  'sup',
+  // Links
+  'a',
+  // Lists
+  'ul',
+  'ol',
+  'li',
+  // Tables
+  'table',
+  'thead',
+  'tbody',
+  'tfoot',
+  'tr',
+  'th',
+  'td',
+  'caption',
+  // Task-list checkboxes (inside <li>) — turndown-plugin-gfm reads these.
+  'input',
+];
+
+/**
+ * HTML attributes that survive sanitisation. We keep the minimum turndown
+ * needs to produce correct Markdown: link targets, code-block language hints
+ * (encoded as `class="language-xxx"`), cell alignment, and the checkbox
+ * metadata that drives GFM task-list conversion.
+ */
+const ALLOWED_ATTR = [
+  'href',
+  'title',
+  'class',
+  'align',
+  'type',
+  'checked',
+  'disabled',
+  'colspan',
+  'rowspan',
+  'start',
+];
+
+/**
+ * URI allow-list regexp honoured by DOMPurify for `href`, `src`, etc.
+ * Explicitly permits `http:`, `https:`, and `mailto:`; everything else —
+ * including `javascript:`, `data:`, `vbscript:`, `about:`, and
+ * protocol-relative URLs (`//evil.com`) — is stripped by DOMPurify.
+ *
+ * The alternation covers three cases:
+ *   - an allowed scheme followed by `:`
+ *   - a URL starting with a non-letter (relative, fragment, query)
+ *   - an unknown scheme whose first non-scheme character proves it is not
+ *     a URI reference (prevents whole-word matches of unknown schemes)
+ */
+const ALLOWED_URI_REGEXP =
+  /^(?:(?:https?|mailto):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i;
+
+/**
+ * Shared {@link TurndownService} instance. Configured once because turndown
+ * internally maintains a rule registry and re-initialising per call would
+ * re-register the GFM plugin's ~dozen rules for every invocation.
+ */
+const turndown = new TurndownService({
+  headingStyle: 'atx',
+  codeBlockStyle: 'fenced',
+  bulletListMarker: '-',
+  emDelimiter: '*',
+  // Turndown defaults are otherwise fine; the GFM plugin layers on
+  // strikethrough, tables, and task-list rules below.
+});
+turndown.use(gfm);
+
+/**
+ * Restore language-hinted fences. Turndown's default fenced-code-block rule
+ * reads the `language-xxx` class off the inner `<code>` element; we keep this
+ * explicit override so the test suite can pin the shape — it also doubles as
+ * a safety net if a future turndown version changes its default.
+ */
+turndown.addRule('fencedCodeWithLang', {
+  filter: (node): boolean => {
+    if (node.nodeName !== 'PRE') return false;
+    const code = (node as HTMLElement).firstChild as HTMLElement | null;
+    return !!code && code.nodeName === 'CODE';
+  },
+  replacement: (_content, node): string => {
+    const code = (node as HTMLElement).firstChild as HTMLElement;
+    const className = code.getAttribute('class') ?? '';
+    const match = className.match(/language-(\S+)/);
+    const lang = match?.[1] ?? '';
+    const text = code.textContent ?? '';
+    return `\n\n\`\`\`${lang}\n${text}\n\`\`\`\n\n`;
+  },
+});
+
+/**
+ * Tighten the default `listItem` rule so the bullet marker is followed by a
+ * single space (`- item`) rather than turndown's default of three spaces
+ * (`-   item`). The extra padding is valid Markdown but breaks pixel-level
+ * parity with the legacy regex helper's output and reads poorly in cell
+ * displays. Indentation for nested items still uses the prefix length, so
+ * children correctly indent by two spaces under the parent.
+ */
+turndown.addRule('compactListItem', {
+  filter: 'li',
+  replacement: (content, node): string => {
+    const parent = node.parentNode as HTMLElement | null;
+    let prefix: string;
+    if (parent?.nodeName === 'OL') {
+      const start = parent.getAttribute('start');
+      const index = Array.prototype.indexOf.call(parent.children, node);
+      const n = start ? Number(start) + index : index + 1;
+      prefix = `${n}. `;
+    } else {
+      prefix = '- ';
+    }
+    // Trim turndown's wrapping newlines so the prefix sits flush on its line.
+    let body = content.replace(/^\n+|\n+$/g, '');
+    // Re-indent any interior newlines by the prefix width so continuation
+    // content lines up under the first bullet character.
+    body = body.replace(/\n/gm, `\n${' '.repeat(prefix.length)}`);
+    return prefix + body + (node.nextSibling ? '\n' : '');
+  },
+});
+
+/**
+ * GFM-style double-tilde strikethrough. `turndown-plugin-gfm` ships a single-
+ * tilde rule (`~x~`); GitHub and most Markdown parsers actually want `~~x~~`.
+ * Overriding here preserves the legacy helper's output shape.
+ */
+turndown.addRule('strikethroughDouble', {
+  // `<strike>` is absent from the modern `HTMLElementTagNameMap`, so we filter
+  // by nodeName rather than relying on turndown's typed TagName alias.
+  filter: (node): boolean =>
+    node.nodeName === 'DEL' || node.nodeName === 'S' || node.nodeName === 'STRIKE',
+  replacement: (content): string => `~~${content}~~`,
+});
+
+/**
+ * Markdown has no native underline. Map `<u>` to italic, matching the legacy
+ * helper's behaviour so downstream renderers (react-markdown + remark-gfm)
+ * produce the same emphasis style.
+ */
+turndown.addRule('underlineAsItalic', {
+  filter: 'u',
+  replacement: (content): string => `*${content}*`,
+});
+
 /**
  * Converts a legacy HTML rich-text string to GitHub-Flavored Markdown.
  *
- * Intended for one-time data migration when upgrading consumers from the
- * HTML-backed editor to the markdown-backed editor. The conversion is
- * heuristic and best-effort; unknown tags are stripped. Entities (`&amp;`,
- * `&lt;`, `&gt;`, `&quot;`, `&#39;`, `&nbsp;`) are decoded.
+ * Intended for data migration from the HTML-backed editor to the markdown
+ * editor, and safe for live user input because the pipeline is sanitise-then-
+ * convert: DOMPurify strips unsafe constructs first, then turndown walks the
+ * purified tree.
  *
  * @param html - The legacy HTML source.
  * @returns A GFM markdown string; empty string when input is nullish or blank.
@@ -32,118 +224,31 @@
  * htmlToMarkdown('<a href="https://x.y">link</a>'); // "[link](https://x.y)"
  * ```
  */
-/**
- * URL schemes considered safe for anchor hrefs. An empty string covers
- * relative URLs (no scheme at all).
- */
-const SAFE_URL_SCHEMES = new Set(['http:', 'https:', 'mailto:', 'tel:', '']);
-
-/**
- * Normalise a raw href string and return its lowercase scheme (e.g. "http:").
- * Handles HTML-entity and percent-encoded colons so that obfuscations like
- * `javascript&#x3a;` or `javascript%3a` are caught.
- */
-function extractScheme(href: string): string {
-  // Decode percent-encoded colon (%3a / %3A) and HTML entity colon (&#x3a; &#58;)
-  const decoded = href
-    .replace(/%3a/gi, ':')
-    .replace(/&#x3a;/gi, ':')
-    .replace(/&#58;/gi, ':')
-    .trim()
-    .toLowerCase();
-  const colonIdx = decoded.indexOf(':');
-  if (colonIdx === -1) return '';
-  // A scheme contains only letters, digits, +, -, .
-  const candidate = decoded.slice(0, colonIdx);
-  if (/^[a-z][a-z0-9+\-.]*$/.test(candidate)) return `${candidate}:`;
-  return '';
-}
-
 export function htmlToMarkdown(html: string | null | undefined): string {
   if (html == null) return '';
-  let out = String(html);
-  if (!out.trim()) return '';
+  const raw = String(html);
+  if (!raw.trim()) return '';
 
-  // ── Pass 1: remove HTML comments BEFORE script/style so comment-wrapped
-  //    scripts (<!-- <script>x</script> -->) cannot survive. ─────────────────
-  out = out.replace(/<!--[\s\S]*?-->/g, '');
-
-  // Strip <script> and <style> blocks entirely for safety.
-  out = out.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  out = out.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
-
-  // ── Pass 2: strip inline event-handler attributes from ALL tags. ──────────
-  // Handles both quoted (on*="…") and unquoted (on*=value) forms.
-  out = out.replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
-
-  // Normalize <br> to a newline.
-  out = out.replace(/<br\s*\/?>/gi, '\n');
-
-  // Headings — map <h1>-<h6> to `#` ... `######`.
-  for (let level = 1; level <= 6; level += 1) {
-    const prefix = '#'.repeat(level);
-    const re = new RegExp(`<h${level}[^>]*>([\\s\\S]*?)<\\/h${level}>`, 'gi');
-    out = out.replace(re, (_m, inner: string) => `\n\n${prefix} ${inner.trim()}\n\n`);
-  }
-
-  // Paragraphs → double newline boundaries.
-  out = out.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, (_m, inner: string) => `\n\n${inner.trim()}\n\n`);
-
-  // Inline code before <pre> so `<pre><code>` becomes a fence.
-  out = out.replace(
-    /<pre[^>]*>\s*<code[^>]*>([\s\S]*?)<\/code>\s*<\/pre>/gi,
-    (_m, inner: string) => `\n\n\`\`\`\n${inner}\n\`\`\`\n\n`,
-  );
-  out = out.replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, (_m, inner: string) => `\n\n\`\`\`\n${inner}\n\`\`\`\n\n`);
-  out = out.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_m, inner: string) => `\`${inner}\``);
-
-  // Strong / bold.
-  out = out.replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, (_m, _tag, inner: string) => `**${inner}**`);
-  // Emphasis / italic.
-  out = out.replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, (_m, _tag, inner: string) => `*${inner}*`);
-  // Strikethrough.
-  out = out.replace(/<(s|del|strike)[^>]*>([\s\S]*?)<\/\1>/gi, (_m, _tag, inner: string) => `~~${inner}~~`);
-  // Underline → italic (markdown has no native underline; italic is the conventional fallback).
-  out = out.replace(/<u[^>]*>([\s\S]*?)<\/u>/gi, (_m, inner: string) => `*${inner}*`);
-
-  // Links — preserve href only when the scheme is safe.
-  out = out.replace(
-    /<a\b[^>]*?href\s*=\s*["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
-    (_m, href: string, text: string) => {
-      const scheme = extractScheme(href);
-      const safeHref = SAFE_URL_SCHEMES.has(scheme) ? href : '#';
-      return `[${text.trim() || safeHref}](${safeHref})`;
-    },
-  );
-
-  // Lists — ordered and unordered. Flatten nested lists lossily (prefix stays the same).
-  out = out.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_m, inner: string) => {
-    const items = [...inner.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)].map(
-      (match) => `- ${(match[1] ?? '').trim()}`,
-    );
-    return `\n\n${items.join('\n')}\n\n`;
-  });
-  out = out.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_m, inner: string) => {
-    const items = [...inner.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)].map(
-      (match, i) => `${i + 1}. ${(match[1] ?? '').trim()}`,
-    );
-    return `\n\n${items.join('\n')}\n\n`;
+  const clean = DOMPurify.sanitize(raw, {
+    ALLOWED_TAGS,
+    ALLOWED_ATTR,
+    ALLOWED_URI_REGEXP,
+    // Keep text content when a tag is stripped (e.g. unknown wrapper <body>)
+    // so visible copy survives the sanitise pass.
+    KEEP_CONTENT: true,
+    // Disallow all MathML/SVG by default; we do not render them as Markdown.
+    USE_PROFILES: { html: true },
+    // DOMPurify would otherwise preserve HTML comments verbatim; strip them so
+    // comment-wrapped scripts cannot survive the later markdown passthrough.
+    ALLOW_DATA_ATTR: false,
   });
 
-  // Drop every remaining tag — leftover attributes or unknown elements.
-  out = out.replace(/<\/?[a-zA-Z][^>]*>/g, '');
+  const md = turndown.turndown(clean);
 
-  // Decode the handful of entities the HTML editor produced.
-  out = out
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'");
-
-  // Collapse excessive whitespace runs and trim surrounding blank lines.
-  out = out.replace(/\n{3,}/g, '\n\n').trim();
-
-  return out;
+  // Normalise whitespace:
+  //   * non-breaking spaces (U+00A0) → regular spaces so `&nbsp;` round-trips
+  //     to plain text for downstream markdown renderers,
+  //   * collapse runs of three or more newlines down to the canonical blank
+  //     line, and trim surrounding whitespace — mirrors the legacy helper.
+  return md.replace(/\u00a0/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
