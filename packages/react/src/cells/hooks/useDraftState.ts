@@ -98,10 +98,20 @@ export function useDraftState({
     [draft, transformCommit, onCommit],
   );
 
-  /** Commits on Enter, cancels on Escape. */
+  /**
+   * Commits on Enter or Tab, cancels on Escape.
+   *
+   * Issue #10: Enter and Tab both commit-and-stay. `preventDefault` prevents
+   * the browser's native Tab-focus-advance and any form submission, while
+   * `stopPropagation` stops the grid-level keyboard handler from re-opening
+   * edit mode (Enter) or advancing the selection (Tab) after the cell editor
+   * has already committed.
+   */
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        e.stopPropagation();
         commit();
       } else if (e.key === 'Escape') {
         cancelledRef.current = true;

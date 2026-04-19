@@ -18,7 +18,7 @@ export const InlineEditing: StoryObj = {
       <div style={storyContainer}>
         <h2 style={styles.heading}>Inline Cell Editing</h2>
         <p style={styles.subtitle}>
-          Double-click any editable cell. Press <kbd>Enter</kbd> to commit, <kbd>Escape</kbd> to cancel. Edit events logged below.
+          Double-click any editable cell. Press <kbd>Enter</kbd> or <kbd>Tab</kbd> to commit, <kbd>Escape</kbd> to cancel. Edit events logged below.
         </p>
         <div style={gridContainer}>
           <MuiDataGrid
@@ -34,6 +34,47 @@ export const InlineEditing: StoryObj = {
         </div>
         <pre style={styles.logPre}>
           {log.length ? log.join('\n') : '(edit a cell to see events)'}
+        </pre>
+      </div>
+    );
+  },
+};
+
+// Issue #10: Enter and Tab both commit the draft AND keep selection on the
+// same cell (no vertical/horizontal auto-advance). This story makes that
+// behaviour explicit by logging before/after cell values and showing the
+// outline staying on the edited cell.
+export const EnterTabCommitAndStay: StoryObj = {
+  name: 'Enter/Tab commit-and-stay (issue #10)',
+  render: () => {
+    const [log, setLog] = useState<string[]>([]);
+    return (
+      <div style={storyContainer}>
+        <h2 style={styles.heading}>Enter / Tab: commit-and-stay</h2>
+        <p style={styles.subtitle}>
+          Double-click a cell, type a new value, then press <kbd>Enter</kbd> <em>or</em> <kbd>Tab</kbd>.
+          Both keys commit the value, exit edit mode, and leave the selection on the <strong>same</strong> cell —
+          the focus does NOT advance to the row below or the next column.
+          <br />
+          <kbd>Escape</kbd> cancels the edit and keeps selection on the same cell.
+        </p>
+        <div style={gridContainer}>
+          <MuiDataGrid
+            data={makeEmployees(10)}
+            columns={defaultColumns as any}
+            rowKey="id"
+            selectionMode="cell"
+            keyboardNavigation
+            onCellEdit={(rowId, field, value, prev) =>
+              setLog((p) => [
+                ...p.slice(-8),
+                `[${rowId}].${field}: ${String(prev)} -> ${String(value)}`,
+              ])
+            }
+          />
+        </div>
+        <pre style={styles.logPre}>
+          {log.length ? log.join('\n') : '(edit a cell, then press Enter or Tab)'}
         </pre>
       </div>
     );
