@@ -207,6 +207,11 @@ export interface DataGridBodyProps<TData extends Record<string, unknown>> {
   renderSubGridExpansionRow?: (rowId: string, row: TData) => React.ReactNode;
   /** Current nesting depth; 0 for the outer grid. */
   subGridDepth?: number;
+  /**
+   * Stable identifier of the owning grid, forwarded to cell renderers so they
+   * can construct deterministic child-grid ARIA ids for `aria-controls` linkage.
+   */
+  gridId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -266,6 +271,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     expandedSubGrids,
     renderSubGridExpansionRow,
     subGridDepth = 0,
+    gridId,
   } = props;
 
   const ghostPosition = showGhostRow ? resolveGhostPosition(ghostRowConfig) : 'bottom';
@@ -524,6 +530,8 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             column={col}
             rowIndex={rowIdx}
             isEditing={editing}
+            gridId={gridId}
+            rowId={rowId}
             onCommit={v => {
               const vResult = validateCell(col, v, rowId);
               if (vResult && vResult.severity === 'error') {
@@ -730,18 +738,6 @@ export function DataGridBody<TData extends Record<string, unknown>>(
   // -------------------------------------------------------------------------
   // Sub-grid expansion detection
   // -------------------------------------------------------------------------
-  //
-  // If any parent row has its sub-grid expanded we cannot keep the virtualised
-  // absolute-positioning layout, because the expansion rows introduce variable
-  // heights that aren't accounted for by the fixed-`rowHeight` virtualiser.
-  // In that case we fall back to a flow layout that renders the full data set
-  // (non-virtualised). Virtualisation is restored when every sub-grid is
-  // collapsed.
-  //
-  // This trade-off is acceptable because sub-grid rendering is inherently a
-  // "look at a subset of rows closely" interaction; for heavy virtualisation
-  // workloads users typically keep the rows collapsed.
-
   const hasExpandedSubGrids = !!expandedSubGrids && expandedSubGrids.size > 0;
 
   // -------------------------------------------------------------------------
@@ -757,16 +753,26 @@ export function DataGridBody<TData extends Record<string, unknown>>(
       );
     }
 
-    // Choose the row index range: virtualised window when no sub-grids are
-    // expanded; full dataset otherwise.
-    const indices = hasExpandedSubGrids
-      ? processedData.map((_, i) => i)
-      : Array.from(
-          { length: rowRange.endIndex - rowRange.startIndex + 1 },
-          (_, i) => rowRange.startIndex + i,
-        );
+    // Always use the virtualised window for the row range. When sub-grids are
+    // expanded we switch from absolute-positioning to in-flow layout within the
+    // window (so expansion rows push subsequent rows down naturally) and prepend
+    // a pixel-height spacer for the rows above the window. This preserves
+    // virtualisation — only O(viewport) rows are ever in the DOM — while still
+    // allowing variable-height expansion rows to flow correctly.
+    const windowIndices = Array.from(
+      { length: rowRange.endIndex - rowRange.startIndex + 1 },
+      (_, i) => rowRange.startIndex + i,
+    );
 
-    return indices.map(rowIdx => {
+    // When rendering in flow layout (hasExpandedSubGrids), the rows are no
+    // longer absolutely positioned. We need a top spacer to push the visible
+    // window down to its correct scroll offset so the rows appear at the right
+    // position within the oversized scroll container.
+    const topSpacerHeight = hasExpandedSubGrids
+      ? rowRange.startIndex * rowHeight + (ghostAtTop ? rowHeight : 0)
+      : 0;
+
+    const rowElements = windowIndices.map(rowIdx => {
       const row = processedData[rowIdx];
       if (!row) return null;
       const rowId = rowIds[rowIdx] ?? String(rowIdx);
@@ -778,8 +784,10 @@ export function DataGridBody<TData extends Record<string, unknown>>(
       const rowBg = getCachedResolverResult(getRowBackground, row, rowId, rowIdx) ?? null;
       const rowBorder = getCachedResolverResult(getRowBorder, row, rowId, rowIdx) ?? null;
 
-      // Use in-flow positioning (no absolute top) whenever any sub-grid is
-      // expanded, so expansion rows can push subsequent rows down naturally.
+      // When sub-grids are expanded use in-flow layout so the expansion row
+      // naturally pushes subsequent rows downward. When no sub-grids are
+      // expanded use absolute positioning (the original virtualised layout)
+      // which is faster and avoids the reflow cost of a spacer element.
       const rowStyle = hasExpandedSubGrids
         ? styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0, background: rowBg, border: rowBorder })
         : styles.virtualizedRow({
@@ -840,6 +848,23 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         </React.Fragment>
       );
     });
+
+    if (!hasExpandedSubGrids || topSpacerHeight === 0) {
+      return rowElements;
+    }
+
+    // Return spacer + windowed rows as a flat array that React renders as a
+    // fragment. The spacer reserves vertical space for the rows above the
+    // current viewport window; the flow-layout rows then appear at the correct
+    // scroll position without re-implementing absolute positioning math.
+    return [
+      <div
+        key="__top-spacer__"
+        aria-hidden="true"
+        style={{ height: topSpacerHeight, flexShrink: 0 }}
+      />,
+      ...rowElements,
+    ];
   };
 
   // -------------------------------------------------------------------------
@@ -883,12 +908,16 @@ export function DataGridBody<TData extends Record<string, unknown>>(
       ) : (
         <div
           style={
-            hasExpandedSubGrids
-              ? styles.groupedBodyWrapper(totalWidth)
-              : styles.virtualizedBodyWrapper(
-                  rowRange.totalSize + (showGhostRow ? rowHeight : 0),
-                  totalWidth,
-                )
+            // Always use the virtualised wrapper so the scroll container has
+            // the correct total height and the browser renders an accurate
+            // scrollbar thumb. When sub-grids are expanded we switch to flow
+            // layout inside the window (via a top spacer + in-flow rows) rather
+            // than absolute positioning, but the outer container height is
+            // unchanged so scrolling behaviour remains correct.
+            styles.virtualizedBodyWrapper(
+              rowRange.totalSize + (showGhostRow ? rowHeight : 0),
+              totalWidth,
+            )
           }
         >
           {renderNonGroupedBody()}

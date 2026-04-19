@@ -186,3 +186,41 @@ export function applyFiltering<T extends Record<string, unknown>>(data: T[], fil
   const compiled = precompileFilter(filter);
   return data.filter(row => evaluateCompositeFilter(row, compiled));
 }
+
+/**
+ * Removes all filter predicates targeting `field` from a composite filter tree.
+ *
+ * Walks the tree recursively. Leaf nodes (`FilterDescriptor`) whose `.field`
+ * matches are replaced with `null`. Composite nodes (`CompositeFilterDescriptor`)
+ * whose entire subtree only referenced `field` collapse to `null` as well.
+ * Mixed composites lose their matching branches but remain in the tree.
+ *
+ * @param node - The filter or composite to prune.
+ * @param field - The field name to strip.
+ * @returns The pruned node, or `null` if the entire node targeted `field`.
+ *
+ * @example
+ * ```ts
+ * const tree = { logic: 'and', filters: [
+ *   { field: 'name', operator: 'contains', value: 'Alice' },
+ *   { field: 'age', operator: 'gt', value: 30 },
+ * ]};
+ * stripField(tree, 'name');
+ * // → { logic: 'and', filters: [{ field: 'age', operator: 'gt', value: 30 }] }
+ * ```
+ */
+export function stripField(
+  node: FilterDescriptor | CompositeFilterDescriptor,
+  field: string,
+): FilterDescriptor | CompositeFilterDescriptor | null {
+  if ('filters' in node) {
+    const kept: Array<FilterDescriptor | CompositeFilterDescriptor> = [];
+    for (const child of node.filters) {
+      const pruned = stripField(child, field);
+      if (pruned !== null) kept.push(pruned);
+    }
+    if (kept.length === 0) return null;
+    return { ...node, filters: kept };
+  }
+  return node.field === field ? null : node;
+}
