@@ -714,6 +714,12 @@ export function DataGridBody<TData extends Record<string, unknown>>(
               {!rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
             </div>
             {isExpanded && renderSubGridExpansionRow && (
+              // The expansion row is a spanning row that holds a nested grid.
+              // A bare role="grid" inside role="row" or role="grid" fails
+              // aria-required-children. The fix is to wrap the nested grid
+              // in a single role="gridcell" so the parent grid sees a valid
+              // row→gridcell hierarchy, and the gridcell's content (the
+              // nested grid) is opaque to the aria-required-children rule.
               <div
                 role="row"
                 data-testid={`subgrid-expansion-${rowId}`}
@@ -724,7 +730,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
                   depth: subGridDepth,
                 })}
               >
-                <div style={styles.subGridExpansionInner}>
+                <div role="gridcell" style={styles.subGridExpansionInner}>
                   {renderSubGridExpansionRow(rowId, row)}
                 </div>
               </div>
@@ -830,6 +836,10 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             {!rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
           </div>
           {isExpanded && renderSubGridExpansionRow && (
+            // See companion branch above for rationale: the nested grid is
+            // wrapped in a single role="gridcell" so the parent grid's
+            // row→gridcell hierarchy stays valid under axe-core's
+            // aria-required-children rule.
             <div
               role="row"
               data-testid={`subgrid-expansion-${rowId}`}
@@ -840,7 +850,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
                 depth: subGridDepth,
               })}
             >
-              <div style={styles.subGridExpansionInner}>
+              <div role="gridcell" style={styles.subGridExpansionInner}>
                 {renderSubGridExpansionRow(rowId, row)}
               </div>
             </div>
