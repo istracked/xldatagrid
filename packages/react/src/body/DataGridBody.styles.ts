@@ -184,31 +184,79 @@ export const aggregateCell = (width: number): CSSProperties => ({
 // Data rows
 // ---------------------------------------------------------------------------
 
+/**
+ * Per-row border override descriptor forwarded from
+ * `chrome.getRowBorder`. Fields mirror the public
+ * `RowBorderStyle` shape and are applied on top of the row's default border.
+ * Kept private to this module so public API stays in `@istracked/datagrid-core`.
+ */
+export interface RowBorderOverride {
+  color?: string;
+  style?: 'solid' | 'dashed' | 'dotted';
+  width?: number;
+  sides?: Array<'top' | 'right' | 'bottom' | 'left'>;
+}
+
+/**
+ * Computes the per-side border CSS for a {@link RowBorderOverride}. Returns a
+ * partial `CSSProperties` object that callers spread onto the row style to
+ * override the stock separator. When `sides` is omitted all four edges are
+ * painted; the bottom edge intentionally overrides the row's default
+ * `borderBottom` so consumers can fully replace the separator.
+ */
+function rowBorderOverrideStyle(border: RowBorderOverride | null | undefined): CSSProperties {
+  if (!border) return {};
+  // Normalise the shorthand `border: "<width> <style> <color>"` per side we
+  // need. Defaults chosen to mirror the stock row separator so a minimal
+  // `{ color: '#f00' }` override still renders.
+  const width = border.width ?? 1;
+  const style = border.style ?? 'solid';
+  const color = border.color ?? 'currentColor';
+  const borderShorthand = `${width}px ${style} ${color}`;
+  const sides = border.sides ?? ['top', 'right', 'bottom', 'left'];
+  const out: CSSProperties = {};
+  if (sides.includes('top')) out.borderTop = borderShorthand;
+  if (sides.includes('right')) out.borderRight = borderShorthand;
+  if (sides.includes('bottom')) out.borderBottom = borderShorthand;
+  if (sides.includes('left')) out.borderLeft = borderShorthand;
+  return out;
+}
+
 /** Style for a data row on the grouped render path. Uses normal flow (no
  *  absolute positioning) since grouped rendering does not virtualise.
- *  `isEven` selects the zebra-striping background token. */
+ *  `isEven` selects the zebra-striping background token. `background` and
+ *  `border`, when provided, win over the default zebra stripe and the row
+ *  separator respectively — see `chrome.getRowBackground` and
+ *  `chrome.getRowBorder`. */
 export const dataRow = (opts: {
   height: number;
   totalWidth: number;
   isEven: boolean;
+  background?: string | null;
+  border?: RowBorderOverride | null;
 }): CSSProperties => ({
   display: 'flex',
   height: opts.height,
   width: opts.totalWidth,
   borderBottom: '1px solid var(--dg-border-color, #e2e8f0)',
-  background: opts.isEven
+  background: opts.background ?? (opts.isEven
     ? 'var(--dg-row-bg, #ffffff)'
-    : 'var(--dg-row-bg-alt, #f8fafc)',
+    : 'var(--dg-row-bg-alt, #f8fafc)'),
+  // Border override last so it replaces any default edge styling above.
+  ...rowBorderOverrideStyle(opts.border),
 });
 
 /** Style for a data row on the virtualised (non-grouped) render path.
  *  Absolutely positioned at `top` inside the virtualised wrapper so rows
- *  outside `rowRange` can be skipped entirely. */
+ *  outside `rowRange` can be skipped entirely. `background`/`border`
+ *  semantics match {@link dataRow}. */
 export const virtualizedRow = (opts: {
   height: number;
   totalWidth: number;
   top: number;
   isEven: boolean;
+  background?: string | null;
+  border?: RowBorderOverride | null;
 }): CSSProperties => ({
   display: 'flex',
   position: 'absolute',
@@ -216,9 +264,10 @@ export const virtualizedRow = (opts: {
   height: opts.height,
   width: opts.totalWidth,
   borderBottom: '1px solid var(--dg-border-color, #e2e8f0)',
-  background: opts.isEven
+  background: opts.background ?? (opts.isEven
     ? 'var(--dg-row-bg, #ffffff)'
-    : 'var(--dg-row-bg-alt, #f8fafc)',
+    : 'var(--dg-row-bg-alt, #f8fafc)'),
+  ...rowBorderOverrideStyle(opts.border),
 });
 
 // ---------------------------------------------------------------------------

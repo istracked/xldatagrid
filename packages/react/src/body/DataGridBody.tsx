@@ -47,7 +47,7 @@ import {
   GhostRowPosition,
   GridModel,
 } from '@istracked/datagrid-core';
-import type { ControlsColumnConfig, RowNumberColumnConfig } from '@istracked/datagrid-core';
+import type { ControlsColumnConfig, RowNumberColumnConfig, RowBorderStyle, ChromeCellContent } from '@istracked/datagrid-core';
 import { CellRendererProps } from '../DataGrid';
 import { ChromeControlsCell, ChromeRowNumberCell } from '../chrome';
 import { GhostRow } from '../GhostRow';
@@ -162,6 +162,12 @@ export interface DataGridBodyProps<TData extends Record<string, unknown>> {
   onRowDragOver?: (rowId: string, rowIndex: number) => void;
   onRowDrop?: (rowId: string, rowIndex: number) => void;
 
+  // Chrome-level row presentation hooks (issue #14). Each is evaluated per
+  // rendered row; returning nullish preserves the stock presentation.
+  getRowBorder?: (row: TData, rowId: string, rowIndex: number) => RowBorderStyle | null | undefined;
+  getRowBackground?: (row: TData, rowId: string, rowIndex: number) => string | null | undefined;
+  getChromeCellContent?: (row: TData, rowId: string, rowIndex: number) => ChromeCellContent | null | undefined;
+
   // Ghost row
   showGhostRow: boolean;
   ghostRowConfig?: boolean | GhostRowConfig<TData>;
@@ -232,6 +238,9 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     onRowDragStart,
     onRowDragOver,
     onRowDrop,
+    getRowBorder,
+    getRowBackground,
+    getChromeCellContent,
     showGhostRow,
     ghostRowConfig,
     readOnly,
@@ -304,8 +313,16 @@ export function DataGridBody<TData extends Record<string, unknown>>(
   // The `key="__row-number__"` is stable across re-renders and distinct from
   // any column `field` value so React can reconcile this child independently
   // of the data-cell list whose keys are `col.field`.
-  const renderRowNumberCell = (rowId: string, rowIdx: number) => {
+  const renderRowNumberCell = (row: TData | undefined, rowId: string, rowIdx: number) => {
     if (!rowNumberConfig || !onRowNumberClick) return null;
+    // Resolve optional per-row chrome-cell content override. Only invoked when
+    // the consumer supplied a resolver; the row may be `undefined` during a
+    // brief reconciliation window (e.g. a data swap), in which case we fall
+    // back to the default digit rather than propagating `undefined` into user
+    // code.
+    const content = row !== undefined && getChromeCellContent
+      ? getChromeCellContent(row, rowId, rowIdx) ?? null
+      : null;
     return (
       <ChromeRowNumberCell
         key="__row-number__"
@@ -315,6 +332,9 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         height={rowHeight}
         reorderable={rowNumberConfig.reorderable !== false}
         stickyLeft={rowNumberStickyLeft}
+        contentText={content?.text}
+        contentIcon={content?.icon as React.ReactNode}
+        onContentClick={content?.onClick}
         onSelect={onRowNumberClick}
         onDragStart={onRowDragStart}
         onDragOver={onRowDragOver}
@@ -537,10 +557,16 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         const rowIdx = rowIds.indexOf(rowId);
         const isExpanded = expandedSubGrids?.has(rowId) ?? false;
 
+        // Resolve per-row presentation overrides for this data row. Evaluated
+        // eagerly rather than memoised: resolvers are typically pure and cheap,
+        // and the grouped render path is not virtualised so callers are not
+        // paying the cost for unrendered rows.
+        const rowBg = getRowBackground ? getRowBackground(row, rowId, rowIdx) ?? null : null;
+        const rowBorder = getRowBorder ? getRowBorder(row, rowId, rowIdx) ?? null : null;
         return (
           <React.Fragment key={rowId}>
             <div
-              style={styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0 })}
+              style={styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0, background: rowBg, border: rowBorder })}
               role="row"
               aria-rowindex={rowIdx + 2}
               data-row-id={rowId}
@@ -561,11 +587,11 @@ export function DataGridBody<TData extends Record<string, unknown>>(
                   height={rowHeight}
                 />
               )}
-              {rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
+              {rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
               {orderedVisibleColumns.map((col, colIdx) =>
                 renderCell(col, colIdx, row, rowId, rowIdx)
               )}
-              {!rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
+              {!rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
             </div>
             {isExpanded && renderSubGridExpansionRow && (
               <div
@@ -634,15 +660,23 @@ export function DataGridBody<TData extends Record<string, unknown>>(
       const rowId = rowIds[rowIdx] ?? String(rowIdx);
       const isExpanded = expandedSubGrids?.has(rowId) ?? false;
 
+      // Per-row presentation overrides (issue #14). Resolvers are invoked
+      // once per rendered row; `null`/`undefined` results preserve the
+      // default zebra stripe and row-separator styling.
+      const rowBg = getRowBackground ? getRowBackground(row, rowId, rowIdx) ?? null : null;
+      const rowBorder = getRowBorder ? getRowBorder(row, rowId, rowIdx) ?? null : null;
+
       // Use in-flow positioning (no absolute top) whenever any sub-grid is
       // expanded, so expansion rows can push subsequent rows down naturally.
       const rowStyle = hasExpandedSubGrids
-        ? styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0 })
+        ? styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0, background: rowBg, border: rowBorder })
         : styles.virtualizedRow({
             height: rowHeight,
             totalWidth,
             top: rowIdx * rowHeight + (ghostAtTop ? rowHeight : 0),
             isEven: rowIdx % 2 === 0,
+            background: rowBg,
+            border: rowBorder,
           });
 
       return (
@@ -669,11 +703,11 @@ export function DataGridBody<TData extends Record<string, unknown>>(
                 height={rowHeight}
               />
             )}
-            {rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
+            {rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
             {orderedVisibleColumns.map((col, colIdx) =>
               renderCell(col, colIdx, row, rowId, rowIdx)
             )}
-            {!rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
+            {!rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
           </div>
           {isExpanded && renderSubGridExpansionRow && (
             <div

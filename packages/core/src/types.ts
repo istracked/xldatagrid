@@ -753,12 +753,113 @@ export interface RowGroup {
  * gutter (side is configurable via {@link RowNumberColumnConfig.position}).
  * Each slot accepts either a boolean (quick enable/disable with defaults) or
  * a configuration object for fine-grained control.
+ *
+ * The three `getRow…` / `getChromeCellContent` resolvers are row-level
+ * presentation hooks that let consumers style individual rows and inject
+ * content into the row-number ("chrome") gutter without needing a custom
+ * cell renderer. They are the public extension points that downstream
+ * features (row-click selection, Shift+Arrow range highlight, transposed
+ * field column) build on.
+ *
+ * @typeParam TData - The shape of a data row.
  */
-export interface ChromeColumnsConfig {
+export interface ChromeColumnsConfig<TData = Record<string, unknown>> {
   /** Far-left action column (e.g. magnifying glass, expand). */
   controls?: ControlsColumnConfig | boolean;
   /** Excel-style row number column with selection and reorder. Positioned via `RowNumberColumnConfig.position` (default: 'left'). */
   rowNumbers?: RowNumberColumnConfig | boolean;
+  /**
+   * Per-row border resolver. Called once per rendered row with the row data,
+   * row id and zero-based row index. Return a {@link RowBorderStyle} object
+   * to paint a border around the row's container element, or `null`/`undefined`
+   * to inherit the default border.
+   *
+   * The returned border is applied to the row container itself (all four
+   * sides by default; see {@link RowBorderStyle.sides}). It composes with
+   * chrome column styles — the chrome gutter's own left/right borders are
+   * preserved.
+   */
+  getRowBorder?: (
+    row: TData,
+    rowId: string,
+    rowIndex: number,
+  ) => RowBorderStyle | null | undefined;
+  /**
+   * Per-row background colour resolver. Called once per rendered row; the
+   * returned string is applied as the row container's `background` CSS
+   * property and therefore wins over the default zebra striping. Any
+   * CSS-legal colour value is accepted (HEX is preferred for determinism,
+   * but `rgba(…)` / named colours also work). Return `null`/`undefined` to
+   * fall back to the default row background token.
+   */
+  getRowBackground?: (
+    row: TData,
+    rowId: string,
+    rowIndex: number,
+  ) => string | null | undefined;
+  /**
+   * Per-row chrome-cell content resolver. When provided and the row-number
+   * chrome column is enabled, the returned {@link ChromeCellContent} replaces
+   * the default row-number digit with custom text and/or an icon. The
+   * resolver's `onClick` is invoked in addition to (not in place of) the
+   * built-in row-selection click handler — this is the hook that downstream
+   * features such as row-click selection (#15) and the transpose field
+   * column (#18) build on.
+   *
+   * Returning `null`/`undefined` preserves the default row-number rendering
+   * for that row.
+   */
+  getChromeCellContent?: (
+    row: TData,
+    rowId: string,
+    rowIndex: number,
+  ) => ChromeCellContent | null | undefined;
+}
+
+/**
+ * Per-row border style returned by {@link ChromeColumnsConfig.getRowBorder}.
+ *
+ * Every field is optional; unset fields fall back to sensible defaults:
+ * `color` → `currentColor`, `style` → `'solid'`, `width` → `1`,
+ * `sides` → all four sides.
+ */
+export interface RowBorderStyle {
+  /** Border colour (any CSS-legal value; HEX preferred). Default: inherits. */
+  color?: string;
+  /** Border line style. Default: `'solid'`. */
+  style?: 'solid' | 'dashed' | 'dotted';
+  /** Border width in pixels. Default: `1`. */
+  width?: number;
+  /**
+   * Which edges of the row the border is applied to. Default: all four.
+   * The bottom edge overrides the default row separator; omit it to keep
+   * the stock separator behaviour.
+   */
+  sides?: Array<'top' | 'right' | 'bottom' | 'left'>;
+}
+
+/**
+ * Content returned from {@link ChromeColumnsConfig.getChromeCellContent} to
+ * override the default row-number rendering inside the row-number chrome
+ * gutter.
+ *
+ * When provided, `text` and/or `icon` replace the digit; `onClick` is fired
+ * on click in addition to the row-selection handler, allowing downstream
+ * features (e.g. row-click selection) to opt into richer click semantics
+ * without shadowing the selection behaviour.
+ */
+export interface ChromeCellContent {
+  /** Text to display inside the chrome cell (wins over the default digit). */
+  text?: string;
+  /** Optional icon node (rendered before the text). */
+  icon?: unknown;
+  /**
+   * Optional click handler. Receives the native `MouseEvent` alongside the
+   * row id and row index. Called in addition to the built-in row-selection
+   * click — call `evt.stopPropagation()` on the event to prevent the
+   * selection handler from firing.
+   */
+  onClick?: (evt: MouseEvent, rowId: string, rowIndex: number) => void;
 }
 
 /**
@@ -857,7 +958,7 @@ export interface GridConfig<TData = Record<string, unknown>> {
   /** Toolbar, formula bar, and filter bar configuration. */
   bars?: BarsConfig;
   /** Optional chrome columns: controls (far left) and row numbers (far right). */
-  chrome?: ChromeColumnsConfig;
+  chrome?: ChromeColumnsConfig<TData>;
   /** Enable or configure column sorting. */
   sorting?: boolean | SortConfig;
   /** Enable or configure column filtering. */
