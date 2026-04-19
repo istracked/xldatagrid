@@ -56,7 +56,10 @@ import {
   createSelectionChecker,
   getRowSelectionBorders as coreGetRowSelectionBorders,
   stripField,
+  runValidators,
+  mostSevere,
 } from '@istracked/datagrid-core';
+import { ValidationTooltip } from './ValidationTooltip';
 import { useGridWithAtoms } from './use-grid';
 import { useGridStore } from './use-grid-store';
 import { useKeyboard } from './use-keyboard';
@@ -315,7 +318,31 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
   // Row grouping state (kept separate — different lifecycle)
   const [rowGroupExpanded, setRowGroupExpanded] = useState<Set<string>>(new Set());
   const [rowGroupsInitialized, setRowGroupsInitialized] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Record<string, ValidationResult | null>>({});
+  const [validationErrors, setValidationErrors] = useState<Record<string, ValidationResult[]>>({});
+  // Per-cell tooltip-open state. Keyed by `${rowId}:${field}`, value is the
+  // source that opened the tooltip — 'hover' or 'focus' — or undefined when
+  // closed. Hover and focus are tracked as a union so leaving one source
+  // does not close the tooltip while the other is still active.
+  const [tooltipState, setTooltipState] = useState<Record<string, Set<'hover' | 'focus'>>>({});
+  const updateTooltipState = useCallback(
+    (rowId: string, field: string, source: 'hover' | 'focus', active: boolean) => {
+      const key = `${rowId}:${field}`;
+      setTooltipState(prev => {
+        const prevSet = prev[key];
+        const nextSet = new Set(prevSet ?? []);
+        if (active) nextSet.add(source);
+        else nextSet.delete(source);
+        if (nextSet.size === 0) {
+          if (!prevSet || prevSet.size === 0) return prev;
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        }
+        return { ...prev, [key]: nextSet };
+      });
+    },
+    [],
+  );
 
   // --- Context menu ---
   const contextMenuEnabled = config.contextMenu !== false && config.contextMenu !== undefined;
@@ -588,17 +615,52 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     expandedGroups: rowGroupExpanded,
   }, false) : null;
 
-  // Validation
-  const validateCell = useCallback((col: ColumnDef<TData>, value: CellValue, rowId: string): ValidationResult | null => {
-    if (!col.validate) return null;
-    const result = col.validate(value);
-    const key = `${rowId}:${col.field}`;
-    setValidationErrors(prev => {
-      if (result === prev[key]) return prev;
-      return { ...prev, [key]: result };
-    });
-    return result;
-  }, []);
+  // Validation — runs every `col.validators` entry and stores the resulting
+  // array under `${rowId}:${field}`. An empty array means "no results" and is
+  // equivalent to valid; callers can check `.length > 0` to decide whether to
+  // surface the tooltip or block a commit on error severity.
+  const validateCell = useCallback(
+    (col: ColumnDef<TData>, value: CellValue, rowId: string, row: TData): ValidationResult[] => {
+      const key = `${rowId}:${col.field}`;
+      if (!col.validators || col.validators.length === 0) {
+        setValidationErrors(prev => {
+          if (!prev[key] || prev[key].length === 0) return prev;
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+        return [];
+      }
+      const results = runValidators(value, col.validators, {
+        row,
+        rowId,
+        field: col.field,
+      });
+      setValidationErrors(prev => {
+        const existing = prev[key];
+        if (results.length === 0) {
+          if (!existing || existing.length === 0) return prev;
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        }
+        return { ...prev, [key]: results };
+      });
+      // Reset tooltip-open state for this cell so the tooltip appears
+      // initially closed after a commit. The edit input's focus / hover
+      // session is unrelated to whether the *cell* is currently being
+      // interacted with; the user re-engaging (hover/focus) flips it back
+      // to open via the cell's own listeners.
+      setTooltipState(prev => {
+        if (!prev[key]) return prev;
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      return results;
+    },
+    [],
+  );
 
   const clearValidation = useCallback((rowId: string, field: string) => {
     const key = `${rowId}:${field}`;
@@ -1370,6 +1432,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           validateCell={validateCell}
           clearValidation={clearValidation}
           validationErrors={validationErrors}
+          onValidationTooltip={updateTooltipState}
           onCellEdit={onCellEdit}
           onValidationError={onValidationError}
           onContextMenu={openContextMenu}
@@ -1409,8 +1472,52 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           />
         )}
       </div>
+      {/*
+       * Portal-based validation tooltips. One per validated cell; the
+       * component mounts into `document.body` so the overlay escapes any
+       * grid-level clipping / z-index stacking. Results are sorted
+       * severity-first (errors → warnings → infos) before rendering so the
+       * tooltip lists blocking issues first. See the header comment in
+       * `ValidationTooltip.tsx` for the full contract.
+       */}
+      {Object.entries(validationErrors).map(([key, results]) => {
+        if (!results || results.length === 0) return null;
+        const splitIdx = key.indexOf(':');
+        if (splitIdx < 0) return null;
+        const rowId = key.slice(0, splitIdx);
+        const field = key.slice(splitIdx + 1);
+        const ordered = orderResults(results);
+        const top = mostSevere(results);
+        const open = (tooltipState[key]?.size ?? 0) > 0;
+        return (
+          <ValidationTooltip
+            key={key}
+            rowId={rowId}
+            field={field}
+            results={ordered}
+            open={open}
+            severity={top?.severity ?? null}
+          />
+        );
+      })}
     </GridContext.Provider>
   );
+}
+
+// Orders a validation-results array by severity priority — errors first,
+// then warnings, then infos — preserving declaration order within the same
+// severity. This is the ordering the tooltip surfaces to the user: blocking
+// issues are read first so they can be addressed before advisory feedback.
+function orderResults(results: ValidationResult[]): ValidationResult[] {
+  const errs: ValidationResult[] = [];
+  const warns: ValidationResult[] = [];
+  const infos: ValidationResult[] = [];
+  for (const r of results) {
+    if (r.severity === 'error') errs.push(r);
+    else if (r.severity === 'warning') warns.push(r);
+    else infos.push(r);
+  }
+  return [...errs, ...warns, ...infos];
 }
 
 /**

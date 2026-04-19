@@ -48,6 +48,7 @@ import {
   GridModel,
   SelectionMode,
   RowOutlineSides,
+  mostSevere,
 } from '@istracked/datagrid-core';
 import type {
   ControlsColumnConfig,
@@ -60,6 +61,7 @@ import type {
 import { CellRendererProps } from '../DataGrid';
 import { ChromeControlsCell, ChromeRowNumberCell } from '../chrome';
 import { GhostRow } from '../GhostRow';
+import { useHoverTooltip } from '../HoverTooltip';
 import * as styles from './DataGridBody.styles';
 
 // ---------------------------------------------------------------------------
@@ -218,9 +220,20 @@ export interface DataGridBodyProps<TData extends Record<string, unknown>> {
   cellRenderers?: Record<string, React.ComponentType<CellRendererProps<TData>>>;
   isReadOnly: boolean;
   model: GridModel<TData>;
-  validateCell: (col: ColumnDef<TData>, value: CellValue, rowId: string) => ValidationResult | null;
+  validateCell: (
+    col: ColumnDef<TData>,
+    value: CellValue,
+    rowId: string,
+    row: TData,
+  ) => ValidationResult[];
   clearValidation: (rowId: string, field: string) => void;
-  validationErrors: Record<string, ValidationResult | null>;
+  validationErrors: Record<string, ValidationResult[]>;
+  onValidationTooltip?: (
+    rowId: string,
+    field: string,
+    source: 'hover' | 'focus',
+    active: boolean,
+  ) => void;
   onCellEdit?: (rowKey: string, field: string, value: CellValue, prev: CellValue) => void;
   onValidationError?: (cell: CellAddress, error: ValidationResult) => void;
 
@@ -294,6 +307,100 @@ export interface DataGridBodyProps<TData extends Record<string, unknown>> {
 }
 
 // ---------------------------------------------------------------------------
+// BodyCell — per-cell wrapper that owns the hover-tooltip lifecycle.
+// ---------------------------------------------------------------------------
+//
+// `renderCell` is invoked inside the body's virtualisation loop, so it cannot
+// host React hooks directly (hooks may not live inside conditionally-called
+// closures). Extracting the cell JSX into a standalone component lets each
+// cell legally call `useHoverTooltip` without violating the rules-of-hooks,
+// and naturally scopes the tooltip state (visible, pending timer,
+// aria-describedby) per cell.
+//
+// The component is intentionally generic over the row shape so the resolver
+// signature can match `ColumnDef<TData>['note']` precisely.
+
+interface BodyCellProps<TData> {
+  col: ColumnDef<TData>;
+  colIdx: number;
+  row: TData;
+  rowId: string;
+  cellType: CellType;
+  /** Text the default hover tooltip falls back to when `note` is absent. */
+  defaultContent: string;
+  /** DOM-shaped props for the gridcell `<div>`. */
+  cellDivProps: React.HTMLAttributes<HTMLDivElement> & {
+    'data-cell-type'?: string;
+    'data-field'?: string;
+    'data-row-id'?: string;
+    'data-validation-severity'?: string;
+    'aria-colindex'?: number;
+    'aria-selected'?: boolean;
+    'aria-invalid'?: 'true' | undefined;
+  };
+  /** Upstream validation-tooltip handlers to compose with our hover set. */
+  onValidationHoverEnter?: () => void;
+  onValidationHoverLeave?: () => void;
+  children: React.ReactNode;
+}
+
+function BodyCell<TData extends Record<string, unknown>>(
+  props: BodyCellProps<TData>,
+) {
+  const {
+    col,
+    row,
+    defaultContent,
+    cellDivProps,
+    onValidationHoverEnter,
+    onValidationHoverLeave,
+    children,
+  } = props;
+
+  // Resolve the hover-tooltip body: `col.note` wins over the default
+  // content when provided, in either string or function form. The resolver
+  // is called only after the hover delay elapses, so a per-row note
+  // function is not billed on every bounced hover.
+  const resolveContent = React.useCallback(() => {
+    const note = col.note;
+    if (typeof note === 'function') return note(row);
+    if (typeof note === 'string') return note;
+    return defaultContent;
+  }, [col.note, row, defaultContent]);
+
+  const hover = useHoverTooltip({ resolveContent });
+
+  const composedOnMouseEnter: React.MouseEventHandler<HTMLDivElement> = (e) => {
+    onValidationHoverEnter?.();
+    hover.onMouseEnter(e);
+    cellDivProps.onMouseEnter?.(e);
+  };
+  const composedOnMouseLeave: React.MouseEventHandler<HTMLDivElement> = (e) => {
+    onValidationHoverLeave?.();
+    hover.onMouseLeave(e);
+    cellDivProps.onMouseLeave?.(e);
+  };
+
+  const {
+    onMouseEnter: _ignoredEnter,
+    onMouseLeave: _ignoredLeave,
+    ...restDivProps
+  } = cellDivProps;
+
+  return (
+    <div
+      {...restDivProps}
+      aria-describedby={hover.ariaDescribedBy ?? restDivProps['aria-describedby']}
+      onMouseEnter={composedOnMouseEnter}
+      onMouseLeave={composedOnMouseLeave}
+    >
+      {children}
+      {hover.tooltipNode}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -323,6 +430,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     validateCell,
     clearValidation,
     validationErrors,
+    onValidationTooltip,
     onCellEdit,
     onValidationError,
     onContextMenu,
@@ -616,8 +724,10 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     const cellAddr: CellAddress = { rowId, field: col.field };
     const CustomRenderer = cellRenderers?.[cellType];
     const vKey = getValidationKey(rowId, col.field);
-    const cellError = validationErrors[vKey] ?? null;
-    const hasError = cellError !== null && cellError.severity === 'error';
+    const cellResults = validationErrors[vKey] ?? [];
+    const topResult = cellResults.length > 0 ? mostSevere(cellResults) : null;
+    const hasValidation = cellResults.length > 0;
+    const hasError = topResult?.severity === 'error';
     const frozen = getColumnFrozen(col);
 
     // Click dispatch (issue #15):
@@ -643,37 +753,64 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         onRowNumberClick(rowId, e.shiftKey, e.metaKey || e.ctrlKey);
         return;
       }
+      // Shift-click extends the current rectangular range — the Excel-style
+      // convention where clicking a cell with Shift held sweeps the selection
+      // from the anchor to that cell. This is what the clipboard integration
+      // tests rely on to build a copyable range via `click` + `shift-click`
+      // rather than a drag gesture. Without Shift, the click starts a fresh
+      // single-cell selection.
+      if (e.shiftKey && model.getState().selection.range) {
+        model.extendTo(cellAddr);
+        return;
+      }
       model.select(cellAddr);
     };
 
+    // Default hover-tooltip content — shown when `col.note` is absent.
+    // Mirrors what the cell actually renders for the idle (non-editing)
+    // path so the tooltip's text never disagrees with the on-screen value.
+    const hoverDefaultContent = renderCellValue(value, cellType);
+
     return (
-      <div
+      <BodyCell<TData>
         key={col.field}
-        style={styles.cell({
-          width,
-          height: rowHeight,
-          selected,
-          background: cellBackground,
-          hasError,
-          frozen,
-          frozenLeftOffset: computeFrozenLeftOffset(colIdx),
-          editable: col.editable !== false && !isReadOnly,
-          suppressSelectionOutline,
-        })}
-        role="gridcell"
-        aria-colindex={colIdx + 1}
-        aria-selected={selected}
-        aria-invalid={hasError || undefined}
-        data-cell-type={cellType}
-        data-field={col.field}
-        data-row-id={rowId}
-        title={hasError ? cellError!.message : undefined}
-        onClick={handleCellClick}
-        onContextMenu={(e) => onContextMenu(e, rowId, col.field)}
-        onDoubleClick={() => {
-          if (col.editable !== false && !readOnly) {
-            model.beginEdit(cellAddr);
-          }
+        col={col}
+        colIdx={colIdx}
+        row={row}
+        rowId={rowId}
+        cellType={cellType}
+        defaultContent={hoverDefaultContent}
+        onValidationHoverEnter={() => onValidationTooltip?.(rowId, col.field, 'hover', true)}
+        onValidationHoverLeave={() => onValidationTooltip?.(rowId, col.field, 'hover', false)}
+        cellDivProps={{
+          style: styles.cell({
+            width,
+            height: rowHeight,
+            selected,
+            background: cellBackground,
+            hasError,
+            frozen,
+            frozenLeftOffset: computeFrozenLeftOffset(colIdx),
+            editable: col.editable !== false && !isReadOnly,
+            suppressSelectionOutline,
+          }),
+          role: 'gridcell',
+          'aria-colindex': colIdx + 1,
+          'aria-selected': selected,
+          'aria-invalid': hasValidation ? 'true' : undefined,
+          'data-cell-type': cellType,
+          'data-field': col.field,
+          'data-row-id': rowId,
+          'data-validation-severity': hasValidation ? topResult?.severity : undefined,
+          onClick: handleCellClick,
+          onContextMenu: (e) => onContextMenu(e, rowId, col.field),
+          onFocus: () => onValidationTooltip?.(rowId, col.field, 'focus', true),
+          onBlur: () => onValidationTooltip?.(rowId, col.field, 'focus', false),
+          onDoubleClick: () => {
+            if (col.editable !== false && !readOnly) {
+              model.beginEdit(cellAddr);
+            }
+          },
         }}
       >
         {CustomRenderer ? (
@@ -686,12 +823,14 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             gridId={gridId}
             rowId={rowId}
             onCommit={v => {
-              const vResult = validateCell(col, v, rowId);
-              if (vResult && vResult.severity === 'error') {
-                onValidationError?.(cellAddr, vResult);
+              const vResults = validateCell(col, v, rowId, row);
+              const severe = mostSevere(vResults);
+              if (severe && severe.severity === 'error') {
+                onValidationError?.(cellAddr, severe);
+                model.setCellValue(cellAddr, v);
+                model.cancelEdit();
                 return;
               }
-              clearValidation(rowId, col.field);
               model.setCellValue(cellAddr, v);
               model.cancelEdit();
               onCellEdit?.(rowId, col.field, v, value);
@@ -711,44 +850,82 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             onBlur={e => {
               if (inlineEditCancelledRef.current) return;
               const newVal = e.target.value;
-              const vResult = validateCell(col, newVal, rowId);
-              if (vResult && vResult.severity === 'error') {
-                onValidationError?.(cellAddr, vResult);
+              const vResults = validateCell(col, newVal, rowId, row);
+              const severe = mostSevere(vResults);
+              if (severe && severe.severity === 'error') {
+                onValidationError?.(cellAddr, severe);
                 model.cancelEdit();
                 return;
               }
-              clearValidation(rowId, col.field);
               model.setCellValue(cellAddr, newVal);
               model.cancelEdit();
               onCellEdit?.(rowId, col.field, newVal, value);
             }}
             onKeyDown={e => {
-              // Issue #10: Enter AND Tab both commit the draft, exit edit
-              // mode, and keep the current cell selected. preventDefault on
-              // Tab suppresses the browser's native focus-advance behaviour;
-              // the trailing stopPropagation stops the grid-level keyboard
-              // handler from seeing the event (otherwise Enter would re-open
-              // edit mode on the now-idle cell, and Tab would advance the
-              // selection one column).
+              // Excel-365 commit-and-advance contract:
+              //   Enter  → commit draft, exit edit mode, move selection DOWN
+              //            one row (stay put at the last row).
+              //   Tab    → commit draft, exit edit mode, move selection RIGHT
+              //            one column (stay put at the last column).
+              //   Escape → discard draft, exit edit mode, selection STAYS.
+              //
+              // We preventDefault on Enter/Tab to suppress the browser's
+              // native focus-advance and form-submit behaviours, and then
+              // stopPropagation so the grid-level keyboard handler does not
+              // observe a second commit/selection step for the same event.
+              // All *other* keys are allowed to bubble naturally so that
+              // e.g. ArrowUp/Down/Left/Right (fired on the grid root after
+              // the editor has exited) continue to drive grid navigation
+              // without being swallowed here.
               if (e.key === 'Enter' || e.key === 'Tab') {
                 e.preventDefault();
                 const newVal = (e.target as HTMLInputElement).value;
-                const vResult = validateCell(col, newVal, rowId);
-                if (vResult && vResult.severity === 'error') {
-                  onValidationError?.(cellAddr, vResult);
+                const vResults = validateCell(col, newVal, rowId, row);
+                const severe = mostSevere(vResults);
+                if (severe && severe.severity === 'error') {
+                  onValidationError?.(cellAddr, severe);
+                  model.setCellValue(cellAddr, newVal);
                   model.cancelEdit();
                   e.stopPropagation();
                   return;
                 }
-                clearValidation(rowId, col.field);
+                // Warnings / infos do NOT block commit — the value is
+                // accepted but validation state persists so the tooltip
+                // stays visible. `validateCell` already wrote the latest
+                // results; avoid clobbering them with `clearValidation`.
                 model.setCellValue(cellAddr, newVal);
                 model.cancelEdit();
                 onCellEdit?.(rowId, col.field, newVal, value);
-              } else if (e.key === 'Escape') {
+                // Compute the commit-and-advance target. Enter steps DOWN
+                // one row within the same column; Tab steps RIGHT one
+                // column within the same row. At an edge (last row for
+                // Enter, last column for Tab) we stay on the current cell
+                // rather than wrap — matches the Excel-365 "stop at edge"
+                // feel and avoids surprising the user with a hidden jump.
+                if (e.key === 'Enter') {
+                  const nextRowId = rowIds[rowIdx + 1];
+                  if (nextRowId != null) {
+                    model.select({ rowId: nextRowId, field: col.field });
+                  }
+                } else {
+                  const nextCol = orderedVisibleColumns[colIdx + 1];
+                  if (nextCol) {
+                    model.select({ rowId, field: nextCol.field });
+                  }
+                }
+                e.stopPropagation();
+                return;
+              }
+              if (e.key === 'Escape') {
                 inlineEditCancelledRef.current = true;
                 model.cancelEdit();
+                e.stopPropagation();
+                return;
               }
-              e.stopPropagation();
+              // For every other key (arrow keys, typing, etc.) let the
+              // event bubble. Don't stopPropagation by default — grids
+              // depend on post-edit ArrowUp/Down/Left/Right reaching the
+              // grid-level keyboard handler to navigate.
             }}
           />
         ) : (
@@ -756,16 +933,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             {renderCellValue(value, cellType)}
           </span>
         )}
-        {hasError && (
-          <span
-            data-testid={`validation-error-${col.field}`}
-            role="alert"
-            style={styles.validationError}
-          >
-            {cellError!.message}
-          </span>
-        )}
-      </div>
+      </BodyCell>
     );
   };
 

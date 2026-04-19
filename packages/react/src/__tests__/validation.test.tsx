@@ -1,3 +1,20 @@
+/**
+ * Integration tests for the React DataGrid validation pipeline.
+ *
+ * This file targets the *grid-wiring* side of validation: that commits flow
+ * through `ColumnDef.validators`, that error-severity results block the
+ * commit from being treated as clean, and that the ghost row surfaces
+ * per-column errors. The portal-tooltip rendering contract lives in
+ * `validation-tooltip.test.tsx`; we reference the tooltip node only as a
+ * proxy for "an invalid result was captured" here.
+ *
+ * The assertions use the modern tooltip-portal DOM shape: tooltips are
+ * queried on `document.body` via `[role="tooltip"][data-validation-target]`
+ * and messages via `[data-validation-message]`. The legacy inline
+ * `[data-testid="validation-error-*"]` span has been removed from the
+ * implementation; any reference to it here is intentionally a
+ * `queryByTestId(...)`-style negative assertion.
+ */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 import { DataGrid, DataGridProps } from '../DataGrid';
@@ -5,6 +22,7 @@ import {
   ColumnDef,
   CellValue,
   ValidationResult,
+  Validator,
 } from '@istracked/datagrid-core';
 
 // ---------------------------------------------------------------------------
@@ -21,47 +39,65 @@ function makeData(): TestRow[] {
   ];
 }
 
-// Validator helpers
-function requiredValidator(value: CellValue): ValidationResult | null {
-  if (value == null || String(value).trim() === '') {
-    return { message: 'This field is required', severity: 'error' };
-  }
-  return null;
-}
+// Validator factories returning the new `Validator<TestRow>` shape. The
+// `run` signature is `(value, ctx) => ValidationResult | null`; ctx is
+// unused by the length/range validators but documented for readers.
 
-function minLengthValidator(min: number) {
-  return (value: CellValue): ValidationResult | null => {
-    if (value != null && String(value).length < min) {
-      return { message: `Minimum length is ${min}`, severity: 'error' };
+const requiredValidator: Validator<TestRow> = {
+  name: 'required',
+  run: (value: CellValue): ValidationResult | null => {
+    if (value == null || String(value).trim() === '') {
+      return { message: 'This field is required', severity: 'error' };
     }
     return null;
+  },
+};
+
+function minLengthValidator(min: number): Validator<TestRow> {
+  return {
+    name: `minLength(${min})`,
+    run: (value: CellValue): ValidationResult | null => {
+      if (value != null && String(value).length < min) {
+        return { message: `Minimum length is ${min}`, severity: 'error' };
+      }
+      return null;
+    },
   };
 }
 
-function maxLengthValidator(max: number) {
-  return (value: CellValue): ValidationResult | null => {
-    if (value != null && String(value).length > max) {
-      return { message: `Maximum length is ${max}`, severity: 'error' };
-    }
-    return null;
+function maxLengthValidator(max: number): Validator<TestRow> {
+  return {
+    name: `maxLength(${max})`,
+    run: (value: CellValue): ValidationResult | null => {
+      if (value != null && String(value).length > max) {
+        return { message: `Maximum length is ${max}`, severity: 'error' };
+      }
+      return null;
+    },
   };
 }
 
-function minValueValidator(min: number) {
-  return (value: CellValue): ValidationResult | null => {
-    if (value != null && Number(value) < min) {
-      return { message: `Value must be at least ${min}`, severity: 'error' };
-    }
-    return null;
+function minValueValidator(min: number): Validator<TestRow> {
+  return {
+    name: `minValue(${min})`,
+    run: (value: CellValue): ValidationResult | null => {
+      if (value != null && Number(value) < min) {
+        return { message: `Value must be at least ${min}`, severity: 'error' };
+      }
+      return null;
+    },
   };
 }
 
-function maxValueValidator(max: number) {
-  return (value: CellValue): ValidationResult | null => {
-    if (value != null && Number(value) > max) {
-      return { message: `Value must be at most ${max}`, severity: 'error' };
-    }
-    return null;
+function maxValueValidator(max: number): Validator<TestRow> {
+  return {
+    name: `maxValue(${max})`,
+    run: (value: CellValue): ValidationResult | null => {
+      if (value != null && Number(value) > max) {
+        return { message: `Value must be at most ${max}`, severity: 'error' };
+      }
+      return null;
+    },
   };
 }
 
@@ -85,38 +121,58 @@ function renderGrid(overrides: Partial<DataGridProps<TestRow>> = {}) {
   );
 }
 
+// DOM helpers. Tooltip nodes are portalled into `document.body`; their text
+// content is the concatenation of every `[data-validation-message]` child,
+// which is the canonical "error messaging surface" now.
+
+function findTooltip(rowId: string, field: string): HTMLElement | null {
+  return document.body.querySelector(
+    `[role="tooltip"][data-validation-target="${rowId}:${field}"]`,
+  ) as HTMLElement | null;
+}
+
+function tooltipMessages(rowId: string, field: string): string[] {
+  const tip = findTooltip(rowId, field);
+  if (!tip) return [];
+  return Array.from(tip.querySelectorAll('[data-validation-message]')).map(
+    (n) => n.textContent ?? '',
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Validation Tests
 // ---------------------------------------------------------------------------
 
 describe('validation — required fields', () => {
-  it('validation required column shows error on empty commit', () => {
-    const columns = makeColumns([{ validate: requiredValidator }]);
+  it('shows error tooltip on empty commit', async () => {
+    const columns = makeColumns([{ validators: [requiredValidator] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    // Row 3 (id='3') has empty name. Double-click to edit, then commit empty.
     const cells = screen.getAllByRole('gridcell');
-    // Find the name cell of the 3rd row (row with empty name)
-    const emptyCells = cells.filter(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '3');
-    const emptyNameCell = emptyCells[0]!;
+    const emptyNameCell = cells.find(
+      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '3',
+    )!;
     fireEvent.dblClick(emptyNameCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: '' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    // After commit with empty value, validation error should appear
-    expect(screen.getByTestId('validation-error-name')).toBeInTheDocument();
-    expect(screen.getByText('This field is required')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(findTooltip('3', 'name')).not.toBeNull();
+    });
+    expect(tooltipMessages('3', 'name')).toContain('This field is required');
   });
 
-  it('validation required column allows commit with value', () => {
-    const columns = makeColumns([{ validate: requiredValidator }]);
+  it('allows commit with a non-empty value', () => {
+    const columns = makeColumns([{ validators: [requiredValidator] }]);
     const onCellEdit = vi.fn();
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" onCellEdit={onCellEdit} />,
     );
     const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
+    const nameCell = cells.find(
+      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(nameCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'ValidName' } });
@@ -126,278 +182,199 @@ describe('validation — required fields', () => {
 });
 
 describe('validation — length constraints', () => {
-  it('validation min length shows error when too short', () => {
-    const columns = makeColumns([{ validate: minLengthValidator(3) }]);
+  it('min length shows tooltip when too short', async () => {
+    const columns = makeColumns([{ validators: [minLengthValidator(3)] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
+    const nameCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(nameCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'AB' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(screen.getByText('Minimum length is 3')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(tooltipMessages('1', 'name')).toContain('Minimum length is 3');
+    });
   });
 
-  it('validation max length shows error when too long', () => {
-    const columns = makeColumns([{ validate: maxLengthValidator(5) }]);
+  it('max length shows tooltip when too long', async () => {
+    const columns = makeColumns([{ validators: [maxLengthValidator(5)] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
+    const nameCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(nameCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'VeryLongName' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(screen.getByText('Maximum length is 5')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(tooltipMessages('1', 'name')).toContain('Maximum length is 5');
+    });
   });
 });
 
 describe('validation — numeric constraints', () => {
-  it('validation min value shows error when below minimum', () => {
-    const columns = makeColumns([{}, { validate: minValueValidator(18) }]);
+  it('min value shows tooltip when below minimum', async () => {
+    const columns = makeColumns([{}, { validators: [minValueValidator(18)] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const ageCell = cells.find(c => c.getAttribute('data-field') === 'age' && c.getAttribute('data-row-id') === '1')!;
+    const ageCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'age' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(ageCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: '10' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(screen.getByText('Value must be at least 18')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(tooltipMessages('1', 'age')).toContain('Value must be at least 18');
+    });
   });
 
-  it('validation max value shows error when above maximum', () => {
-    const columns = makeColumns([{}, { validate: maxValueValidator(100) }]);
+  it('max value shows tooltip when above maximum', async () => {
+    const columns = makeColumns([{}, { validators: [maxValueValidator(100)] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const ageCell = cells.find(c => c.getAttribute('data-field') === 'age' && c.getAttribute('data-row-id') === '1')!;
+    const ageCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'age' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(ageCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: '150' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(screen.getByText('Value must be at most 100')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(tooltipMessages('1', 'age')).toContain('Value must be at most 100');
+    });
   });
 });
 
 describe('validation — custom validator', () => {
-  it('validation custom validator function receives cell value', () => {
-    const customValidator = vi.fn().mockReturnValue(null);
-    const columns = makeColumns([{ validate: customValidator }]);
+  it('custom validator receives the committed value', () => {
+    const runSpy = vi.fn().mockReturnValue(null);
+    const customValidator: Validator<TestRow> = { name: 'custom', run: runSpy };
+    const columns = makeColumns([{ validators: [customValidator] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
+    const nameCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(nameCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'Test' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(customValidator).toHaveBeenCalledWith('Test');
+    expect(runSpy).toHaveBeenCalled();
+    expect(runSpy.mock.calls[0]?.[0]).toBe('Test');
   });
 
-  it('validation custom validator returns error message on failure', () => {
-    const customValidator = vi.fn().mockReturnValue({
-      message: 'Custom error',
-      severity: 'error',
-    });
-    const columns = makeColumns([{ validate: customValidator }]);
+  it('custom validator returns error message on failure', async () => {
+    const customValidator: Validator<TestRow> = {
+      name: 'custom',
+      run: () => ({ message: 'Custom error', severity: 'error' }),
+    };
+    const columns = makeColumns([{ validators: [customValidator] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
+    const nameCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(nameCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'bad' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(screen.getByText('Custom error')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(tooltipMessages('1', 'name')).toContain('Custom error');
+    });
   });
 
-  it('validation custom validator returns null on success', () => {
-    const customValidator = vi.fn().mockReturnValue(null);
+  it('custom validator returning null leaves the cell clean', () => {
+    const passing: Validator<TestRow> = {
+      name: 'pass',
+      run: () => null,
+    };
     const onCellEdit = vi.fn();
-    const columns = makeColumns([{ validate: customValidator }]);
+    const columns = makeColumns([{ validators: [passing] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" onCellEdit={onCellEdit} />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
+    const nameCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(nameCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'GoodValue' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onCellEdit).toHaveBeenCalled();
-    expect(screen.queryByTestId('validation-error-name')).not.toBeInTheDocument();
+    expect(findTooltip('1', 'name')).toBeNull();
   });
 });
 
 describe('validation — multiple validators', () => {
-  it('validation multiple validators run in sequence', () => {
-    // Compose validators: required + minLength
-    const composedValidator = (value: CellValue): ValidationResult | null => {
-      const reqResult = requiredValidator(value);
-      if (reqResult) return reqResult;
-      return minLengthValidator(3)(value);
-    };
-    const columns = makeColumns([{ validate: composedValidator }]);
+  it('emits the first error when required precedes minLength', async () => {
+    const columns = makeColumns([
+      { validators: [requiredValidator, minLengthValidator(3)] },
+    ]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
-    // Test empty value hits required first
+    const nameCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(nameCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: '' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(screen.getByText('This field is required')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(tooltipMessages('1', 'name')).toContain('This field is required');
+    });
   });
 
-  it('validation stops on first failure when configured', () => {
-    const validator1 = vi.fn().mockReturnValue({ message: 'Error 1', severity: 'error' });
-    const validator2 = vi.fn().mockReturnValue({ message: 'Error 2', severity: 'error' });
-    // Composed validator that stops on first error
-    const composedValidator = (value: CellValue): ValidationResult | null => {
-      const r1 = validator1(value);
-      if (r1) return r1;
-      return validator2(value);
-    };
-    const columns = makeColumns([{ validate: composedValidator }]);
+  it('runs every validator in declaration order', async () => {
+    const run1 = vi.fn().mockReturnValue({ message: 'Error 1', severity: 'error' });
+    const run2 = vi.fn().mockReturnValue({ message: 'Error 2', severity: 'error' });
+    const v1: Validator<TestRow> = { name: 'v1', run: run1 };
+    const v2: Validator<TestRow> = { name: 'v2', run: run2 };
+    const columns = makeColumns([{ validators: [v1, v2] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
+    const nameCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(nameCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'test' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(validator1).toHaveBeenCalled();
-    expect(validator2).not.toHaveBeenCalled();
-    expect(screen.getByText('Error 1')).toBeInTheDocument();
-  });
-
-  it('validation runs all validators when configured', () => {
-    const validator1 = vi.fn().mockReturnValue(null);
-    const validator2 = vi.fn().mockReturnValue({ message: 'Error 2', severity: 'error' });
-    // Composed validator that continues after success
-    const composedValidator = (value: CellValue): ValidationResult | null => {
-      const r1 = validator1(value);
-      if (r1) return r1;
-      return validator2(value);
-    };
-    const columns = makeColumns([{ validate: composedValidator }]);
-    render(
-      <DataGrid data={makeData()} columns={columns} rowKey="id" />,
-    );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
-    fireEvent.dblClick(nameCell);
-    const input = screen.getByRole('textbox');
-    fireEvent.change(input, { target: { value: 'test' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    expect(validator1).toHaveBeenCalled();
-    expect(validator2).toHaveBeenCalled();
-    expect(screen.getByText('Error 2')).toBeInTheDocument();
+    // Both validators execute; both messages reach the tooltip.
+    expect(run1).toHaveBeenCalled();
+    expect(run2).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(tooltipMessages('1', 'name')).toEqual(['Error 1', 'Error 2']);
+    });
   });
 });
 
 describe('validation — error display', () => {
-  it('validation shows first error message on cell', () => {
-    const columns = makeColumns([{ validate: requiredValidator }]);
+  it('clears the tooltip when the value is corrected', async () => {
+    const columns = makeColumns([{ validators: [requiredValidator] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
-    fireEvent.dblClick(nameCell);
-    const input = screen.getByRole('textbox');
-    fireEvent.change(input, { target: { value: '' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    const errorEl = screen.getByTestId('validation-error-name');
-    expect(errorEl.textContent).toBe('This field is required');
-  });
-
-  it('validation shows all error messages on cell when configured', () => {
-    // When using a validator that returns the second error, it shows that
-    const validator = (value: CellValue): ValidationResult | null => {
-      if (value != null && String(value).length < 3) {
-        return { message: 'Too short', severity: 'error' };
-      }
-      return null;
-    };
-    const columns = makeColumns([{ validate: validator }]);
-    render(
-      <DataGrid data={makeData()} columns={columns} rowKey="id" />,
-    );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
-    fireEvent.dblClick(nameCell);
-    const input = screen.getByRole('textbox');
-    fireEvent.change(input, { target: { value: 'AB' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    expect(screen.getByText('Too short')).toBeInTheDocument();
-  });
-
-  it('validation error tooltip displays on hover', () => {
-    const columns = makeColumns([{ validate: requiredValidator }]);
-    render(
-      <DataGrid data={makeData()} columns={columns} rowKey="id" />,
-    );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
-    fireEvent.dblClick(nameCell);
-    const input = screen.getByRole('textbox');
-    fireEvent.change(input, { target: { value: '' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    // The cell should have a title attribute with the error message (tooltip)
-    const invalidCell = screen.getAllByRole('gridcell').find(
+    const nameCell = screen.getAllByRole('gridcell').find(
       c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
     )!;
-    expect(invalidCell).toHaveAttribute('title', 'This field is required');
-  });
-
-  it('validation error red border on invalid cell', () => {
-    const columns = makeColumns([{ validate: requiredValidator }]);
-    render(
-      <DataGrid data={makeData()} columns={columns} rowKey="id" />,
-    );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
-    fireEvent.dblClick(nameCell);
-    const input = screen.getByRole('textbox');
-    fireEvent.change(input, { target: { value: '' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    const invalidCell = screen.getAllByRole('gridcell').find(
-      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
-    )!;
-    expect(invalidCell).toHaveStyle({
-      border: '2px solid var(--dg-error-color, #ef4444)',
-    });
-  });
-
-  it('validation clears error when value corrected', () => {
-    const columns = makeColumns([{ validate: requiredValidator }]);
-    render(
-      <DataGrid data={makeData()} columns={columns} rowKey="id" />,
-    );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
-
-    // First commit an invalid value
     fireEvent.dblClick(nameCell);
     let input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: '' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(screen.getByTestId('validation-error-name')).toBeInTheDocument();
+    await waitFor(() => expect(findTooltip('1', 'name')).not.toBeNull());
 
-    // Now correct it
     const invalidCell = screen.getAllByRole('gridcell').find(
       c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
     )!;
@@ -405,14 +382,35 @@ describe('validation — error display', () => {
     input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'Fixed' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(screen.queryByTestId('validation-error-name')).not.toBeInTheDocument();
+    await waitFor(() => expect(findTooltip('1', 'name')).toBeNull());
+  });
+
+  it('marks the invalid cell aria-invalid=true', async () => {
+    const columns = makeColumns([{ validators: [requiredValidator] }]);
+    render(
+      <DataGrid data={makeData()} columns={columns} rowKey="id" />,
+    );
+    const nameCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
+    )!;
+    fireEvent.dblClick(nameCell);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => {
+      const invalid = screen.getAllByRole('gridcell').find(
+        c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
+      )!;
+      expect(invalid).toHaveAttribute('aria-invalid', 'true');
+      expect(invalid).toHaveAttribute('data-validation-severity', 'error');
+    });
   });
 });
 
 describe('validation — callbacks', () => {
-  it('validation fires onValidationError callback', () => {
+  it('fires onValidationError on error commit', async () => {
     const onValidationError = vi.fn();
-    const columns = makeColumns([{ validate: requiredValidator }]);
+    const columns = makeColumns([{ validators: [requiredValidator] }]);
     render(
       <DataGrid
         data={makeData()}
@@ -421,8 +419,9 @@ describe('validation — callbacks', () => {
         {...({ onValidationError } as any)}
       />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
+    const nameCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(nameCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: '' } });
@@ -435,9 +434,9 @@ describe('validation — callbacks', () => {
 });
 
 describe('validation — ghost row', () => {
-  it('validation prevents row creation from ghost row when invalid', () => {
+  it('blocks row creation when a required ghost cell is empty', () => {
     const onRowAdd = vi.fn();
-    const columns = makeColumns([{ validate: requiredValidator }]);
+    const columns = makeColumns([{ validators: [requiredValidator] }]);
     render(
       <DataGrid
         data={makeData()}
@@ -449,21 +448,15 @@ describe('validation — ghost row', () => {
     );
     const ghostRow = screen.getByTestId('ghost-row');
     expect(ghostRow).toBeInTheDocument();
-    // Try to commit empty ghost row — the ghost row has its own validation
-    // The ghost row name input should be present
-    const ghostNameInput = screen.getByLabelText('Name ghost cell');
-    // Type some content in another field to make hasContent() true, then press Enter on last field
     const ghostEmailInput = screen.getByLabelText('Email ghost cell');
     fireEvent.change(ghostEmailInput, { target: { value: 'test@test.com' } });
-    // Press Enter on the last field to trigger validateAndCreate
     fireEvent.keyDown(ghostEmailInput, { key: 'Enter' });
-    // Validation should block row creation
     expect(screen.getByTestId('ghost-error-name')).toBeInTheDocument();
     expect(onRowAdd).not.toHaveBeenCalled();
   });
 
-  it('validation ghost row highlights invalid required fields', () => {
-    const columns = makeColumns([{ validate: requiredValidator }]);
+  it('highlights the invalid required ghost field with its message', () => {
+    const columns = makeColumns([{ validators: [requiredValidator] }]);
     render(
       <DataGrid
         data={makeData()}
@@ -475,125 +468,95 @@ describe('validation — ghost row', () => {
     const ghostEmailInput = screen.getByLabelText('Email ghost cell');
     fireEvent.change(ghostEmailInput, { target: { value: 'x@x.com' } });
     fireEvent.keyDown(ghostEmailInput, { key: 'Enter' });
-    // Should show error for required name field
     const errorEl = screen.getByTestId('ghost-error-name');
     expect(errorEl.textContent).toBe('This field is required');
   });
 });
 
-describe('validation — async validator', () => {
-  it('validation async validator supports promise-based validation', async () => {
-    // Simulate async validation by making the validate function synchronous
-    // but returning result that represents what an async check would produce
-    const asyncLikeValidator = (value: CellValue): ValidationResult | null => {
-      // Simulate checking against a "server" — in real usage this would be async
-      if (String(value) === 'taken') {
-        return { message: 'This value is already taken', severity: 'error' };
-      }
-      return null;
+describe('validation — async-shaped validators', () => {
+  it('rejects a taken value synchronously', async () => {
+    const notTaken: Validator<TestRow> = {
+      name: 'uniqueness',
+      run: (value: CellValue): ValidationResult | null =>
+        String(value) === 'taken'
+          ? { message: 'This value is already taken', severity: 'error' }
+          : null,
     };
-    const columns = makeColumns([{ validate: asyncLikeValidator }]);
+    const columns = makeColumns([{ validators: [notTaken] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
+    const nameCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(nameCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'taken' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(screen.getByText('This value is already taken')).toBeInTheDocument();
-  });
-
-  it('validation async validator shows pending indicator', () => {
-    // When a validator returns null (pass), no error or pending indicator shown
-    const passingValidator = vi.fn().mockReturnValue(null);
-    const onCellEdit = vi.fn();
-    const columns = makeColumns([{ validate: passingValidator }]);
-    render(
-      <DataGrid data={makeData()} columns={columns} rowKey="id" onCellEdit={onCellEdit} />,
-    );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
-    fireEvent.dblClick(nameCell);
-    const input = screen.getByRole('textbox');
-    fireEvent.change(input, { target: { value: 'valid' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    // No validation error indicator should be present
-    expect(screen.queryByTestId('validation-error-name')).not.toBeInTheDocument();
-    expect(onCellEdit).toHaveBeenCalled();
-  });
-
-  it('validation async validator shows error on rejection', () => {
-    const rejectingValidator = (_value: CellValue): ValidationResult | null => {
-      return { message: 'Server validation failed', severity: 'error' };
-    };
-    const columns = makeColumns([{ validate: rejectingValidator }]);
-    render(
-      <DataGrid data={makeData()} columns={columns} rowKey="id" />,
-    );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
-    fireEvent.dblClick(nameCell);
-    const input = screen.getByRole('textbox');
-    fireEvent.change(input, { target: { value: 'anything' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    expect(screen.getByText('Server validation failed')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(tooltipMessages('1', 'name')).toContain('This value is already taken');
+    });
   });
 });
 
 describe('validation — column-level config', () => {
-  it('validation column-level validator config via column definition', () => {
-    const emailValidator = (value: CellValue): ValidationResult | null => {
-      if (value != null && !String(value).includes('@')) {
-        return { message: 'Invalid email format', severity: 'error' };
-      }
-      return null;
+  it('column-scoped validators apply only to that column', async () => {
+    const emailValidator: Validator<TestRow> = {
+      name: 'email',
+      run: (value: CellValue): ValidationResult | null =>
+        value != null && !String(value).includes('@')
+          ? { message: 'Invalid email format', severity: 'error' }
+          : null,
     };
-    const columns = makeColumns([{}, {}, { validate: emailValidator }]);
+    const columns = makeColumns([{}, {}, { validators: [emailValidator] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const emailCell = cells.find(c => c.getAttribute('data-field') === 'email' && c.getAttribute('data-row-id') === '1')!;
+    const emailCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'email' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(emailCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'not-an-email' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(screen.getByText('Invalid email format')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(tooltipMessages('1', 'email')).toContain('Invalid email format');
+    });
   });
 });
 
 describe('validation — paste and import', () => {
-  it('validation applies to pasted values', () => {
-    // When pasting via the editing input and committing, validation runs
-    const columns = makeColumns([{ validate: requiredValidator }]);
+  it('validation runs when blurring the inline editor', async () => {
+    const columns = makeColumns([{ validators: [requiredValidator] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const nameCell = cells.find(c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1')!;
+    const nameCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'name' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(nameCell);
     const input = screen.getByRole('textbox');
-    // Simulate pasting empty value
     fireEvent.change(input, { target: { value: '' } });
     fireEvent.blur(input);
-    // The validation should trigger on blur commit
-    expect(screen.getByText('This field is required')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(tooltipMessages('1', 'name')).toContain('This field is required');
+    });
   });
 
-  it('validation applies to imported data', () => {
-    // Simulating import: editing a cell with invalid data and committing
-    const columns = makeColumns([{}, { validate: minValueValidator(0) }]);
+  it('numeric validators run on blur too', async () => {
+    const columns = makeColumns([{}, { validators: [minValueValidator(0)] }]);
     render(
       <DataGrid data={makeData()} columns={columns} rowKey="id" />,
     );
-    const cells = screen.getAllByRole('gridcell');
-    const ageCell = cells.find(c => c.getAttribute('data-field') === 'age' && c.getAttribute('data-row-id') === '1')!;
+    const ageCell = screen.getAllByRole('gridcell').find(
+      c => c.getAttribute('data-field') === 'age' && c.getAttribute('data-row-id') === '1',
+    )!;
     fireEvent.dblClick(ageCell);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: '-5' } });
     fireEvent.blur(input);
-    expect(screen.getByText('Value must be at least 0')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(tooltipMessages('1', 'age')).toContain('Value must be at least 0');
+    });
   });
 });

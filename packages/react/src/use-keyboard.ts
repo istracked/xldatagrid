@@ -25,6 +25,7 @@ import {
   getEndJumpCell,
   ColumnDef,
   serializeRangeToText,
+  serializeRangeToHtml,
   parseTextToGrid,
 } from '@istracked/datagrid-core';
 
@@ -467,26 +468,24 @@ export function useKeyboard<TData extends Record<string, unknown>>(
       case 'c': {
         if ((e.ctrlKey || e.metaKey) && selection && !editing.cell) {
           e.preventDefault();
-          const text = serializeRangeToText(
-            model.getProcessedData(),
+          writeRangeToClipboard(
+            model.getProcessedData() as Record<string, unknown>[],
             selection,
             columns,
-            rowIds
+            rowIds,
           );
-          navigator.clipboard?.writeText(text);
         }
         break;
       }
       case 'x': {
         if ((e.ctrlKey || e.metaKey) && selection && !editing.cell) {
           e.preventDefault();
-          const text = serializeRangeToText(
-            model.getProcessedData(),
+          writeRangeToClipboard(
+            model.getProcessedData() as Record<string, unknown>[],
             selection,
             columns,
-            rowIds
+            rowIds,
           );
-          navigator.clipboard?.writeText(text);
           const { rows, cols } = resolveRangeIndices(selection, columns, rowIds);
           for (const rowId of rows) {
             for (const field of cols) {
@@ -593,6 +592,82 @@ function isEditorTarget(target: EventTarget | null): boolean {
   if (target instanceof HTMLTextAreaElement) return true;
   if (target instanceof HTMLElement && target.isContentEditable) return true;
   return false;
+}
+
+/**
+ * Constructs a Blob for use in a ClipboardItem, ensuring `.text()` is
+ * available as a synchronously-resolved method. jsdom's Blob implementation
+ * omits `.text()`, so test code paths that decode blob content via
+ * `await blob.text()` crash without this patch. In real browsers the native
+ * method already exists and is preserved.
+ */
+function makeClipboardBlob(content: string, type: string): Blob {
+  const blob = new Blob([content], { type });
+  if (typeof (blob as Blob & { text?: unknown }).text !== 'function') {
+    // Install a promise-returning accessor that reads the captured content
+    // synchronously. Using `Object.defineProperty` instead of plain
+    // assignment keeps the Blob's prototype chain intact.
+    Object.defineProperty(blob, 'text', {
+      value: async () => content,
+      writable: false,
+      configurable: true,
+    });
+  }
+  return blob;
+}
+
+/**
+ * Writes the given cell range to the system clipboard as a dual-flavor
+ * {@link ClipboardItem} carrying both `text/plain` (TSV) and `text/html`
+ * (`<table>`) blobs.
+ *
+ * Excel, Google Sheets, and Word all prefer the HTML flavour when present
+ * (preserving explicit cell boundaries for formatted values) while simple
+ * text targets pick up the TSV payload instead. When the browser lacks
+ * `ClipboardItem` / `navigator.clipboard.write` support, the call falls back
+ * to `writeText(tsv)` so plain-text targets still receive the payload.
+ *
+ * Header-row inclusion is decided by the underlying serialisers based on the
+ * range shape — see {@link serializeRangeToText}.
+ */
+function writeRangeToClipboard(
+  data: Record<string, unknown>[],
+  range: { anchor: CellAddress; focus: CellAddress },
+  columns: ColumnDef[],
+  rowIds: string[],
+): void {
+  const tsv = serializeRangeToText(data, range as never, columns, rowIds);
+  const html = serializeRangeToHtml(data, range as never, columns, rowIds);
+
+  // Prefer the rich dual-flavour path when available.
+  const clipboard = (navigator as Navigator & {
+    clipboard?: Clipboard & {
+      write?: (items: ClipboardItem[]) => Promise<void>;
+    };
+  }).clipboard;
+  const ClipboardItemCtor = (globalThis as unknown as {
+    ClipboardItem?: typeof ClipboardItem;
+  }).ClipboardItem;
+  if (clipboard && typeof clipboard.write === 'function' && ClipboardItemCtor) {
+    try {
+      // jsdom's Blob does not implement `.text()`, but consumers of the
+      // clipboard API (including our test stubs) call it to decode the
+      // payload. Attach a synchronously-resolved `.text()` method so the
+      // decode path works uniformly in browsers and in the test environment.
+      const plainBlob = makeClipboardBlob(tsv, 'text/plain');
+      const htmlBlob = makeClipboardBlob(html, 'text/html');
+      const item = new ClipboardItemCtor({
+        'text/plain': plainBlob,
+        'text/html': htmlBlob,
+      });
+      void clipboard.write([item]);
+      return;
+    } catch {
+      // Fall through to the plain-text fallback below.
+    }
+  }
+  // Fallback: plain-text only.
+  clipboard?.writeText?.(tsv);
 }
 
 function resolveRangeIndices(

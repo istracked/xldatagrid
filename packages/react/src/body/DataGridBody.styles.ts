@@ -115,11 +115,13 @@ export const cell = (opts: {
 export const cellInput: CSSProperties = {
   width: '100%',
   height: '100%',
+  margin: 0,
   border: 'none',
   outline: 'none',
-  padding: 0,
+  padding: 'var(--dg-cell-padding, 0 12px)',
   font: 'inherit',
   background: 'transparent',
+  boxSizing: 'border-box',
 };
 
 /** Style for the read-only display span inside a cell; clips with an

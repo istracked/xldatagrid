@@ -38,6 +38,8 @@
 
 // Foundational interfaces, enums, and type aliases that every other module below depends on.
 export * from './types';
+// Multi-validator API: `Validator`, `runValidators`, `mostSevere`.
+export * from './validators';
 // Publish/subscribe EventBus used as the spine for cross-subsystem communication.
 export * from './events';
 // Grid state container — rows, pagination state, row-level lifecycle.
