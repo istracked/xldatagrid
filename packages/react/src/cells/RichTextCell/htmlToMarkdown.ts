@@ -17,7 +17,9 @@
  *    `http(s):` / `mailto:` scheme before turndown ever sees the tree.
  * 2. **turndown** (plus `turndown-plugin-gfm`) converts the sanitised DOM to
  *    GFM Markdown, preserving tables, strikethrough, task-list checkboxes,
- *    nested list indentation, and language-tagged code fences.
+ *    nested list indentation, and language-tagged code fences. Project-
+ *    specific deviations from turndown defaults live in
+ *    {@link ./turndownRules turndownRules.ts}.
  *
  * The public {@link htmlToMarkdown} signature is unchanged so existing call
  * sites continue to work.
@@ -28,6 +30,8 @@
 import DOMPurify from 'dompurify';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
+
+import { registerCustomRules } from './turndownRules';
 
 /**
  * HTML tags that survive sanitisation. Chosen to cover the legacy rich-text
@@ -131,81 +135,7 @@ const turndown = new TurndownService({
   // strikethrough, tables, and task-list rules below.
 });
 turndown.use(gfm);
-
-/**
- * Restore language-hinted fences. Turndown's default fenced-code-block rule
- * reads the `language-xxx` class off the inner `<code>` element; we keep this
- * explicit override so the test suite can pin the shape — it also doubles as
- * a safety net if a future turndown version changes its default.
- */
-turndown.addRule('fencedCodeWithLang', {
-  filter: (node): boolean => {
-    if (node.nodeName !== 'PRE') return false;
-    const code = (node as HTMLElement).firstChild as HTMLElement | null;
-    return !!code && code.nodeName === 'CODE';
-  },
-  replacement: (_content, node): string => {
-    const code = (node as HTMLElement).firstChild as HTMLElement;
-    const className = code.getAttribute('class') ?? '';
-    const match = className.match(/language-(\S+)/);
-    const lang = match?.[1] ?? '';
-    const text = code.textContent ?? '';
-    return `\n\n\`\`\`${lang}\n${text}\n\`\`\`\n\n`;
-  },
-});
-
-/**
- * Tighten the default `listItem` rule so the bullet marker is followed by a
- * single space (`- item`) rather than turndown's default of three spaces
- * (`-   item`). The extra padding is valid Markdown but breaks pixel-level
- * parity with the legacy regex helper's output and reads poorly in cell
- * displays. Indentation for nested items still uses the prefix length, so
- * children correctly indent by two spaces under the parent.
- */
-turndown.addRule('compactListItem', {
-  filter: 'li',
-  replacement: (content, node): string => {
-    const parent = node.parentNode as HTMLElement | null;
-    let prefix: string;
-    if (parent?.nodeName === 'OL') {
-      const start = parent.getAttribute('start');
-      const index = Array.prototype.indexOf.call(parent.children, node);
-      const n = start ? Number(start) + index : index + 1;
-      prefix = `${n}. `;
-    } else {
-      prefix = '- ';
-    }
-    // Trim turndown's wrapping newlines so the prefix sits flush on its line.
-    let body = content.replace(/^\n+|\n+$/g, '');
-    // Re-indent any interior newlines by the prefix width so continuation
-    // content lines up under the first bullet character.
-    body = body.replace(/\n/gm, `\n${' '.repeat(prefix.length)}`);
-    return prefix + body + (node.nextSibling ? '\n' : '');
-  },
-});
-
-/**
- * GFM-style double-tilde strikethrough. `turndown-plugin-gfm` ships a single-
- * tilde rule (`~x~`); GitHub and most Markdown parsers actually want `~~x~~`.
- * Overriding here preserves the legacy helper's output shape.
- */
-turndown.addRule('strikethroughDouble', {
-  // `<strike>` is absent from the modern `HTMLElementTagNameMap`, so we filter
-  // by nodeName rather than relying on turndown's typed TagName alias.
-  filter: (node): boolean =>
-    node.nodeName === 'DEL' || node.nodeName === 'S' || node.nodeName === 'STRIKE',
-  replacement: (content): string => `~~${content}~~`,
-});
-
-/**
- * Markdown has no native underline. Map `<u>` to italic, matching the legacy
- * helper's behaviour so downstream renderers (react-markdown + remark-gfm)
- * produce the same emphasis style.
- */
-turndown.addRule('underlineAsItalic', {
-  filter: 'u',
-  replacement: (content): string => `*${content}*`,
-});
+registerCustomRules(turndown);
 
 /**
  * Converts a legacy HTML rich-text string to GitHub-Flavored Markdown.
