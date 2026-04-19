@@ -168,10 +168,20 @@ export const CurrencyCell = React.memo(function CurrencyCell<TData = Record<stri
     onCommit(isNaN(num) ? null : num);
   };
 
-  /** Commits on Enter, cancels on Escape. */
+  /**
+   * Commits on Enter or Tab, cancels on Escape.
+   *
+   * Issue #10: Enter and Tab both commit-and-stay — the parsed amount is
+   * committed, the cell exits edit mode, and selection remains on the same
+   * cell. `preventDefault` + `stopPropagation` suppress the browser's
+   * Tab-focus-advance and the grid's own Enter/Tab navigation.
+   */
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') commit();
-    else if (e.key === 'Escape') onCancel();
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      e.stopPropagation();
+      commit();
+    } else if (e.key === 'Escape') onCancel();
   };
 
   // --- Edit mode input ---

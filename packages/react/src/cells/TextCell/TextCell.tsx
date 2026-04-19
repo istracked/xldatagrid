@@ -102,9 +102,23 @@ export const TextCell = React.memo(function TextCell<TData = Record<string, unkn
 
   // --- Edit mode key handling ---
 
-  /** Commits on Enter (single-line only) and cancels on Escape. */
+  /**
+   * Commits on Enter (single-line only), commits on Tab, cancels on Escape.
+   *
+   * Issue #10: Enter and Tab both commit-and-stay — the cell exits edit mode
+   * but selection remains on the same cell. `preventDefault` suppresses the
+   * browser's Tab-focus-advance, and `stopPropagation` prevents the
+   * grid-level keyboard handler from re-entering edit mode (Enter) or moving
+   * selection to the adjacent cell (Tab).
+   */
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !column.format?.includes('multiline')) {
+      e.preventDefault();
+      e.stopPropagation();
+      onCommit(draft);
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      e.stopPropagation();
       onCommit(draft);
     } else if (e.key === 'Escape') {
       onCancel();
@@ -127,7 +141,15 @@ export const TextCell = React.memo(function TextCell<TData = Record<string, unkn
         placeholder={column.placeholder}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onCancel();
+          // In multiline mode Enter inserts a newline rather than committing,
+          // but Tab still commits-and-stays per issue #10. Escape cancels.
+          if (e.key === 'Tab') {
+            e.preventDefault();
+            e.stopPropagation();
+            onCommit(draft);
+          } else if (e.key === 'Escape') {
+            onCancel();
+          }
         }}
         onBlur={handleBlur}
         style={styles.editTextarea}

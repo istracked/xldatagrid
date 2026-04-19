@@ -5,8 +5,9 @@
  * keyboard events into {@link GridModel} mutations -- cell navigation,
  * selection extension, editing lifecycle, undo/redo, and boolean toggling.
  * Supports standard spreadsheet-like key bindings including arrow keys with
- * Shift (extend selection), Ctrl/Cmd (jump to edge), Tab (move within row),
- * Enter (commit edit / begin edit), Escape (cancel), Home/End, F2, Delete,
+ * Shift (extend selection), Ctrl/Cmd (jump to edge), Tab (move within row
+ * when idle; commit-and-stay while editing), Enter (begin edit when idle;
+ * commit-and-stay while editing), Escape (cancel), Home/End, F2, Delete,
  * Ctrl+A, and Ctrl+Z/Y.
  *
  * @module use-keyboard
@@ -71,9 +72,32 @@ export function useKeyboard<TData extends Record<string, unknown>>(
     if (!current && !['Tab'].includes(e.key)) return;
 
     switch (e.key) {
-      // --- Tab: commit any active edit, then move horizontally within the row ---
+      // --- Tab: commit-and-stay while editing, move within row otherwise ---
+      //
+      // Issue #10: Pressing Tab while a cell is in edit mode must commit the
+      // draft, exit edit mode, and leave the same cell selected. The caret
+      // must NOT jump to the adjacent cell.
+      //
+      // Event flow: this hook installs a *native* keydown listener on the
+      // grid container, which fires mid-bubble before React's delegated
+      // onKeyDown handlers at the document root. When Tab bubbles in from a
+      // cell editor input, the cell's React onKeyDown handler is what owns
+      // the draft and calls the correct `onCommit` callback — so here we
+      // must preventDefault (to suppress the browser's focus-advance) but
+      // leave propagation intact so the cell handler still runs. Calling
+      // `model.commitEdit()` from the grid in that case would prematurely
+      // fire a second cell:edit command with the stale model-level value.
+      //
+      // When Tab bubbles from outside an editor (e.g. the container gets
+      // focus directly) while editing is somehow active, we fall back to a
+      // model-level commit so the draft is not silently discarded.
       case 'Tab': {
-        if (editing.cell) model.commitEdit();
+        if (editing.cell) {
+          e.preventDefault();
+          if (isEditorTarget(e.target)) return;
+          model.commitEdit();
+          return;
+        }
         if (!current) {
           e.preventDefault();
           const first = getFirstCell(columns, rowIds);
@@ -89,18 +113,22 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         }
         break;
       }
-      // --- Enter: toggle between editing and navigation ---
+      // --- Enter: commit-and-stay while editing, begin editing otherwise ---
+      //
+      // Issue #10: Enter in edit mode commits the current draft, exits edit
+      // mode, and keeps selection on the same cell (no auto-advance to the
+      // row below). When not editing, Enter begins editing the selected cell,
+      // matching the spreadsheet convention.
+      //
+      // As with Tab above, when the event target is an editor input we
+      // defer to the cell-level handler so the draft (not the stale
+      // model-level `currentValue`) is what gets committed.
       case 'Enter': {
         e.preventDefault();
-        if (editing.cell && current) {
-          // Commit the current edit and advance vertically.
+        if (editing.cell) {
+          if (isEditorTarget(e.target)) return;
           model.commitEdit();
-          const next = e.shiftKey
-            ? getNextCell(current, 'up', columns, rowIds)
-            : getNextCell(current, 'down', columns, rowIds);
-          if (next) model.select(next);
         } else if (current) {
-          // Begin editing the currently selected cell.
           model.beginEdit(current);
         }
         break;
@@ -310,6 +338,21 @@ export function useKeyboard<TData extends Record<string, unknown>>(
     el.addEventListener('keydown', handleKeyDown);
     return () => el.removeEventListener('keydown', handleKeyDown);
   }, [containerRef, handleKeyDown]);
+}
+
+/**
+ * Returns true when the given event target is an editable input surface
+ * (native `<input>`, `<textarea>`, or a contentEditable element).
+ *
+ * Used by the Tab/Enter branches to decide whether to defer committing the
+ * draft to the cell-level React `onKeyDown` handler (which owns the correct
+ * draft value) instead of calling `model.commitEdit()` from the grid.
+ */
+function isEditorTarget(target: EventTarget | null): boolean {
+  if (target instanceof HTMLInputElement) return true;
+  if (target instanceof HTMLTextAreaElement) return true;
+  if (target instanceof HTMLElement && target.isContentEditable) return true;
+  return false;
 }
 
 function resolveRangeIndices(

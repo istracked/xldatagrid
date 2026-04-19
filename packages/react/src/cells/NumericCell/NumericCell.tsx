@@ -147,11 +147,20 @@ export const NumericCell = React.memo(function NumericCell<TData = Record<string
 
   /**
    * Handles keyboard interactions inside the edit input.
-   * Enter commits, Escape cancels, and ArrowUp/ArrowDown adjust the value
-   * by +/-1 within the configured bounds.
+   *
+   * Issue #10: Enter and Tab both commit-and-stay — the draft is parsed and
+   * committed, the cell exits edit mode, and selection remains on the same
+   * cell. `preventDefault` suppresses the browser's Tab-focus-advance;
+   * `stopPropagation` prevents the grid-level keyboard handler from
+   * re-opening edit mode (Enter) or advancing selection (Tab).
+   *
+   * ArrowUp/ArrowDown adjust the value by +/-1 within the configured bounds.
+   * Escape cancels without committing.
    */
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      e.stopPropagation();
       commit(draft);
     } else if (e.key === 'Escape') {
       onCancel();
