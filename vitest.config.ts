@@ -12,8 +12,10 @@ export default defineConfig({
   // Force Vite to use the symlink path as root (real path may contain spaces)
   root: dirname,
   resolve: {
-    // Prevent Vite from resolving symlinks to real paths (which may contain spaces)
-    symlinks: false,
+    // Note: Vite does not expose a `symlinks` toggle here. The spaces-in-path
+    // workaround is handled entirely by forcing `root` to the PWD (symlink)
+    // path above; esbuild's own import handling stays on that path as long as
+    // we do not resolve through real paths ourselves.
     alias: {
       '@istracked/datagrid-core': path.resolve(dirname, 'packages/core/src'),
       '@istracked/datagrid-react': path.resolve(dirname, 'packages/react/src'),
