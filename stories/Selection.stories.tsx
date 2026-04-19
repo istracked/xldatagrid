@@ -34,14 +34,18 @@ export const RowSelection: StoryObj = {
     docs: {
       description: {
         story:
-          'Clicking anywhere on a row selects the entire row. When the row-number gutter is enabled, clicking a row-number cell also selects the row — the new sticky-left positioning of the gutter does not change this behaviour; shift/ctrl modifiers still extend or toggle the selection.',
+          'Clicking anywhere on a row selects the entire row. Both row-number gutter clicks and clicks inside the row body are routed through the same chrome-column row-click handler (issue #15), so there is a single "select this row" code path. Shift/Ctrl modifiers still extend or toggle the selection.',
       },
     },
   },
   render: () => (
     <div style={storyContainer}>
       <h2 style={styles.heading}>Row Selection</h2>
-      <p style={styles.subtitle}>Click a row to select the entire row.</p>
+      <p style={styles.subtitle}>
+        Click anywhere on a row to select the entire row — clicks on a data
+        cell and clicks on the row-number gutter share the chrome click
+        handler.
+      </p>
       <div style={gridContainer}>
         <MuiDataGrid
           data={makeEmployees(20)}
@@ -49,6 +53,7 @@ export const RowSelection: StoryObj = {
           rowKey="id"
           selectionMode="row"
           keyboardNavigation
+          chrome={{ rowNumbers: true }}
         />
       </div>
     </div>

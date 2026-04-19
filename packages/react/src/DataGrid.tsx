@@ -1349,6 +1349,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           getRowBorder={chromeConfig?.getRowBorder as any}
           getRowBackground={chromeConfig?.getRowBackground as any}
           getChromeCellContent={chromeConfig?.getChromeCellContent as any}
+          selectionMode={config.selectionMode}
           expandedSubGrids={state.expandedSubGrids}
           subGridDepth={subGridDepth}
           renderSubGridExpansionRow={renderSubGridExpansionRow}
