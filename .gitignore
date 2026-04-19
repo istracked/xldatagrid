@@ -77,6 +77,7 @@ config/licenses*
 
 # Superpowers docs (specs, plans) — generated per-session, not source of truth
 docs/
+.plans/
 
 # Git worktrees
 .worktrees/
