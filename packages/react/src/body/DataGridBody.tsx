@@ -126,6 +126,13 @@ export interface DataGridBodyProps<TData extends Record<string, unknown>> {
 
   // State
   isSelected: (rowId: string, field: string) => boolean;
+  /**
+   * Returns `true` when the cell is part of a multi-cell rectangular range.
+   * Defaults to always-false if not supplied. Used purely to tint the cell
+   * background so the range reads as a cohesive block; the anchor cell keeps
+   * its outline via {@link isSelected}.
+   */
+  isInRange?: (rowId: string, field: string) => boolean;
   isEditingCell: (rowId: string, field: string) => boolean;
   getCellType: (column: ColumnDef<TData>, rowIndex: number) => CellType;
   getColumnFrozen: (col: ColumnDef<TData>) => 'left' | 'right' | null;
@@ -211,6 +218,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     scrollRef,
     handleScroll,
     isSelected,
+    isInRange,
     isEditingCell,
     getCellType,
     getColumnFrozen,
@@ -369,6 +377,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     const value = row[col.field as keyof TData] as CellValue;
     const editing = isEditingCell(rowId, col.field);
     const selected = isSelected(rowId, col.field);
+    const inRange = isInRange ? isInRange(rowId, col.field) : false;
     const cellType = getCellType(col, rowIdx);
     const cellAddr: CellAddress = { rowId, field: col.field };
     const CustomRenderer = cellRenderers?.[cellType];
@@ -384,6 +393,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
           width,
           height: rowHeight,
           selected,
+          inRange,
           hasError,
           frozen,
           frozenLeftOffset: computeFrozenLeftOffset(colIdx),
