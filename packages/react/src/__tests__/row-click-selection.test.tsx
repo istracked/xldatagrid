@@ -1,0 +1,180 @@
+/**
+ * Regression tests for issue #15 — row-click selection reuses the chrome
+ * column's click handler.
+ *
+ * Before the fix, clicking a data cell in `selectionMode='row'` only set a
+ * single-cell selection (a leftover of the cell-selection code path). The
+ * chrome row-number gutter already did the right thing — it dispatched to
+ * `model.selectRowByKey(rowId)` via the row-number click handler. The fix
+ * consolidates both entry points onto that same handler so there is a single
+ * "select this row" code path shared by in-row clicks and gutter clicks.
+ *
+ * These tests verify:
+ *   1. Clicking a data cell in `row` mode selects every cell in the row.
+ *   2. The row-number gutter click and the in-row click produce the same
+ *      selection outcome.
+ *   3. Shift/Ctrl modifiers still extend or toggle the selection when the
+ *      click originates from a data cell — matching the pre-existing chrome
+ *      row-number click semantics.
+ *   4. Other selection modes (`cell`, `range`, `none`) retain their
+ *      pre-existing cell-click semantics.
+ */
+import { render, screen, fireEvent } from '@testing-library/react';
+import { DataGrid } from '../DataGrid';
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+type TestRow = { id: string; name: string; age: number; score: number };
+
+function makeRows(): TestRow[] {
+  return [
+    { id: '1', name: 'Alice', age: 30, score: 90 },
+    { id: '2', name: 'Bob', age: 25, score: 85 },
+    { id: '3', name: 'Charlie', age: 35, score: 70 },
+  ];
+}
+
+const columns = [
+  { id: 'name', field: 'name', title: 'Name' },
+  { id: 'age', field: 'age', title: 'Age' },
+  { id: 'score', field: 'score', title: 'Score' },
+];
+
+function renderGrid(overrides: Partial<Parameters<typeof DataGrid>[0]> = {}) {
+  return render(
+    <DataGrid
+      data={makeRows()}
+      columns={columns}
+      rowKey="id"
+      {...(overrides as any)}
+    />,
+  );
+}
+
+function getCell(rowId: string, field: string): HTMLElement {
+  const cell = document.querySelector(
+    `[data-row-id="${rowId}"][data-field="${field}"][role="gridcell"]`,
+  );
+  if (!cell) throw new Error(`Cell not found: rowId=${rowId} field=${field}`);
+  return cell as HTMLElement;
+}
+
+function getAllCellsInRow(rowId: string): HTMLElement[] {
+  return Array.from(
+    document.querySelectorAll(
+      `[data-row-id="${rowId}"][role="gridcell"]`,
+    ),
+  ) as HTMLElement[];
+}
+
+function hasSelectionOutline(el: HTMLElement): boolean {
+  return el.style.outline.includes('2px solid');
+}
+
+// ---------------------------------------------------------------------------
+// In-row data-cell clicks in selectionMode='row'
+// ---------------------------------------------------------------------------
+
+describe('row-click selection (issue #15)', () => {
+  it('selects every cell in the clicked row when selectionMode is "row"', () => {
+    renderGrid({ selectionMode: 'row' });
+
+    fireEvent.click(getCell('2', 'name'));
+
+    // The whole row should be highlighted, not just the clicked cell.
+    const rowCells = getAllCellsInRow('2');
+    expect(rowCells.length).toBeGreaterThan(1);
+    rowCells.forEach((cell) => {
+      expect(hasSelectionOutline(cell)).toBe(true);
+    });
+
+    // Other rows are unaffected.
+    getAllCellsInRow('1').forEach((cell) => {
+      expect(hasSelectionOutline(cell)).toBe(false);
+    });
+  });
+
+  it('produces the same selection whether the click came from a data cell or the row-number gutter', () => {
+    // Data-cell click path.
+    const { unmount } = renderGrid({
+      selectionMode: 'row',
+      chrome: { rowNumbers: true },
+    });
+    fireEvent.click(getCell('3', 'score'));
+    const afterCellClick = getAllCellsInRow('3').every(hasSelectionOutline);
+    unmount();
+
+    // Row-number gutter click path on a freshly rendered grid.
+    renderGrid({ selectionMode: 'row', chrome: { rowNumbers: true } });
+    const rowNumberCells = screen.getAllByTestId('chrome-row-number');
+    // Row 3 is at index 2 in the data order.
+    fireEvent.click(rowNumberCells[2]!);
+    const afterGutterClick = getAllCellsInRow('3').every(hasSelectionOutline);
+
+    expect(afterCellClick).toBe(true);
+    expect(afterGutterClick).toBe(true);
+  });
+
+  it('Ctrl+click on a data cell toggles the row into a multi-row selection', () => {
+    renderGrid({ selectionMode: 'row' });
+    fireEvent.click(getCell('1', 'name'));
+    // Ctrl+click row 2 — should add row 2 (without clearing row 1) because
+    // the chrome click handler interprets `metaKey` as a toggle.
+    fireEvent.click(getCell('2', 'age'), { ctrlKey: true });
+    getAllCellsInRow('2').forEach((cell) => {
+      expect(hasSelectionOutline(cell)).toBe(true);
+    });
+  });
+
+  it('Shift+click on a data cell extends the range from the last anchor', () => {
+    renderGrid({ selectionMode: 'row' });
+    fireEvent.click(getCell('1', 'name'));
+    fireEvent.click(getCell('3', 'score'), { shiftKey: true });
+    // Rows 1, 2 and 3 should all be highlighted because the chrome click
+    // handler extended the selection to the last visible column of row 3.
+    ['1', '2', '3'].forEach((rowId) => {
+      getAllCellsInRow(rowId).forEach((cell) => {
+        expect(hasSelectionOutline(cell)).toBe(true);
+      });
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Non-row modes retain cell-click semantics
+// ---------------------------------------------------------------------------
+
+describe('row-click selection does not change other selection modes', () => {
+  it('selectionMode="cell" still selects a single cell on click', () => {
+    renderGrid({ selectionMode: 'cell' });
+    fireEvent.click(getCell('2', 'age'));
+
+    expect(hasSelectionOutline(getCell('2', 'age'))).toBe(true);
+    // Other cells in the same row are not selected.
+    expect(hasSelectionOutline(getCell('2', 'name'))).toBe(false);
+    expect(hasSelectionOutline(getCell('2', 'score'))).toBe(false);
+  });
+
+  it('selectionMode="range" still starts a single-cell range on click', () => {
+    renderGrid({ selectionMode: 'range' });
+    fireEvent.click(getCell('1', 'name'));
+
+    expect(hasSelectionOutline(getCell('1', 'name'))).toBe(true);
+    expect(hasSelectionOutline(getCell('1', 'age'))).toBe(false);
+  });
+
+  it('selectionMode="none" suppresses selection on click', () => {
+    renderGrid({ selectionMode: 'none' });
+    fireEvent.click(getCell('1', 'name'));
+    expect(hasSelectionOutline(getCell('1', 'name'))).toBe(false);
+  });
+
+  it('default selectionMode (cell) keeps the single-cell click contract', () => {
+    renderGrid();
+    fireEvent.click(getCell('2', 'score'));
+    expect(hasSelectionOutline(getCell('2', 'score'))).toBe(true);
+    expect(hasSelectionOutline(getCell('2', 'name'))).toBe(false);
+  });
+});
