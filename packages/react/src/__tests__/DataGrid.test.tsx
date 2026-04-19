@@ -151,6 +151,56 @@ describe('DataGrid editing', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
+  // Issue #10: Enter in the inline fallback editor must commit AND keep
+  // selection on the same cell (no vertical advance).
+  it('Enter commits and keeps selection on the same cell (issue #10)', () => {
+    const onCellEdit = vi.fn();
+    renderGrid({ onCellEdit });
+    const cells = screen.getAllByRole('gridcell');
+    const aliceNameCell = cells[0]!;
+    fireEvent.click(aliceNameCell);
+    fireEvent.dblClick(aliceNameCell);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'Zara' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onCellEdit).toHaveBeenCalledWith('1', 'name', 'Zara', 'Alice');
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    const refreshed = screen.getAllByRole('gridcell');
+    // Original cell still carries the selection outline after commit.
+    expect(refreshed[0]!).toHaveStyle({
+      outline: '2px solid var(--dg-selection-border, #3b82f6)',
+    });
+    // Next row's first cell is NOT selected.
+    expect(refreshed[2]!).not.toHaveStyle({
+      outline: '2px solid var(--dg-selection-border, #3b82f6)',
+    });
+  });
+
+  // Issue #10: Tab in the inline fallback editor must commit AND keep
+  // selection on the same cell (no horizontal advance).
+  it('Tab commits and keeps selection on the same cell (issue #10)', () => {
+    const onCellEdit = vi.fn();
+    renderGrid({ onCellEdit });
+    const cells = screen.getAllByRole('gridcell');
+    const aliceNameCell = cells[0]!;
+    fireEvent.click(aliceNameCell);
+    fireEvent.dblClick(aliceNameCell);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'Zara' } });
+    fireEvent.keyDown(input, { key: 'Tab' });
+    expect(onCellEdit).toHaveBeenCalledWith('1', 'name', 'Zara', 'Alice');
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    const refreshed = screen.getAllByRole('gridcell');
+    // Original cell keeps the selection outline.
+    expect(refreshed[0]!).toHaveStyle({
+      outline: '2px solid var(--dg-selection-border, #3b82f6)',
+    });
+    // Adjacent cell (Alice's age) is NOT newly selected.
+    expect(refreshed[1]!).not.toHaveStyle({
+      outline: '2px solid var(--dg-selection-border, #3b82f6)',
+    });
+  });
+
   it('pressing Escape in edit mode cancels without committing', () => {
     const onCellEdit = vi.fn();
     renderGrid({ onCellEdit });

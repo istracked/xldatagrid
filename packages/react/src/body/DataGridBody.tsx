@@ -430,7 +430,15 @@ export function DataGridBody<TData extends Record<string, unknown>>(
               onCellEdit?.(rowId, col.field, newVal, value);
             }}
             onKeyDown={e => {
-              if (e.key === 'Enter') {
+              // Issue #10: Enter AND Tab both commit the draft, exit edit
+              // mode, and keep the current cell selected. preventDefault on
+              // Tab suppresses the browser's native focus-advance behaviour;
+              // the trailing stopPropagation stops the grid-level keyboard
+              // handler from seeing the event (otherwise Enter would re-open
+              // edit mode on the now-idle cell, and Tab would advance the
+              // selection one column).
+              if (e.key === 'Enter' || e.key === 'Tab') {
+                e.preventDefault();
                 const newVal = (e.target as HTMLInputElement).value;
                 const vResult = validateCell(col, newVal, rowId);
                 if (vResult && vResult.severity === 'error') {

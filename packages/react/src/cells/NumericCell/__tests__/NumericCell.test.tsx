@@ -63,6 +63,59 @@ describe('NumericCell', () => {
     expect(onCommit).toHaveBeenCalledWith(123);
   });
 
+  // Issue #10: Enter commits-and-stays — we verify the event's default and
+  // propagation are suppressed so the grid-level handler cannot re-enter edit.
+  it('stops propagation and prevents default on Enter (issue #10)', () => {
+    const onCommit = vi.fn();
+    const { container } = render(
+      <NumericCell value={0} row={{}} column={baseColumn} rowIndex={0} isEditing={true} onCommit={onCommit} onCancel={noop} />
+    );
+    const input = container.querySelector('input')!;
+    fireEvent.change(input, { target: { value: '123' } });
+    const evt = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    const stopProp = vi.spyOn(evt, 'stopPropagation');
+    const prevDef = vi.spyOn(evt, 'preventDefault');
+    input.dispatchEvent(evt);
+    expect(onCommit).toHaveBeenCalledWith(123);
+    expect(stopProp).toHaveBeenCalled();
+    expect(prevDef).toHaveBeenCalled();
+  });
+
+  // Issue #10: Tab commits the parsed number and suppresses native
+  // focus-advance + grid-level Tab handling.
+  it('commits parsed number on Tab and does not advance focus (issue #10)', () => {
+    const onCommit = vi.fn();
+    const onCancel = vi.fn();
+    const { container } = render(
+      <NumericCell value={0} row={{}} column={baseColumn} rowIndex={0} isEditing={true} onCommit={onCommit} onCancel={onCancel} />
+    );
+    const input = container.querySelector('input')!;
+    fireEvent.change(input, { target: { value: '77' } });
+    const evt = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    const stopProp = vi.spyOn(evt, 'stopPropagation');
+    const prevDef = vi.spyOn(evt, 'preventDefault');
+    input.dispatchEvent(evt);
+    expect(onCommit).toHaveBeenCalledWith(77);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(prevDef).toHaveBeenCalled();
+    expect(stopProp).toHaveBeenCalled();
+  });
+
+  // Issue #10: Shift+Tab must behave the same as Tab — commit-and-stay.
+  it('commits on Shift+Tab (issue #10)', () => {
+    const onCommit = vi.fn();
+    const { container } = render(
+      <NumericCell value={0} row={{}} column={baseColumn} rowIndex={0} isEditing={true} onCommit={onCommit} onCancel={noop} />
+    );
+    const input = container.querySelector('input')!;
+    fireEvent.change(input, { target: { value: '42' } });
+    const evt = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true });
+    const prevDef = vi.spyOn(evt, 'preventDefault');
+    input.dispatchEvent(evt);
+    expect(onCommit).toHaveBeenCalledWith(42);
+    expect(prevDef).toHaveBeenCalled();
+  });
+
   it('calls onCancel on Escape', () => {
     const onCancel = vi.fn();
     const { container } = render(
