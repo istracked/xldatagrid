@@ -301,3 +301,46 @@ export const emptyState: CSSProperties = {
   textAlign: 'center',
   color: '#94a3b8',
 };
+
+// ---------------------------------------------------------------------------
+// Sub-grid expansion row
+// ---------------------------------------------------------------------------
+
+/**
+ * Container for an inline expansion row rendered beneath a parent row when
+ * its id is in the model's `expandedSubGrids` set. Spans the full data width
+ * so nested grids can size to their own columns without being clipped by the
+ * parent row bounds. Uses a subtle background tint to visually group the
+ * nested content with its parent row.
+ *
+ * Indents according to `depth` so stacked levels (level 1 → 2 → 3) visibly
+ * nest inside each other.
+ */
+export const subGridExpansionRow = (opts: {
+  totalWidth: number;
+  depth: number;
+  top?: number;
+  absolute?: boolean;
+}): CSSProperties => ({
+  width: opts.totalWidth,
+  boxSizing: 'border-box',
+  paddingLeft: 24 + opts.depth * 8,
+  paddingRight: 8,
+  paddingTop: 6,
+  paddingBottom: 6,
+  background: 'rgba(148, 163, 184, 0.06)',
+  borderBottom: '1px solid var(--dg-border-color, #e2e8f0)',
+  borderTop: '1px solid var(--dg-border-color, #e2e8f0)',
+  position: opts.absolute ? 'absolute' : 'relative',
+  top: opts.absolute && opts.top !== undefined ? opts.top : undefined,
+  left: opts.absolute ? 0 : undefined,
+});
+
+/** Inner frame around the nested DataGrid so it visually reads as a discrete
+ *  embedded grid rather than a bare section of the parent body. */
+export const subGridExpansionInner: CSSProperties = {
+  border: '1px solid var(--dg-border-color, #e2e8f0)',
+  borderRadius: 4,
+  overflow: 'hidden',
+  background: 'var(--dg-bg-color, #ffffff)',
+};

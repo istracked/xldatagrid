@@ -14,8 +14,10 @@ import {
   getLastCell,
   getNextCellInRow,
   getPrevCellInRow,
+  getEndJumpCell,
+  isCellValueEmpty,
 } from '../selection';
-import { ColumnDef } from '../types';
+import { CellAddress, ColumnDef } from '../types';
 
 const cols: ColumnDef[] = [
   { id: 'c1', field: 'name', title: 'Name' },
@@ -381,5 +383,123 @@ describe('multi-range selection', () => {
   it('createSelection initializes with empty ranges', () => {
     const s = createSelection();
     expect(s.ranges).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getEndJumpCell / isCellValueEmpty — Excel-style Ctrl+Arrow "End" navigation
+// ---------------------------------------------------------------------------
+
+describe('isCellValueEmpty', () => {
+  it('treats null, undefined, and empty string as empty', () => {
+    expect(isCellValueEmpty(null)).toBe(true);
+    expect(isCellValueEmpty(undefined)).toBe(true);
+    expect(isCellValueEmpty('')).toBe(true);
+  });
+
+  it('treats 0, false, and non-empty strings as non-empty', () => {
+    expect(isCellValueEmpty(0)).toBe(false);
+    expect(isCellValueEmpty(false)).toBe(false);
+    expect(isCellValueEmpty('x')).toBe(false);
+  });
+});
+
+describe('getEndJumpCell', () => {
+  // A 3-column x 4-row fixture with controlled blanks so we can exercise every
+  // "current empty / neighbour empty" permutation Excel distinguishes.
+  //
+  //          name    age    city
+  //   r1:    Alice   30     Paris
+  //   r2:    Bob     ''     Lyon        ← blank middle column
+  //   r3:    ''      ''     ''          ← fully blank row
+  //   r4:    Dan     40     Rome
+  const endCols: ColumnDef[] = [
+    { id: 'c1', field: 'name', title: 'Name' },
+    { id: 'c2', field: 'age', title: 'Age' },
+    { id: 'c3', field: 'city', title: 'City' },
+  ];
+  const endRowIds = ['r1', 'r2', 'r3', 'r4'];
+  const endData: Record<string, Record<string, unknown>> = {
+    r1: { name: 'Alice', age: 30, city: 'Paris' },
+    r2: { name: 'Bob', age: '', city: 'Lyon' },
+    r3: { name: '', age: '', city: '' },
+    r4: { name: 'Dan', age: 40, city: 'Rome' },
+  };
+  const get = (cell: CellAddress) => endData[cell.rowId]?.[cell.field];
+
+  it('returns null when already at the edge in the requested direction', () => {
+    expect(getEndJumpCell({ rowId: 'r1', field: 'name' }, 'left', endCols, endRowIds, get)).toBeNull();
+    expect(getEndJumpCell({ rowId: 'r1', field: 'city' }, 'right', endCols, endRowIds, get)).toBeNull();
+    expect(getEndJumpCell({ rowId: 'r1', field: 'name' }, 'up', endCols, endRowIds, get)).toBeNull();
+    expect(getEndJumpCell({ rowId: 'r4', field: 'name' }, 'down', endCols, endRowIds, get)).toBeNull();
+  });
+
+  it('right from a populated run with populated neighbour lands on the run\'s last non-empty cell', () => {
+    // r1 is fully populated, so right from name should stop on city (Excel "End" → last non-blank in block).
+    expect(getEndJumpCell({ rowId: 'r1', field: 'name' }, 'right', endCols, endRowIds, get))
+      .toEqual({ rowId: 'r1', field: 'city' });
+  });
+
+  it('right from a populated cell with an empty neighbour skips the gap to the next non-empty cell', () => {
+    // r2 row: [Bob, '', Lyon] — right from name should leap over the blank and land on city.
+    expect(getEndJumpCell({ rowId: 'r2', field: 'name' }, 'right', endCols, endRowIds, get))
+      .toEqual({ rowId: 'r2', field: 'city' });
+  });
+
+  it('right from an empty cell stops on the next non-empty neighbour', () => {
+    // r2.age is blank; the next populated cell is city.
+    expect(getEndJumpCell({ rowId: 'r2', field: 'age' }, 'right', endCols, endRowIds, get))
+      .toEqual({ rowId: 'r2', field: 'city' });
+  });
+
+  it('right from an all-empty row lands on the far edge', () => {
+    // r3 is fully blank — Excel walks to the last column.
+    expect(getEndJumpCell({ rowId: 'r3', field: 'name' }, 'right', endCols, endRowIds, get))
+      .toEqual({ rowId: 'r3', field: 'city' });
+  });
+
+  it('left mirrors right: populated run → first non-empty, gap → skip to next block', () => {
+    // r1 (all populated): left from city → name.
+    expect(getEndJumpCell({ rowId: 'r1', field: 'city' }, 'left', endCols, endRowIds, get))
+      .toEqual({ rowId: 'r1', field: 'name' });
+    // r2 (gap in middle): left from city → name, skipping over blank age.
+    expect(getEndJumpCell({ rowId: 'r2', field: 'city' }, 'left', endCols, endRowIds, get))
+      .toEqual({ rowId: 'r2', field: 'name' });
+  });
+
+  it('down from populated with empty gap skips the gap onto the next populated row', () => {
+    // name column: r1=Alice, r2=Bob, r3='', r4=Dan. Down from r2 should jump over r3 to r4.
+    expect(getEndJumpCell({ rowId: 'r2', field: 'name' }, 'down', endCols, endRowIds, get))
+      .toEqual({ rowId: 'r4', field: 'name' });
+  });
+
+  it('down from populated with populated neighbour stops at end of contiguous run', () => {
+    // name column r1→r2 is a populated run ending at r2 (r3 is blank).
+    expect(getEndJumpCell({ rowId: 'r1', field: 'name' }, 'down', endCols, endRowIds, get))
+      .toEqual({ rowId: 'r2', field: 'name' });
+  });
+
+  it('up from populated with empty gap jumps over the gap to the next populated row', () => {
+    // name column: up from r4 (Dan) skips blank r3 and lands on r2 (Bob).
+    expect(getEndJumpCell({ rowId: 'r4', field: 'name' }, 'up', endCols, endRowIds, get))
+      .toEqual({ rowId: 'r2', field: 'name' });
+  });
+
+  it('up from an all-empty column lands on the first row when nothing is populated', () => {
+    // age column: r1=30, r2='', r3='', r4=40. From r3 walking up, we look for
+    // first non-empty above: r2 is blank, r1 is 30 → land on r1.
+    expect(getEndJumpCell({ rowId: 'r3', field: 'age' }, 'up', endCols, endRowIds, get))
+      .toEqual({ rowId: 'r1', field: 'age' });
+  });
+
+  it('skips hidden columns when scanning horizontally', () => {
+    const withHidden: ColumnDef[] = [
+      { id: 'c1', field: 'name', title: 'Name' },
+      { id: 'c2', field: 'age', title: 'Age', visible: false },
+      { id: 'c3', field: 'city', title: 'City' },
+    ];
+    // r1 populated; age is hidden so the only visible neighbour is city.
+    expect(getEndJumpCell({ rowId: 'r1', field: 'name' }, 'right', withHidden, endRowIds, get))
+      .toEqual({ rowId: 'r1', field: 'city' });
   });
 });
