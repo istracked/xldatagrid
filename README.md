@@ -49,6 +49,59 @@ pnpm install
 | `pnpm run validate` | Full CI validation: type-check + build all packages + run all tests |
 | `pnpm run docs` | Generate API documentation with TypeDoc |
 | `pnpm run docs:open` | Generate API docs and open them in the browser |
+| `pnpm run test:e2e` | Run the Playwright end-to-end suite against Storybook (auto-starts Storybook) |
+| `pnpm run test:e2e:install` | Install the Chromium browser binary Playwright uses (run once per machine) |
+| `pnpm run chromatic` | Upload Storybook to [Chromatic](https://www.chromatic.com/) for visual-regression review (requires `CHROMATIC_PROJECT_TOKEN`) |
+
+#### End-to-end tests
+
+The `e2e/` directory contains Playwright specs that drive a real browser
+against the Storybook instance:
+
+- `e2e/grid-keyboard.spec.ts` — arrow-key navigation, Enter/Tab commit,
+  Escape cancel on an editable text cell.
+- `e2e/grid-subgrid.spec.ts` — sub-grid expansion, `aria-labelledby`
+  linkage between the nested grid and its parent cell, keyboard
+  reachability.
+- `e2e/grid-xss.spec.ts` — hostile RichText payloads (raw HTML and
+  markdown links) must not produce live `javascript:` hrefs or inline
+  event handlers.
+
+Local workflow:
+
+```bash
+pnpm install
+pnpm run test:e2e:install   # one-off: downloads Chromium
+pnpm run test:e2e            # boots Storybook and runs all specs headless
+```
+
+The Playwright config spins up `storybook dev -p 6006` as its
+`webServer`, so a single `pnpm run test:e2e` invocation is sufficient —
+you do not need to pre-start Storybook. When a dev server is already
+running locally it is reused instead of a second being spawned.
+
+#### Visual regression (Chromatic)
+
+`pnpm run chromatic` uploads the full Storybook to Chromatic for
+per-story visual diffing. Chromatic runs with `--exit-zero-on-changes`,
+so visual changes surface in the Chromatic review UI rather than
+blocking the merge.
+
+The corresponding GitHub Actions job is gated behind a repository secret
+named `CHROMATIC_PROJECT_TOKEN`. Configure it under *Settings → Secrets
+and variables → Actions → New repository secret*. When the secret is
+absent the Chromatic job is skipped with a warning — builds never fail
+for missing-token reasons.
+
+#### Branch protection
+
+Recommended required checks on `main`:
+
+- `verify-precommit-parity / verify` (existing)
+- `E2E + Visual Regression / e2e` (added by this PR)
+
+The `visual` job is intentionally left optional so forks without the
+Chromatic token can still pass CI.
 
 #### Per-Package Commands (run from any `packages/*` directory)
 
