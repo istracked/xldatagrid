@@ -56,29 +56,29 @@ export const virtualizedBodyWrapper = (
  *  selection outline, validation-error border, frozen-column stickiness and
  *  the editable cursor affordance.
  *
- *  The `inRange` flag signals that the cell is part of a multi-cell
- *  rectangular selection but is not the anchor; such cells get a tinted
- *  range-background so the selection reads as a cohesive block rather than
- *  a field of separately outlined cells (the default visual for single-cell
- *  selection). The background uses the `--dg-range-bg` CSS token so a host
- *  application can override it via its own stylesheet.
+ *  `background` is an already-resolved CSS colour (or `null`) that the caller
+ *  composes from chrome-column presentation hooks (issue #14) — most notably
+ *  the in-grid Shift+Arrow range tint (issue #16) which is now routed through
+ *  the same chrome-API plumbing as consumer-supplied row backgrounds rather
+ *  than being hard-coded in this factory. Pass `'var(--dg-range-bg, …)'` to
+ *  render the range tint, a HEX/rgba value for a consumer-authored colour,
+ *  or `null` to keep the cell transparent (so the row container's background
+ *  shows through).
  *
- *  TODO: restyle with chrome API primitives once the chrome column API
- *  (issue #14) lands — the range background should share tokens with the
- *  row-number gutter's active-range highlight.
+ *  The frozen-column background still wins over any supplied `background` so
+ *  pinned columns stay legible against a scrolled range.
  */
 export const cell = (opts: {
   width: number;
   height: number;
   selected: boolean;
-  inRange?: boolean;
+  background?: string | null;
   hasError: boolean;
   frozen: 'left' | 'right' | null;
   frozenLeftOffset: number;
   editable: boolean;
 }): CSSProperties => {
   const frozenBg = opts.frozen ? 'var(--dg-header-bg, #f8fafc)' : undefined;
-  const rangeBg = opts.inRange ? 'var(--dg-range-bg, rgba(59, 130, 246, 0.12))' : undefined;
   return {
     width: opts.width,
     minWidth: opts.width,
@@ -97,8 +97,10 @@ export const cell = (opts: {
     position: opts.frozen ? 'sticky' : 'relative',
     left: opts.frozen === 'left' ? opts.frozenLeftOffset : undefined,
     zIndex: opts.frozen ? 2 : undefined,
-    // Frozen background wins over the range tint so pinned columns stay legible.
-    background: frozenBg ?? rangeBg,
+    // Frozen background wins over any per-cell chrome background so pinned
+    // columns stay legible even when a range or consumer hook would otherwise
+    // tint the cell.
+    background: frozenBg ?? opts.background ?? undefined,
   };
 };
 
