@@ -789,15 +789,18 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
 
   const handleRowNumberClick = useCallback((rowId: string, shiftKey: boolean, metaKey: boolean) => {
     if (metaKey) {
+      // Cmd/Ctrl+click toggles a disjoint row selection.
       model.toggleRowSelect(rowId);
     } else if (shiftKey) {
-      const cols = orderedVisibleColumns;
-      const lastCol = cols[cols.length - 1];
-      if (lastCol) model.extendTo({ rowId, field: lastCol.field });
+      // Shift+click extends the selection to a contiguous row range. Route
+      // through `extendRowSelection` (rather than generic `extendTo`) so the
+      // resulting range is tagged `kind: 'row'` and renders as a single
+      // row-level outline regardless of the grid's `selectionMode`.
+      model.extendRowSelection(rowId);
     } else {
       model.selectRowByKey(rowId);
     }
-  }, [model, orderedVisibleColumns]);
+  }, [model]);
 
   const [rowDragState, setRowDragState] = useState<{ sourceRowId: string; sourceIndex: number } | null>(null);
 

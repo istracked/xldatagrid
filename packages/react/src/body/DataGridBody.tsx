@@ -604,9 +604,14 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     // underneath the range highlight rather than being replaced by it. The
     // frozen-column background is the one exception and wins over both (see
     // `styles.cell`).
-    const cellBackground = isInRange && isInRange(rowId, col.field)
-      ? 'var(--dg-range-bg, rgba(59, 130, 246, 0.12))'
-      : null;
+    // When the row is fully covered by a row-kind selection we render a
+    // single outline around the row and suppress the per-cell range tint —
+    // otherwise every cell in the row repaints the blue tint and the
+    // selection reads as "individual cells" rather than "one row block".
+    const cellBackground =
+      !suppressSelectionOutline && isInRange && isInRange(rowId, col.field)
+        ? 'var(--dg-range-bg, rgba(59, 130, 246, 0.12))'
+        : null;
     const cellType = getCellType(col, rowIdx);
     const cellAddr: CellAddress = { rowId, field: col.field };
     const CustomRenderer = cellRenderers?.[cellType];

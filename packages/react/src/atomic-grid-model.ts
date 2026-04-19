@@ -322,6 +322,11 @@ export function createAtomicGridModel<TData extends Record<string, unknown>>(
       store.set(atoms.actions.extendSelectionAtom, cell);
     },
 
+    /** {@inheritDoc GridModel.extendRowSelection} */
+    extendRowSelection(rowId: string) {
+      store.set(atoms.actions.extendRowSelectionAtom, rowId);
+    },
+
     /** {@inheritDoc GridModel.selectAllCells} */
     selectAllCells() {
       store.set(atoms.actions.selectAllAtom);

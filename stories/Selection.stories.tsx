@@ -138,7 +138,7 @@ export const RowRangeContiguous: StoryObj = {
           data={makeEmployees(20)}
           columns={defaultColumns as any}
           rowKey="id"
-          selectionMode="row"
+          selectionMode="range"
           keyboardNavigation
           shiftArrowBehavior="rangeSelect"
           chrome={{ rowNumbers: true }}
@@ -180,7 +180,7 @@ export const RowRangeDisjoint: StoryObj = {
           data={makeEmployees(20)}
           columns={defaultColumns as any}
           rowKey="id"
-          selectionMode="row"
+          selectionMode="range"
           keyboardNavigation
           chrome={{ rowNumbers: true }}
         />

@@ -29,7 +29,7 @@ import { applySorting, toggleSort } from './sorting';
 import { applyFiltering } from './filtering';
 import {
   createSelection, SelectionState, selectCell, selectRow, selectColumn,
-  extendSelection, clearSelection, selectAll, toggleRowSelection,
+  extendSelection, extendRowSelection, clearSelection, selectAll, toggleRowSelection,
 } from './selection';
 import {
   createEditingState, EditingState, beginEdit as beginEditState,
@@ -60,6 +60,7 @@ export interface GridModel<TData = Record<string, unknown>> {
   selectRowByKey(rowId: string): void;
   selectColumnByField(field: string): void;
   extendTo(cell: CellAddress): void;
+  extendRowSelection(rowId: string): void;
   selectAllCells(): void;
   clearSelectionState(): void;
   setColumnWidth(field: string, width: number): void;
@@ -382,6 +383,12 @@ export function createGridModel<TData extends Record<string, unknown>>(
 
     extendTo(cell: CellAddress) {
       state = { ...state, selection: extendSelection(state.selection, cell) };
+      notify();
+    },
+
+    extendRowSelection(rowId: string) {
+      const cols = getVisibleColumns(state.columns);
+      state = { ...state, selection: extendRowSelection(state.selection, rowId, cols) };
       notify();
     },
 

@@ -292,14 +292,17 @@ export function useKeyboard<TData extends Record<string, unknown>>(
 
         e.preventDefault();
 
-        // Row-mode horizontal arrows are no-ops. There is no cell-level
+        // Row-intent horizontal arrows are no-ops. There is no cell-level
         // focus while a whole row is selected, so stepping left/right
         // would collapse the row range onto a single cell. Applies to
         // plain and Shift-modified horizontal arrows alike; Ctrl/Cmd+Arrow
         // keeps its Excel "End" semantics because a user explicitly
         // asking for End-jump should still land on a cell.
+        const isRowIntent =
+          state.selection.mode === 'row' ||
+          state.selection.range?.kind === 'row';
         if (
-          state.selection.mode === 'row' &&
+          isRowIntent &&
           (dir === 'left' || dir === 'right') &&
           !(e.ctrlKey || e.metaKey)
         ) {
@@ -353,11 +356,15 @@ export function useKeyboard<TData extends Record<string, unknown>>(
             scrollViewportHalfScreen(scrollRef?.current ?? null, dir);
           }
         } else {
-          // Plain arrow key: in row mode, ArrowUp/Down moves the whole-row
-          // selection to the adjacent row rather than stepping cell-by-cell.
+          // Plain arrow key: with a row-intent selection (row mode or a
+          // range tagged `kind: 'row'` from a gutter click), ArrowUp/Down
+          // moves the whole-row selection to the adjacent row rather than
+          // stepping cell-by-cell.
           if (!current) return;
-          const isRowMode = state.selection.mode === 'row';
-          if (isRowMode && (dir === 'down' || dir === 'up')) {
+          const plainArrowRowIntent =
+            state.selection.mode === 'row' ||
+            state.selection.range?.kind === 'row';
+          if (plainArrowRowIntent && (dir === 'down' || dir === 'up')) {
             const currentRowIdx = rowIds.indexOf(current.rowId);
             const nextRowIdx = dir === 'down' ? currentRowIdx + 1 : currentRowIdx - 1;
             const nextRowId = rowIds[nextRowIdx];
