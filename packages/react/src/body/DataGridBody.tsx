@@ -129,9 +129,10 @@ export interface DataGridBodyProps<TData extends Record<string, unknown>> {
   isSelected: (rowId: string, field: string) => boolean;
   /**
    * Returns `true` when the cell is part of a multi-cell rectangular range.
-   * Defaults to always-false if not supplied. Used purely to tint the cell
-   * background so the range reads as a cohesive block; the anchor cell keeps
-   * its outline via {@link isSelected}.
+   * Defaults to always-false if not supplied. Feeds the per-cell background
+   * resolver in `renderCell`, which composes it with the chrome-column
+   * presentation hooks (`getRowBackground` etc., issue #14) to paint the
+   * range tint. The anchor cell keeps its outline via {@link isSelected}.
    */
   isInRange?: (rowId: string, field: string) => boolean;
   isEditingCell: (rowId: string, field: string) => boolean;
@@ -386,7 +387,23 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     const value = row[col.field as keyof TData] as CellValue;
     const editing = isEditingCell(rowId, col.field);
     const selected = isSelected(rowId, col.field);
-    const inRange = isInRange ? isInRange(rowId, col.field) : false;
+    // Per-cell background resolution. The Shift+Arrow range tint (issue #16)
+    // used to live inside the cell style factory as a hard-coded
+    // `--dg-range-bg` override; it now flows through the same chrome-API
+    // plumbing as consumer-supplied row backgrounds so the range visual is a
+    // first-class consumer of the chrome presentation hooks (issue #14)
+    // rather than a parallel CSS hack.
+    //
+    // Composition rule: the consumer's `getRowBackground` paints the row
+    // container and shows through every non-tinted cell; the range tint is
+    // applied at the cell layer *on top* using the `--dg-range-bg` token's
+    // built-in alpha channel, so a consumer-authored row colour stays visible
+    // underneath the range highlight rather than being replaced by it. The
+    // frozen-column background is the one exception and wins over both (see
+    // `styles.cell`).
+    const cellBackground = isInRange && isInRange(rowId, col.field)
+      ? 'var(--dg-range-bg, rgba(59, 130, 246, 0.12))'
+      : null;
     const cellType = getCellType(col, rowIdx);
     const cellAddr: CellAddress = { rowId, field: col.field };
     const CustomRenderer = cellRenderers?.[cellType];
@@ -425,7 +442,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
           width,
           height: rowHeight,
           selected,
-          inRange,
+          background: cellBackground,
           hasError,
           frozen,
           frozenLeftOffset: computeFrozenLeftOffset(colIdx),
