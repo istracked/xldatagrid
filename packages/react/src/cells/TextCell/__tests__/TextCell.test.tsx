@@ -64,6 +64,61 @@ describe('TextCell', () => {
     expect(onCommit).toHaveBeenCalledWith('world');
   });
 
+  // Issue #10: Enter must commit the draft AND stop propagation/defaults so
+  // the grid-level handler does not re-open edit mode afterwards.
+  it('stops propagation and prevents default on Enter (issue #10)', () => {
+    const onCommit = vi.fn();
+    const { container } = render(
+      <TextCell value="hello" row={{}} column={baseColumn} rowIndex={0} isEditing={true} onCommit={onCommit} onCancel={noop} />
+    );
+    const input = container.querySelector('input')!;
+    fireEvent.change(input, { target: { value: 'world' } });
+    const evt = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    const stopProp = vi.spyOn(evt, 'stopPropagation');
+    const prevDef = vi.spyOn(evt, 'preventDefault');
+    input.dispatchEvent(evt);
+    expect(onCommit).toHaveBeenCalledWith('world');
+    expect(stopProp).toHaveBeenCalled();
+    expect(prevDef).toHaveBeenCalled();
+  });
+
+  // Issue #10: Tab commits exactly like Enter (commit-and-stay) instead of
+  // the browser's default focus-advance.
+  it('commits on Tab and does not advance focus (issue #10)', () => {
+    const onCommit = vi.fn();
+    const onCancel = vi.fn();
+    const { container } = render(
+      <TextCell value="hello" row={{}} column={baseColumn} rowIndex={0} isEditing={true} onCommit={onCommit} onCancel={onCancel} />
+    );
+    const input = container.querySelector('input')!;
+    fireEvent.change(input, { target: { value: 'world' } });
+    const evt = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    const stopProp = vi.spyOn(evt, 'stopPropagation');
+    const prevDef = vi.spyOn(evt, 'preventDefault');
+    input.dispatchEvent(evt);
+    expect(onCommit).toHaveBeenCalledWith('world');
+    expect(onCancel).not.toHaveBeenCalled();
+    // Default Tab behaviour (focus move) is suppressed.
+    expect(prevDef).toHaveBeenCalled();
+    expect(stopProp).toHaveBeenCalled();
+  });
+
+  // Issue #10: Shift+Tab must behave the same as Tab — commit-and-stay, no
+  // reverse focus advance to the cell on the left.
+  it('commits on Shift+Tab (issue #10)', () => {
+    const onCommit = vi.fn();
+    const { container } = render(
+      <TextCell value="hello" row={{}} column={baseColumn} rowIndex={0} isEditing={true} onCommit={onCommit} onCancel={noop} />
+    );
+    const input = container.querySelector('input')!;
+    fireEvent.change(input, { target: { value: 'world' } });
+    const evt = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true });
+    const prevDef = vi.spyOn(evt, 'preventDefault');
+    input.dispatchEvent(evt);
+    expect(onCommit).toHaveBeenCalledWith('world');
+    expect(prevDef).toHaveBeenCalled();
+  });
+
   it('calls onCancel on Escape', () => {
     const onCancel = vi.fn();
     const { container } = render(

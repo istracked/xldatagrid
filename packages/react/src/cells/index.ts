@@ -27,7 +27,7 @@ export { CalendarCell } from './CalendarCell';
 export { ListCell } from './ListCell';
 export { ChipSelectCell } from './ChipSelectCell';
 export { CompoundChipListCell } from './CompoundChipListCell';
-export { RichTextCell } from './RichTextCell';
+export { RichTextCell, htmlToMarkdown } from './RichTextCell';
 export { UploadCell } from './UploadCell';
 export { SubGridCell } from './SubGridCell';
 

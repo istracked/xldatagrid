@@ -61,12 +61,17 @@ export function useDraftState({
 }: UseDraftStateOptions): UseDraftStateReturn {
   const [draft, setDraft] = useState(initialValue);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  // Marks the current edit as cancelled so a trailing blur (fired when the
+  // input unmounts after Escape) does not turn the cancel into a commit.
+  // Issue #11: Esc must revert the value, never persist the draft via blur.
+  const cancelledRef = useRef(false);
 
   // Reset draft and focus the input whenever the cell enters edit mode.
   useEffect(() => {
     if (!isEditing) return;
 
     setDraft(initialValue);
+    cancelledRef.current = false;
 
     const focusInput = () => {
       inputRef.current?.focus();
@@ -85,6 +90,7 @@ export function useDraftState({
   /** Transforms and commits a value, defaulting to the current draft. */
   const commit = useCallback(
     (raw?: string) => {
+      if (cancelledRef.current) return;
       const source = raw !== undefined ? raw : draft;
       const committed = transformCommit ? transformCommit(source) : source;
       onCommit(committed);
@@ -92,12 +98,23 @@ export function useDraftState({
     [draft, transformCommit, onCommit],
   );
 
-  /** Commits on Enter, cancels on Escape. */
+  /**
+   * Commits on Enter or Tab, cancels on Escape.
+   *
+   * Issue #10: Enter and Tab both commit-and-stay. `preventDefault` prevents
+   * the browser's native Tab-focus-advance and any form submission, while
+   * `stopPropagation` stops the grid-level keyboard handler from re-opening
+   * edit mode (Enter) or advancing the selection (Tab) after the cell editor
+   * has already committed.
+   */
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        e.stopPropagation();
         commit();
       } else if (e.key === 'Escape') {
+        cancelledRef.current = true;
         onCancel();
       }
     },
@@ -106,6 +123,7 @@ export function useDraftState({
 
   /** Commits the current draft when the input loses focus. */
   const handleBlur = useCallback(() => {
+    if (cancelledRef.current) return;
     commit();
   }, [commit]);
 

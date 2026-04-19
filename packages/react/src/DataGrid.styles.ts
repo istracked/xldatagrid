@@ -341,7 +341,7 @@ export const groupAggregateRow = (height: number, totalWidth: number): CSSProper
   height,
   width: totalWidth,
   borderBottom: '1px solid var(--dg-border-color, #e2e8f0)',
-  background: '#f1f5f9',
+  background: 'var(--dg-row-bg-alt, #f1f5f9)',
   fontStyle: 'italic',
 });
 
