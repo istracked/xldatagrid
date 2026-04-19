@@ -15,8 +15,10 @@ import type { CellRendererProps } from '../DataGrid';
 
 export { TextCell } from './TextCell';
 export { CheckboxCell } from './CheckboxCell';
+export { BooleanSelectedCell, SELECTED_LABEL, UNSELECTED_LABEL } from './BooleanSelectedCell';
 export { NumericCell } from './NumericCell';
 export { PasswordCell } from './PasswordCell';
+export { PasswordConfirmCell, MISMATCH_MESSAGE } from './PasswordConfirmCell';
 export { CurrencyCell } from './CurrencyCell';
 export { StatusCell } from './StatusCell';
 export { TagsCell } from './TagsCell';
@@ -25,7 +27,7 @@ export { CalendarCell } from './CalendarCell';
 export { ListCell } from './ListCell';
 export { ChipSelectCell } from './ChipSelectCell';
 export { CompoundChipListCell } from './CompoundChipListCell';
-export { RichTextCell } from './RichTextCell';
+export { RichTextCell, htmlToMarkdown } from './RichTextCell';
 export { UploadCell } from './UploadCell';
 export { SubGridCell } from './SubGridCell';
 
@@ -34,8 +36,10 @@ export * from './hooks';
 
 import { TextCell } from './TextCell';
 import { CheckboxCell } from './CheckboxCell';
+import { BooleanSelectedCell } from './BooleanSelectedCell';
 import { NumericCell } from './NumericCell';
 import { PasswordCell } from './PasswordCell';
+import { PasswordConfirmCell } from './PasswordConfirmCell';
 import { CurrencyCell } from './CurrencyCell';
 import { StatusCell } from './StatusCell';
 import { TagsCell } from './TagsCell';
@@ -64,8 +68,10 @@ import { SubGridCell } from './SubGridCell';
 export const cellRendererMap: Record<string, React.ComponentType<CellRendererProps<any>>> = {
   text: TextCell as React.ComponentType<CellRendererProps<any>>,
   boolean: CheckboxCell as React.ComponentType<CellRendererProps<any>>,
+  booleanSelected: BooleanSelectedCell as React.ComponentType<CellRendererProps<any>>,
   numeric: NumericCell as React.ComponentType<CellRendererProps<any>>,
   password: PasswordCell as React.ComponentType<CellRendererProps<any>>,
+  passwordConfirm: PasswordConfirmCell as React.ComponentType<CellRendererProps<any>>,
   currency: CurrencyCell as React.ComponentType<CellRendererProps<any>>,
   status: StatusCell as React.ComponentType<CellRendererProps<any>>,
   tags: TagsCell as React.ComponentType<CellRendererProps<any>>,

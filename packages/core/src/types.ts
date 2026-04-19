@@ -66,20 +66,41 @@ export type SortState = SortDescriptor[];
  *
  * Operators range from simple equality checks (`eq`, `neq`) through relational
  * comparisons (`gt`, `gte`, `lt`, `lte`), string matching (`contains`,
- * `startsWith`, `endsWith`), range testing (`between`), and null checks
- * (`isNull`, `isNotNull`).
+ * `startsWith`, `endsWith`), range testing (`between`), null checks
+ * (`isNull`, `isNotNull`), and value-list membership (`in`, `notIn`).
+ *
+ * The `in` / `notIn` operators back the Excel 365-style column filter menu:
+ * the user picks a set of distinct values from a checklist and rows are kept
+ * (or dropped) based on set membership. They expect the descriptor's `value`
+ * to be either a `string[]` or a `Set<string>`; see {@link FilterDescriptor}
+ * for the runtime semantics and the sentinel `'(blanks)'` convention used to
+ * match empty cells.
  */
-export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'startsWith' | 'endsWith' | 'between' | 'isNull' | 'isNotNull';
+export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'startsWith' | 'endsWith' | 'between' | 'isNull' | 'isNotNull' | 'in' | 'notIn';
 
 /**
  * A single-field filter predicate.
+ *
+ * The shape of `value` is operator-dependent:
+ * - scalar operators (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`,
+ *   `startsWith`, `endsWith`) expect a single reference value of a type
+ *   compatible with the cell being tested;
+ * - `between` expects a two-element `[min, max]` tuple (inclusive bounds);
+ * - `isNull` / `isNotNull` ignore `value` entirely;
+ * - `in` / `notIn` expect either an array of strings or a `Set<string>` of
+ *   allowed values. Cells are coerced to strings (via `String(cell)`) before
+ *   comparison, comparison is case-sensitive, and the literal string
+ *   `'(blanks)'` inside the list matches `null`, `undefined`, and `''`.
  */
 export interface FilterDescriptor {
   /** The data-field name to filter on. */
   field: string;
   /** The comparison operator. */
   operator: FilterOperator;
-  /** The reference value (or value pair for `between`). */
+  /**
+   * The reference value. Its concrete type depends on {@link operator};
+   * see the interface docstring for the per-operator contract.
+   */
   value: unknown;
 }
 
@@ -87,7 +108,11 @@ export interface FilterDescriptor {
  * A recursive, tree-structured filter expression that combines leaf
  * {@link FilterDescriptor} nodes with boolean logic (`and` / `or`).
  *
- * Nesting allows arbitrarily complex filter predicates to be expressed.
+ * Nesting allows arbitrarily complex filter predicates to be expressed: each
+ * entry in `filters` may itself be a composite, so the tree has no depth
+ * limit. Evaluation is short-circuit-free — every child is visited — but
+ * the precompile step in `applyFiltering` hoists expensive value-list targets
+ * into `Set`s once per call so per-row cost stays O(1) regardless of depth.
  */
 export interface CompositeFilterDescriptor {
   /** Boolean combinator applied to child filters. */
@@ -149,8 +174,17 @@ export type SelectionMode = 'cell' | 'row' | 'range' | 'none';
  * Each type maps to a specialised editor/renderer pair in the rendering layer,
  * covering plain text, calendars, status badges, tag chips, booleans, currency
  * formatting, rich-text editing, file uploads, nested sub-grids, and more.
+ *
+ * Two variants extend the base boolean/password renderers with richer display
+ * semantics intended primarily for form-style (transposed) grids:
+ *   - `'booleanSelected'` — displays the literal word "Selected" when the
+ *     value is `true`, an em-dash ("—") for `false`, and nothing for
+ *     nullish values. Click-to-toggle remains available.
+ *   - `'passwordConfirm'` — renders two password inputs (value + confirm)
+ *     plus a show/hide eye toggle. The commit is gated on both inputs
+ *     matching; mismatch is surfaced inline.
  */
-export type CellType = 'text' | 'calendar' | 'status' | 'tags' | 'compoundChipList' | 'boolean' | 'password' | 'chipSelect' | 'currency' | 'richText' | 'numeric' | 'upload' | 'subGrid' | 'list' | 'actions';
+export type CellType = 'text' | 'calendar' | 'status' | 'tags' | 'compoundChipList' | 'boolean' | 'booleanSelected' | 'password' | 'passwordConfirm' | 'chipSelect' | 'currency' | 'richText' | 'numeric' | 'upload' | 'subGrid' | 'list' | 'actions';
 
 /**
  * Represents a selectable option in status, chip-select, or list columns.
@@ -721,14 +755,120 @@ export interface RowGroup {
 // ---------------------------------------------------------------------------
 
 /**
- * Configuration for the optional chrome columns that flank the data columns:
- * a controls column on the far left and a row-number column on the far right.
+ * Configuration for the optional chrome columns that flank the data columns.
+ *
+ * Chrome columns are non-data presentation columns rendered outside the
+ * user's schema: a controls column (pinned on the far left) and a row-number
+ * gutter (side is configurable via {@link RowNumberColumnConfig.position}).
+ * Each slot accepts either a boolean (quick enable/disable with defaults) or
+ * a configuration object for fine-grained control.
+ *
+ * The three `getRow…` / `getChromeCellContent` resolvers are row-level
+ * presentation hooks that let consumers style individual rows and inject
+ * content into the row-number ("chrome") gutter without needing a custom
+ * cell renderer. They are the public extension points that downstream
+ * features (row-click selection, Shift+Arrow range highlight, transposed
+ * field column) build on.
+ *
+ * @typeParam TData - The shape of a data row.
  */
-export interface ChromeColumnsConfig {
+export interface ChromeColumnsConfig<TData = Record<string, unknown>> {
   /** Far-left action column (e.g. magnifying glass, expand). */
   controls?: ControlsColumnConfig | boolean;
-  /** Far-right Excel-style row number column with selection and reorder. */
+  /** Excel-style row number column with selection and reorder. Positioned via `RowNumberColumnConfig.position` (default: 'left'). */
   rowNumbers?: RowNumberColumnConfig | boolean;
+  /**
+   * Per-row border resolver. Called once per rendered row with the row data,
+   * row id and zero-based row index. Return a {@link RowBorderStyle} object
+   * to paint a border around the row's container element, or `null`/`undefined`
+   * to inherit the default border.
+   *
+   * The returned border is applied to the row container itself (all four
+   * sides by default; see {@link RowBorderStyle.sides}). It composes with
+   * chrome column styles — the chrome gutter's own left/right borders are
+   * preserved.
+   */
+  getRowBorder?: (
+    row: TData,
+    rowId: string,
+    rowIndex: number,
+  ) => RowBorderStyle | null | undefined;
+  /**
+   * Per-row background colour resolver. Called once per rendered row; the
+   * returned string is applied as the row container's `background` CSS
+   * property and therefore wins over the default zebra striping. Any
+   * CSS-legal colour value is accepted (HEX is preferred for determinism,
+   * but `rgba(…)` / named colours also work). Return `null`/`undefined` to
+   * fall back to the default row background token.
+   */
+  getRowBackground?: (
+    row: TData,
+    rowId: string,
+    rowIndex: number,
+  ) => string | null | undefined;
+  /**
+   * Per-row chrome-cell content resolver. When provided and the row-number
+   * chrome column is enabled, the returned {@link ChromeCellContent} replaces
+   * the default row-number digit with custom text and/or an icon. The
+   * resolver's `onClick` is invoked in addition to (not in place of) the
+   * built-in row-selection click handler — this is the hook that downstream
+   * features such as row-click selection (#15) and the transpose field
+   * column (#18) build on.
+   *
+   * Returning `null`/`undefined` preserves the default row-number rendering
+   * for that row.
+   */
+  getChromeCellContent?: (
+    row: TData,
+    rowId: string,
+    rowIndex: number,
+  ) => ChromeCellContent | null | undefined;
+}
+
+/**
+ * Per-row border style returned by {@link ChromeColumnsConfig.getRowBorder}.
+ *
+ * Every field is optional; unset fields fall back to sensible defaults:
+ * `color` → `currentColor`, `style` → `'solid'`, `width` → `1`,
+ * `sides` → all four sides.
+ */
+export interface RowBorderStyle {
+  /** Border colour (any CSS-legal value; HEX preferred). Default: inherits. */
+  color?: string;
+  /** Border line style. Default: `'solid'`. */
+  style?: 'solid' | 'dashed' | 'dotted';
+  /** Border width in pixels. Default: `1`. */
+  width?: number;
+  /**
+   * Which edges of the row the border is applied to. Default: all four.
+   * The bottom edge overrides the default row separator; omit it to keep
+   * the stock separator behaviour.
+   */
+  sides?: Array<'top' | 'right' | 'bottom' | 'left'>;
+}
+
+/**
+ * Content returned from {@link ChromeColumnsConfig.getChromeCellContent} to
+ * override the default row-number rendering inside the row-number chrome
+ * gutter.
+ *
+ * When provided, `text` and/or `icon` replace the digit; `onClick` is fired
+ * on click in addition to the row-selection handler, allowing downstream
+ * features (e.g. row-click selection) to opt into richer click semantics
+ * without shadowing the selection behaviour.
+ */
+export interface ChromeCellContent {
+  /** Text to display inside the chrome cell (wins over the default digit). */
+  text?: string;
+  /** Optional icon node (rendered before the text). */
+  icon?: unknown;
+  /**
+   * Optional click handler. Receives the native `MouseEvent` alongside the
+   * row id and row index. Called in addition to the built-in row-selection
+   * click — call `evt.stopPropagation()` on the event to prevent the
+   * selection handler from firing.
+   */
+  onClick?: (evt: MouseEvent, rowId: string, rowIndex: number) => void;
 }
 
 /**
@@ -758,7 +898,16 @@ export interface ControlAction {
 }
 
 /**
- * Configuration for the row-number column rendered at the far right of the grid.
+ * Configuration for the Excel-style row-number column.
+ *
+ * The column renders a gutter of row numbers used for whole-row selection,
+ * drag-to-reorder handles, and as a visual anchor during scrolling. It can be
+ * anchored on either side of the data cells via
+ * {@link RowNumberColumnConfig.position}; the default `'left'` matches the
+ * Excel 365 convention and keeps the gutter sticky during horizontal scrolls.
+ *
+ * The cell background is themed via the `--dg-row-number-bg` CSS token
+ * (default `#f3f2f1`, matching the Excel 365 gutter colour).
  */
 export interface RowNumberColumnConfig {
   /** Width in pixels. Default: 50. */
@@ -767,6 +916,13 @@ export interface RowNumberColumnConfig {
   widthMode?: 'auto' | 'fixed';
   /** Whether rows can be reordered by dragging the row number cell. Default: true. */
   reorderable?: boolean;
+  /**
+   * Which side of the data cells the gutter renders on. Default: `'left'`
+   * (Excel 365 convention). When `'left'`, the cell is also sticky-left
+   * so horizontal scrolling keeps the gutter pinned; when `'right'`, the
+   * gutter floats after the last data column and scrolls with it.
+   */
+  position?: 'left' | 'right';
 }
 
 // ---------------------------------------------------------------------------
@@ -811,7 +967,7 @@ export interface GridConfig<TData = Record<string, unknown>> {
   /** Toolbar, formula bar, and filter bar configuration. */
   bars?: BarsConfig;
   /** Optional chrome columns: controls (far left) and row numbers (far right). */
-  chrome?: ChromeColumnsConfig;
+  chrome?: ChromeColumnsConfig<TData>;
   /** Enable or configure column sorting. */
   sorting?: boolean | SortConfig;
   /** Enable or configure column filtering. */
@@ -834,6 +990,19 @@ export interface GridConfig<TData = Record<string, unknown>> {
   pageSize?: number;
   /** Whether arrow-key / tab navigation is active. */
   keyboardNavigation?: boolean;
+  /**
+   * Controls how Shift + Arrow key combinations are interpreted.
+   *
+   * - `'scroll'` (default) — Shift + Arrow scrolls the viewport by roughly
+   *   half a screen in the arrow's direction; the current selection is left
+   *   untouched. Up / Down scroll vertically; Left / Right scroll horizontally.
+   * - `'rangeSelect'` — Shift + Arrow extends the current rectangular range
+   *   selection by one cell in the arrow's direction while preserving the
+   *   anchor, so every intermediate cell becomes part of the range.
+   *
+   * Plain Arrow and Ctrl / Cmd + Arrow are never affected by this flag.
+   */
+  shiftArrowBehavior?: 'scroll' | 'rangeSelect';
   /** Visual theme — a preset name or a custom token map. */
   theme?: 'light' | 'dark' | Record<string, string>;
 }
@@ -1172,4 +1341,14 @@ export interface TransposedGridConfig {
   fieldColumnWidth?: number;
   /** Width of each entity column in pixels. */
   entityColumnWidth?: number;
+  /**
+   * When `true`, the field labels are rendered inside the row-number chrome
+   * gutter via `chrome.getChromeCellContent` instead of an ordinary data
+   * column. This removes the frozen `__field_label` data column entirely —
+   * the chrome column becomes the authoritative "key" column, matching the
+   * extension point added for issue #14.
+   *
+   * Defaults to `false` for backward compatibility.
+   */
+  useChromeFieldColumn?: boolean;
 }

@@ -5,8 +5,10 @@
  * keyboard events into {@link GridModel} mutations -- cell navigation,
  * selection extension, editing lifecycle, undo/redo, and boolean toggling.
  * Supports standard spreadsheet-like key bindings including arrow keys with
- * Shift (extend selection), Ctrl/Cmd (jump to edge), Tab (move within row),
- * Enter (commit edit / begin edit), Escape (cancel), Home/End, F2, Delete,
+ * Shift (extend selection), Ctrl/Cmd (Excel "End" jump to the edge of the
+ * current data block), Ctrl+Shift (extend to that edge), Tab (move within row
+ * when idle; commit-and-stay while editing), Enter (begin edit when idle;
+ * commit-and-stay while editing), Escape (cancel), Home/End, F2, Delete,
  * Ctrl+A, and Ctrl+Z/Y.
  *
  * @module use-keyboard
@@ -20,6 +22,7 @@ import {
   getLastCell,
   getNextCellInRow,
   getPrevCellInRow,
+  getEndJumpCell,
   ColumnDef,
   serializeRangeToText,
   parseTextToGrid,
@@ -34,6 +37,12 @@ import {
  * (rather than a React `onKeyDown` prop) so that the grid container can
  * capture keyboard events regardless of which internal element has focus.
  *
+ * Shift + Arrow behaviour is configurable via the grid's
+ * {@link GridConfig.shiftArrowBehavior} option (see that option's docstring
+ * for branch semantics). When the `'scroll'` branch is active, the optional
+ * `scrollRef` parameter is used as the viewport whose `scrollBy` is invoked
+ * to move roughly half a screen per keystroke.
+ *
  * @typeParam TData - Row data shape; must be a string-keyed record.
  *
  * @param model - The {@link GridModel} instance to mutate in response to
@@ -42,21 +51,43 @@ import {
  *   `keydown` listener is attached to this element.
  * @param enabled - When `false`, all keyboard handling is skipped. Defaults
  *   to `true`.
+ * @param scrollRef - Optional React ref pointing at the scrollable body
+ *   container. Required for the `'scroll'` Shift+Arrow branch to have any
+ *   visible effect; when omitted, the branch becomes a no-op.
  *
  * @example
  * ```tsx
  * const containerRef = useRef<HTMLDivElement>(null);
- * useKeyboard(model, containerRef);
+ * const scrollRef = useRef<HTMLDivElement>(null);
+ * useKeyboard(model, containerRef, true, scrollRef);
  * return <div ref={containerRef} tabIndex={0}>...</div>;
  * ```
  */
 export function useKeyboard<TData extends Record<string, unknown>>(
   model: GridModel<TData>,
   containerRef: React.RefObject<HTMLDivElement | null>,
-  enabled: boolean = true
+  enabled: boolean = true,
+  scrollRef?: React.RefObject<HTMLDivElement | null>,
 ) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
+
+    // Events originating inside a nested grid (sub-grid) must not be handled
+    // here. Each nested DataGrid instance attaches its own keydown listener
+    // on its own container ref; when the user focuses a cell inside a
+    // sub-grid the nested listener fires first and calls `stopPropagation`
+    // on handled events (see end of this switch). However native `keydown`
+    // events without an explicit stop still bubble — we guard by checking
+    // that the event target (or the closest descendant focus target) lives
+    // inside another `[role="grid"]` subtree that is not our container.
+    const container = containerRef.current;
+    if (container && e.target instanceof Element) {
+      const closestGrid = e.target.closest('[role="grid"]');
+      if (closestGrid && closestGrid !== container) {
+        // Event originated inside a nested grid — defer to its listener.
+        return;
+      }
+    }
 
     // Snapshot the current model state needed for navigation decisions.
     const state = model.getState();
@@ -70,10 +101,86 @@ export function useKeyboard<TData extends Record<string, unknown>>(
     const current: CellAddress | null = editing.cell ?? selection?.anchor ?? null;
     if (!current && !['Tab'].includes(e.key)) return;
 
+    // ---------------------------------------------------------------------
+    // Sub-grid keyboard transitions
+    // ---------------------------------------------------------------------
+    //
+    // Enter on a selected sub-grid cell expands the nested grid and
+    // transfers focus into it (if the row has a sub-grid column). This
+    // overrides the default "begin edit" behaviour, which is inappropriate
+    // for sub-grid cells since they are not editable as scalars.
+    //
+    // Escape in a nested grid (when nothing is selected inside) collapses
+    // the expansion back and returns focus to the parent grid container.
+    // That arm is implemented in the outer container's listener — since
+    // `useKeyboard` runs per grid level, each listener handles its own
+    // side of the transition.
+
+    if (e.key === 'Enter' && current && !editing.cell) {
+      const col = columns.find(c => c.field === current.field);
+      if (col?.cellType === 'subGrid') {
+        e.preventDefault();
+        e.stopPropagation();
+        const expanded = state.expandedSubGrids.has(current.rowId);
+        if (!expanded) {
+          model.toggleSubGridExpansion(current.rowId);
+        }
+        // Focus the nested grid after the expansion row mounts. We look up
+        // the expansion row via the `data-testid` attribute written by the
+        // body renderer; that's a stable contract between layers.
+        requestAnimationFrame(() => {
+          if (!container) return;
+          const nested = container.querySelector<HTMLElement>(
+            `[data-testid="subgrid-expansion-${CSS.escape(current.rowId)}"] [role="grid"]`,
+          );
+          nested?.focus();
+        });
+        return;
+      }
+    }
+
+    // Escape-to-exit a sub-grid: if we're a nested grid and the user presses
+    // Escape while nothing is being edited, return focus to the nearest
+    // outer grid. This path is triggered by noting that our container has
+    // an ancestor `[role="grid"]` that isn't us.
+    if (e.key === 'Escape' && !editing.cell && container) {
+      const outerGrid = container.parentElement?.closest('[role="grid"]');
+      if (outerGrid && outerGrid !== container) {
+        e.preventDefault();
+        e.stopPropagation();
+        model.clearSelectionState();
+        (outerGrid as HTMLElement).focus();
+        return;
+      }
+    }
+
     switch (e.key) {
-      // --- Tab: commit any active edit, then move horizontally within the row ---
+      // --- Tab: commit-and-stay while editing, move within row otherwise ---
+      //
+      // Issue #10: Pressing Tab while a cell is in edit mode must commit the
+      // draft, exit edit mode, and leave the same cell selected. The caret
+      // must NOT jump to the adjacent cell.
+      //
+      // Event flow: this hook installs a *native* keydown listener on the
+      // grid container, which fires mid-bubble before React's delegated
+      // onKeyDown handlers at the document root. When Tab bubbles in from a
+      // cell editor input, the cell's React onKeyDown handler is what owns
+      // the draft and calls the correct `onCommit` callback — so here we
+      // must preventDefault (to suppress the browser's focus-advance) but
+      // leave propagation intact so the cell handler still runs. Calling
+      // `model.commitEdit()` from the grid in that case would prematurely
+      // fire a second cell:edit command with the stale model-level value.
+      //
+      // When Tab bubbles from outside an editor (e.g. the container gets
+      // focus directly) while editing is somehow active, we fall back to a
+      // model-level commit so the draft is not silently discarded.
       case 'Tab': {
-        if (editing.cell) model.commitEdit();
+        if (editing.cell) {
+          e.preventDefault();
+          if (isEditorTarget(e.target)) return;
+          model.commitEdit();
+          return;
+        }
         if (!current) {
           e.preventDefault();
           const first = getFirstCell(columns, rowIds);
@@ -89,28 +196,54 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         }
         break;
       }
-      // --- Enter: toggle between editing and navigation ---
+      // --- Enter: commit-and-stay while editing, begin editing otherwise ---
+      //
+      // Issue #10: Enter in edit mode commits the current draft, exits edit
+      // mode, and keeps selection on the same cell (no auto-advance to the
+      // row below). When not editing, Enter begins editing the selected cell,
+      // matching the spreadsheet convention.
+      //
+      // As with Tab above, when the event target is an editor input we
+      // defer to the cell-level handler so the draft (not the stale
+      // model-level `currentValue`) is what gets committed.
       case 'Enter': {
         e.preventDefault();
-        if (editing.cell && current) {
-          // Commit the current edit and advance vertically.
+        if (editing.cell) {
+          if (isEditorTarget(e.target)) return;
           model.commitEdit();
-          const next = e.shiftKey
-            ? getNextCell(current, 'up', columns, rowIds)
-            : getNextCell(current, 'down', columns, rowIds);
-          if (next) model.select(next);
         } else if (current) {
-          // Begin editing the currently selected cell.
           model.beginEdit(current);
         }
         break;
       }
-      // --- Escape: cancel edit or clear selection ---
+      // --- Escape: cancel edit (keeps selection), or clear selection when idle ---
+      //
+      // Issue #11: Pressing Esc in edit mode must revert the cell value and
+      // keep the original cell selected. Because cell editors (e.g. TextCell)
+      // handle Escape at the input level first — calling `model.cancelEdit()`
+      // synchronously — by the time this native bubble-phase listener runs,
+      // `editing.cell` is already null. Without the `isEditor` guard below,
+      // the `else` branch would then wipe the selection.
+      //
+      // The event target tells us whether Esc was pressed inside an editor
+      // input/textarea: if so, the cell already cancelled the edit and we
+      // must preserve the selection. Otherwise (Esc pressed while the grid
+      // has focus and no edit is active), we keep the existing
+      // clear-selection behaviour.
       case 'Escape': {
         if (editing.cell) {
           model.cancelEdit();
+          e.preventDefault();
+          e.stopPropagation();
         } else {
-          model.clearSelectionState();
+          const target = e.target as HTMLElement | null;
+          const isEditor =
+            target instanceof HTMLInputElement ||
+            target instanceof HTMLTextAreaElement ||
+            (target != null && target.isContentEditable);
+          if (!isEditor) {
+            model.clearSelectionState();
+          }
         }
         break;
       }
@@ -121,8 +254,6 @@ export function useKeyboard<TData extends Record<string, unknown>>(
       case 'ArrowUp': {
         // Don't navigate while editing
         if (editing.cell) return;
-        e.preventDefault();
-        if (!current) return;
 
         // Map the key name to a cardinal direction string.
         const dir =
@@ -130,25 +261,57 @@ export function useKeyboard<TData extends Record<string, unknown>>(
           e.key === 'ArrowLeft' ? 'left' :
           e.key === 'ArrowDown' ? 'down' : 'up';
 
-        if (e.shiftKey) {
-          // Shift+Arrow extends the selection range to the adjacent cell.
-          const target = getNextCell(current, dir, columns, rowIds);
-          if (target) model.extendTo(target);
-        } else if (e.ctrlKey || e.metaKey) {
-          // Ctrl/Cmd+Arrow jumps to the edge of the grid in that direction.
-          if (dir === 'right' || dir === 'left') {
-            const edge = dir === 'right'
-              ? getLastCell(columns, rowIds)
-              : getFirstCell(columns, rowIds);
-            if (edge) model.select({ rowId: current.rowId, field: edge.field });
+        e.preventDefault();
+
+        if (e.ctrlKey || e.metaKey) {
+          // Ctrl/Cmd+Arrow jumps Excel "End" style: walk along the row/column
+          // and stop at the edge of the nearest populated block. Ctrl+Shift
+          // +Arrow extends the range to the same target instead of moving the
+          // caret. This branch runs regardless of the `shiftArrowBehavior`
+          // config — the config only governs plain Shift+Arrow (no Ctrl/Cmd).
+          if (!current) return;
+          const processedData = model.getProcessedData();
+          const getCellValue = (cell: CellAddress): unknown => {
+            const rowIndex = rowIds.indexOf(cell.rowId);
+            if (rowIndex < 0) return undefined;
+            const row = processedData[rowIndex] as Record<string, unknown> | undefined;
+            return row ? row[cell.field] : undefined;
+          };
+          const target = getEndJumpCell(current, dir, columns, rowIds, getCellValue);
+          if (target) {
+            if (e.shiftKey) {
+              model.extendTo(target);
+            } else {
+              model.select(target);
+            }
+          }
+        } else if (e.shiftKey) {
+          // Shift+Arrow (no Ctrl/Cmd): dispatch to the configured branch.
+          // The config controls whether Shift+Arrow scrolls the viewport by
+          // roughly half a screen (default) or extends the rectangular range
+          // selection by one cell.
+          const cfg = (state.config ?? {}) as Partial<{ shiftArrowBehavior: 'scroll' | 'rangeSelect' }>;
+          const behavior = cfg.shiftArrowBehavior ?? 'scroll';
+          if (behavior === 'rangeSelect') {
+            // Anchor the extension to the current *focus* (not the anchor) so
+            // successive Shift+Arrow keystrokes compound — stepping right
+            // twice from A1 must reach C1, not stall at B1. The anchor is
+            // preserved implicitly by `extendTo`, which only updates the
+            // focus. Every cell inside the normalised rectangle is selected
+            // by the body's range checker, fixing the "only 2 cells selected"
+            // bug reported in #16.
+            const focus = selection?.focus ?? current;
+            if (!focus) return;
+            const target = getNextCell(focus, dir, columns, rowIds);
+            if (target) model.extendTo(target);
           } else {
-            const edge = dir === 'down'
-              ? getLastCell(columns, rowIds)
-              : getFirstCell(columns, rowIds);
-            if (edge) model.select({ rowId: edge.rowId, field: current.field });
+            // 'scroll' branch — move the viewport half a screen without
+            // changing the selection.
+            scrollViewportHalfScreen(scrollRef?.current ?? null, dir);
           }
         } else {
           // Plain arrow key moves selection by one cell.
+          if (!current) return;
           const next = getNextCell(current, dir, columns, rowIds);
           if (next) model.select(next);
         }
@@ -300,7 +463,22 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         break;
       }
     }
-  }, [model, enabled]);
+
+    // Note: we deliberately do NOT call e.stopPropagation() on handled keys
+    // even though it would provide a clean Tab-boundary between nested grids.
+    // The React 19 event system delegates all synthetic events through the
+    // root, so stopping native propagation here also silences React's
+    // `onKeyDown`/`onBlur` handlers on inner elements (notably the inline
+    // editor `<input>`s), breaking commit/cancel and validation flows.
+    //
+    // The Tab-boundary guarantee is instead provided by the early-return
+    // check at the top of this handler: when an event originates inside a
+    // nested grid (`closest('[role="grid"]') !== containerRef.current`), the
+    // outer container's listener exits before doing anything, so there is no
+    // duplicate navigation. Each nested grid still updates its own model's
+    // selection in response to Tab/Shift-Tab; that update cannot bubble
+    // "through" the DOM because the model is an independent instance.
+  }, [model, enabled, containerRef, scrollRef]);
 
   // useEffect is necessary here because we need to imperatively attach/detach a
   // native DOM event listener on the container element after it mounts.
@@ -310,6 +488,52 @@ export function useKeyboard<TData extends Record<string, unknown>>(
     el.addEventListener('keydown', handleKeyDown);
     return () => el.removeEventListener('keydown', handleKeyDown);
   }, [containerRef, handleKeyDown]);
+}
+
+/**
+ * Scrolls a viewport element by roughly half its visible size in a given
+ * cardinal direction. Used by the default `shiftArrowBehavior: 'scroll'`
+ * branch of Shift + Arrow so a single keystroke jumps ~0.5 screens without
+ * affecting the current selection.
+ *
+ * When `el` is `null`, the call is a silent no-op (consumers who care should
+ * pass a ref pointing at the scrollable body). The scroll is best-effort:
+ * browsers without `scrollBy` support will simply ignore the call.
+ *
+ * @param el - The scrollable container element, or `null`.
+ * @param dir - Cardinal direction to scroll in.
+ */
+function scrollViewportHalfScreen(
+  el: HTMLDivElement | null,
+  dir: 'up' | 'down' | 'left' | 'right',
+): void {
+  if (!el) return;
+  const w = el.clientWidth || 0;
+  const h = el.clientHeight || 0;
+  // Half-screen jump matches the Excel viewport-pan convention.
+  const dx = dir === 'right' ? Math.round(w / 2) : dir === 'left' ? -Math.round(w / 2) : 0;
+  const dy = dir === 'down' ? Math.round(h / 2) : dir === 'up' ? -Math.round(h / 2) : 0;
+  if (typeof el.scrollBy === 'function') {
+    el.scrollBy({ left: dx, top: dy, behavior: 'auto' });
+  } else {
+    el.scrollLeft += dx;
+    el.scrollTop += dy;
+  }
+}
+
+/**
+ * Returns true when the given event target is an editable input surface
+ * (native `<input>`, `<textarea>`, or a contentEditable element).
+ *
+ * Used by the Tab/Enter branches to decide whether to defer committing the
+ * draft to the cell-level React `onKeyDown` handler (which owns the correct
+ * draft value) instead of calling `model.commitEdit()` from the grid.
+ */
+function isEditorTarget(target: EventTarget | null): boolean {
+  if (target instanceof HTMLInputElement) return true;
+  if (target instanceof HTMLTextAreaElement) return true;
+  if (target instanceof HTMLElement && target.isContentEditable) return true;
+  return false;
 }
 
 function resolveRangeIndices(

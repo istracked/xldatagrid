@@ -11,7 +11,8 @@
 import React, { useMemo, useCallback } from 'react';
 import type { TransposedField, CellValue } from '@istracked/datagrid-core';
 import { createTransposedConfig } from '@istracked/datagrid-core';
-import { DataGrid } from './DataGrid';
+import { DataGrid, type CellRendererProps } from './DataGrid';
+import { cellRendererMap, TextCell } from './cells';
 
 /**
  * Props accepted by the {@link TransposedGrid} component.
@@ -31,6 +32,21 @@ export interface TransposedGridProps {
   fieldColumnWidth?: number;
   /** Width of each entity column. */
   entityColumnWidth?: number;
+  /**
+   * When `true`, the field-name column is rendered as the row-number chrome
+   * gutter (via `chrome.getChromeCellContent`) rather than as an ordinary
+   * data column. Routes the field labels through the chrome API introduced
+   * in issue #14 so that the "key" column is structurally identified as
+   * chrome, matching the Excel-style form model.
+   */
+  useChromeFieldColumn?: boolean;
+  /**
+   * Optional overrides for the cell renderer map. When omitted, the built-in
+   * {@link cellRendererMap} is used so that every supported `CellType` — text,
+   * numeric, booleanSelected, passwordConfirm, etc. — renders out of the box.
+   * Any entries supplied here are merged on top of the defaults.
+   */
+  cellRenderers?: Record<string, React.ComponentType<CellRendererProps<Record<string, unknown>>>>;
   /** Theme. */
   theme?: 'light' | 'dark' | Record<string, string>;
 }
@@ -52,8 +68,43 @@ export function TransposedGrid(props: TransposedGridProps) {
     fieldColumnLabel,
     fieldColumnWidth,
     entityColumnWidth,
+    useChromeFieldColumn,
+    cellRenderers: cellRenderersOverride,
     theme,
   } = props;
+
+  // Merge caller overrides on top of the built-in renderer map so that every
+  // supported CellType — including `booleanSelected` and `passwordConfirm`
+  // introduced for issue #18 — renders without the caller having to import
+  // the map themselves. When the field-label column is rendered as an
+  // ordinary data column, we also override that column so it always renders
+  // as plain text regardless of the rowType (a row whose cellType is e.g.
+  // `booleanSelected` should NOT render the field label through the
+  // booleanSelected renderer — that would try to coerce the label string to
+  // a boolean glyph).
+  const mergedCellRenderers = useMemo(() => {
+    const base: Record<string, React.ComponentType<CellRendererProps<Record<string, unknown>>>> = {
+      ...(cellRendererMap as Record<string, React.ComponentType<CellRendererProps<Record<string, unknown>>>>),
+      ...(cellRenderersOverride ?? {}),
+    };
+    // Wrap every renderer so the `__field_label` column falls back to the
+    // plain text renderer — the cellType for that column is dictated by the
+    // row's rowType (e.g. `booleanSelected`), which would otherwise try to
+    // coerce the label string to a boolean glyph.
+    const wrapped: Record<string, React.ComponentType<CellRendererProps<Record<string, unknown>>>> = {};
+    for (const [key, Renderer] of Object.entries(base)) {
+      const LabelAware: React.ComponentType<CellRendererProps<Record<string, unknown>>> = (
+        p: CellRendererProps<Record<string, unknown>>,
+      ) => {
+        if (p.column.field === '__field_label') {
+          return <TextCell {...p} />;
+        }
+        return <Renderer {...p} />;
+      };
+      wrapped[key] = LabelAware;
+    }
+    return wrapped;
+  }, [cellRenderersOverride]);
 
   // Build transposed config for columns and rowTypes
   const config = useMemo(
@@ -64,8 +115,9 @@ export function TransposedGrid(props: TransposedGridProps) {
         fieldColumnLabel,
         fieldColumnWidth,
         entityColumnWidth,
+        useChromeFieldColumn,
       }),
-    [fields, entityKeys, fieldColumnLabel, fieldColumnWidth, entityColumnWidth],
+    [fields, entityKeys, fieldColumnLabel, fieldColumnWidth, entityColumnWidth, useChromeFieldColumn],
   );
 
   // Build data from fields and values
@@ -105,6 +157,8 @@ export function TransposedGrid(props: TransposedGridProps) {
       rowTypes={config.rowTypes}
       selectionMode="cell"
       keyboardNavigation={true}
+      chrome={config.chrome}
+      cellRenderers={mergedCellRenderers}
       theme={theme}
       onCellEdit={handleCellEdit}
     />

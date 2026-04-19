@@ -25,6 +25,48 @@ import { makeEmployees, defaultColumns, departmentOptions, Employee } from '../d
 import { EventLog } from '../helpers';
 import * as Sections from './sections';
 
+// The Excel-365 theme stylesheet is scoped to the `.dg-theme-excel365` class
+// (and the equivalent `data-theme="excel365"` attribute). Simply importing it
+// does not affect unrelated consumers — tokens only apply once we opt in by
+// tagging an ancestor element with the class/attribute below. The import comes
+// directly from the source tree via the vite alias configured in
+// `playground/vite.config.ts`, which maps `@istracked/datagrid-react` to
+// `packages/react/src`.
+import '@istracked/datagrid-react/styles/excel-365-theme.css';
+
+// ---------------------------------------------------------------------------
+// Changes for `feat/excel-365-column-menu`
+// ---------------------------------------------------------------------------
+// This playground entry point has been updated to showcase the features added
+// on the `feat/excel-365-column-menu` branch:
+//
+//   1. `showFilterMenu` is enabled on the Mega Grid so the Excel-365 column
+//      filter dropdown (sort at top, "Clear Filter From <field>", Text / Number
+//      / Date Filters submenu, search input, value checklist, OK/Cancel) lights
+//      up on every filterable column.
+//   2. A stable `gridId` is passed so the IndexedDB-backed
+//      `useBackgroundIndexer` (which powers the checklist) stores its cached
+//      distinct-value indexes under a deterministic namespace instead of an
+//      auto-generated one.
+//   3. The Mega Grid already renders a mix of text (name, email, city),
+//      numeric (salary, rating) and date (startDate) columns; filtering is
+//      enabled so every data-type branch of the menu — including the
+//      in / notIn operators exposed by the value checklist, and the
+//      AND/OR two-clause `FilterConditionDialog` reached via "Custom
+//      filter…" — has something to exercise.
+//   4. Row-number gutter defaults to `position: 'left'` (and can be flipped
+//      to `'right'` via a toolbar toggle) to demo the sticky gutter under
+//      horizontal scroll.
+//   5. A "Theme: excel365" toggle is added so the Excel-365 theme tokens,
+//      activated by the `data-theme="excel365"` attribute on the page root
+//      (and mirrored on the grid wrapper), can be compared side-by-side with
+//      the existing light/dark/custom themes.
+//
+// Pre-existing playground functionality (every section, every toggle) is
+// preserved — the additions above only augment the Mega Grid demo and the
+// root-level theme wrapper.
+// ---------------------------------------------------------------------------
+
 // ---------------------------------------------------------------------------
 // Custom theme token map
 // ---------------------------------------------------------------------------
@@ -109,13 +151,15 @@ const mainStyle: React.CSSProperties = {
 
 function MegaGridSection() {
   const [editLog, setEditLog] = React.useState<string[]>([]);
-  const [theme, setTheme] = React.useState<'light' | 'dark' | 'custom'>('light');
+  const [theme, setTheme] = React.useState<'light' | 'dark' | 'custom' | 'excel365'>('excel365');
   const [selectionMode, setSelectionMode] = React.useState<SelectionMode>('range');
   const [groupByDept, setGroupByDept] = React.useState(false);
+  const [rowNumberPosition, setRowNumberPosition] = React.useState<'left' | 'right'>('left');
 
   const data = React.useMemo(() => makeEmployees(200), []);
 
   const dark = theme === 'dark';
+  const isExcel365 = theme === 'excel365';
 
   function log(msg: string) {
     setEditLog((prev) => [...prev.slice(-49), msg]);
@@ -197,8 +241,18 @@ function MegaGridSection() {
       }
     : { columns: columnGroups };
 
-  // Theme resolution
-  const resolvedTheme = theme === 'custom' ? customTheme : theme;
+  // Theme resolution.
+  //
+  // The Excel-365 tokens are defined in `excel-365-theme.css` and scoped to the
+  // `.dg-theme-excel365` / `[data-theme="excel365"]` selector. To let those
+  // tokens win over the inline theme the grid would otherwise apply, we skip
+  // passing a `theme` prop in the Excel-365 case (so the grid renders without
+  // its own CSS variables) and attach the wrapper class/attribute instead.
+  const resolvedTheme = isExcel365
+    ? undefined
+    : theme === 'custom'
+    ? customTheme
+    : theme;
 
   // Export handlers
   function exportCsv() {
@@ -232,6 +286,7 @@ function MegaGridSection() {
     light: <LightMode fontSize="small" />,
     dark: <DarkMode fontSize="small" />,
     custom: <Palette fontSize="small" />,
+    excel365: <GridView fontSize="small" />,
   };
 
   return (
@@ -258,6 +313,7 @@ function MegaGridSection() {
           <ToggleButton value="light"><LightMode fontSize="small" sx={{ mr: 0.5 }} />light</ToggleButton>
           <ToggleButton value="dark"><DarkMode fontSize="small" sx={{ mr: 0.5 }} />dark</ToggleButton>
           <ToggleButton value="custom"><Palette fontSize="small" sx={{ mr: 0.5 }} />custom</ToggleButton>
+          <ToggleButton value="excel365"><GridView fontSize="small" sx={{ mr: 0.5 }} />excel365</ToggleButton>
         </ToggleButtonGroup>
 
         <Divider orientation="vertical" flexItem />
@@ -296,6 +352,21 @@ function MegaGridSection() {
 
         <Divider orientation="vertical" flexItem />
 
+        <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
+          Row #:
+        </Typography>
+        <ToggleButtonGroup
+          value={rowNumberPosition}
+          exclusive
+          onChange={(_, val) => { if (val) setRowNumberPosition(val); }}
+          size="small"
+        >
+          <ToggleButton value="left">left</ToggleButton>
+          <ToggleButton value="right">right</ToggleButton>
+        </ToggleButtonGroup>
+
+        <Divider orientation="vertical" flexItem />
+
         <Button variant="outlined" size="small" startIcon={<Download />} onClick={exportCsv}>
           Export CSV
         </Button>
@@ -307,6 +378,11 @@ function MegaGridSection() {
       {/* Grid */}
       <Paper
         variant="outlined"
+        // The Excel-365 tokens are opt-in via `.dg-theme-excel365` (or the
+        // equivalent `data-theme` attribute). Apply them on the Paper wrapper
+        // so the grid inside inherits the scoped CSS variables.
+        className={isExcel365 ? 'dg-theme-excel365' : undefined}
+        data-theme={isExcel365 ? 'excel365' : undefined}
         sx={{
           height: 500,
           overflow: 'hidden',
@@ -321,6 +397,16 @@ function MegaGridSection() {
           theme={resolvedTheme as any}
           sorting={{ mode: 'multi' }}
           filtering={{ debounceMs: 200 }}
+          // Excel-365 column filter menu: sort header, "Clear Filter From …",
+          // Text / Number / Date Filters submenu, search input, value
+          // checklist, OK / Cancel. Enabling this also flips the internal
+          // `useBackgroundIndexer` into active mode to build the IDB-cached
+          // distinct-value index that backs the checklist.
+          showFilterMenu
+          // Stable namespace key for the IDB-backed column index. Must be
+          // stable across remounts so the cached indexes survive HMR and
+          // remain isolated from other grids on the page.
+          gridId="kitchen-sink-mega-grid"
           selectionMode={selectionMode}
           keyboardNavigation
           contextMenu={contextMenu}
@@ -337,7 +423,10 @@ function MegaGridSection() {
                 { key: 'delete', label: 'Del', onClick: (rowId: string) => log(`Delete row ${rowId}`) },
               ],
             },
-            rowNumbers: { reorderable: true },
+            // Row-number gutter defaults to the left; toggling in the toolbar
+            // flips it to the right to demonstrate the sticky gutter under
+            // horizontal scroll.
+            rowNumbers: { position: rowNumberPosition },
           }}
           onRowReorder={({ sourceRowId, targetRowId }: { sourceRowId: string; targetRowId: string }) => log(`Reorder: ${sourceRowId} -> ${targetRowId}`)}
           onCellEdit={(rowId, field, value, prev) =>
@@ -387,7 +476,16 @@ function App() {
   }, []);
 
   return (
-    <>
+    // The `data-theme="excel365"` attribute (mirrored by the
+    // `dg-theme-excel365` class) activates the Excel-365 tokens defined in
+    // `packages/react/src/styles/excel-365-theme.css`. The stylesheet's
+    // selector targets `.istracked-datagrid.dg-theme-excel365`, so this
+    // root-level marker has no visual effect on its own — individual grid
+    // wrappers are expected to carry the same class/attribute when they want
+    // to opt in. Placing it here means the whole page advertises the theme
+    // and any grid-level wrapper (like the Mega Grid's Paper) inherits the
+    // scope automatically.
+    <div className="dg-theme-excel365" data-theme="excel365">
       {/* Sidebar */}
       <nav style={sidebarStyle}>
         <div style={sidebarTitleStyle}>Kitchen Sink</div>
@@ -412,7 +510,7 @@ function App() {
           </section>
         ))}
       </main>
-    </>
+    </div>
   );
 }
 

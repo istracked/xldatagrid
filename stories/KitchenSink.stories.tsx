@@ -12,6 +12,22 @@ const meta: Meta = {
 export default meta;
 
 export const EverythingAtOnce: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Exercises every grid feature in a single interactive surface. Picks up the new defaults from the feat/excel-365-column-menu branch:\n' +
+          '- Excel-365 column filter menu (showFilterMenu) with sort, clear filter, Text/Number/Date Filters submenu, value-list search and checklist, and OK/Cancel.\n' +
+          '- Left-side row-number gutter (chrome.rowNumbers.position = "left") that stays sticky under horizontal scroll.\n' +
+          '- FilterConditionDialog reachable from the filter menu for custom AND/OR two-clause predicates.\n' +
+          '- Background indexer (useBackgroundIndexer) builds per-column search indexes off the main thread and caches them in IndexedDB keyed by gridId.\n' +
+          '- in / notIn filter operators backing the value checklist.\n' +
+          '- Mutual exclusion: opening the filter menu closes the legacy column menu and vice versa.\n' +
+          '- Filter chevron exposes aria-label and aria-haspopup="menu".\n' +
+          '- Context-menu portal renders correctly inside CSS-transformed ancestors.',
+      },
+    },
+  },
   render: () => {
     const [editLog, setEditLog] = useState<string[]>([]);
     const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -65,9 +81,9 @@ export const EverythingAtOnce: StoryObj = {
           </button>
         </div>
         <p style={styles.kitchenSinkSubtitle(dark)}>
-          Sorting (multi, shift-click) | Filtering | Cell/range selection | Inline editing with validation |
+          Sorting (multi, shift-click) | Filtering (Excel-365 column menu) | Cell/range selection | Inline editing with validation |
           Ghost row (sticky bottom) | Undo/Redo | Column resize, reorder, freeze, visibility, menu |
-          Context menu | Keyboard navigation | Theming | Chrome columns (controls + row numbers)
+          Context menu | Keyboard navigation | Theming | Chrome columns (controls + left row-number gutter)
         </p>
 
         <div style={{ ...gridContainer, ...styles.kitchenSinkGridBorder(dark) }}>
@@ -84,6 +100,8 @@ export const EverythingAtOnce: StoryObj = {
             ghostRow={ghostRow as any}
             showColumnVisibilityMenu
             showColumnMenu
+            showFilterMenu
+            gridId="kitchen-sink-everything-at-once"
             showGroupControls
             chrome={{
               controls: {
@@ -93,7 +111,7 @@ export const EverythingAtOnce: StoryObj = {
                   { key: 'delete', label: 'Del', onClick: (rowId: string) => setEditLog((p) => [...p.slice(-9), `Delete row ${rowId}`]) },
                 ],
               },
-              rowNumbers: { reorderable: true },
+              rowNumbers: { position: 'left', reorderable: true },
             }}
             onRowReorder={({ sourceRowId, targetRowId }: { sourceRowId: string; targetRowId: string }) => setEditLog((p) => [...p.slice(-9), `Reorder: ${sourceRowId} → ${targetRowId}`])}
             onCellEdit={(rowId, field, value, prev) =>

@@ -61,7 +61,16 @@ describe('useDraftState', () => {
     const onCommit = vi.fn();
     const { result } = renderHook(() => useDraftState({ ...defaultOpts, onCommit, isEditing: true }));
     act(() => {
-      result.current.handleKeyDown({ key: 'Enter', preventDefault: vi.fn() } as any);
+      result.current.handleKeyDown({ key: 'Enter', preventDefault: vi.fn(), stopPropagation: vi.fn() } as any);
+    });
+    expect(onCommit).toHaveBeenCalled();
+  });
+
+  it('handleKeyDown Tab commits', () => {
+    const onCommit = vi.fn();
+    const { result } = renderHook(() => useDraftState({ ...defaultOpts, onCommit, isEditing: true }));
+    act(() => {
+      result.current.handleKeyDown({ key: 'Tab', preventDefault: vi.fn(), stopPropagation: vi.fn() } as any);
     });
     expect(onCommit).toHaveBeenCalled();
   });

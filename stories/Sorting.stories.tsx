@@ -72,3 +72,50 @@ export const SortChangeCallback: StoryObj = {
     );
   },
 };
+
+export const SortFromFilterMenu: StoryObj = {
+  render: () => {
+    const [log, setLog] = useState<string[]>([]);
+    return (
+      <div style={storyContainer}>
+        <h2 style={styles.heading}>Sort from the Excel Filter Menu</h2>
+        <p style={styles.subtitle}>
+          When <code>showFilterMenu</code> is enabled, the Excel 365 filter dropdown
+          also hosts the sort entries at the top of the menu. Click the filter chevron
+          on any header and choose <strong>Sort A to Z</strong> / <strong>Sort Z to A</strong>
+          (or <em>Smallest to Largest</em> / <em>Oldest to Newest</em> for numeric/date
+          columns). The dropdown emits the same sort mutation as clicking a header, so
+          <code> onSortChange</code> fires in both paths.
+        </p>
+        <div style={gridContainer}>
+          <MuiDataGrid
+            data={makeEmployees(40)}
+            columns={defaultColumns as any}
+            rowKey="id"
+            sorting={{ mode: 'single' }}
+            filtering={{ debounceMs: 200 }}
+            showFilterMenu
+            gridId="sorting-filter-menu"
+            onSortChange={(s: SortState) =>
+              setLog((prev) => [...prev.slice(-4), JSON.stringify(s)])
+            }
+          />
+        </div>
+        <pre style={styles.logPre}>
+          {log.length ? log.join('\n') : '(open the filter menu on a header and pick a sort row)'}
+        </pre>
+      </div>
+    );
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Sort can be triggered either by clicking a column header (classic path) or by ' +
+          'opening the Excel 365 filter menu and choosing one of the top-of-menu sort rows. ' +
+          'The sort label adapts to column data type: "Sort A to Z" for text, ' +
+          '"Sort Smallest to Largest" for numbers, "Sort Oldest to Newest" for dates.',
+      },
+    },
+  },
+};

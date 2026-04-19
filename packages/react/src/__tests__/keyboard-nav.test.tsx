@@ -104,22 +104,56 @@ describe('Keyboard navigation', () => {
 
   // -- Enter ----------------------------------------------------------------
 
-  it('Enter commits edit and moves focus to cell below', () => {
+  // Issue #10: Enter while editing commits the value, exits edit mode, and
+  // leaves selection on the same cell (it does NOT advance to the row below).
+  it('Enter commits edit and keeps selection on the same cell (issue #10)', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'name'));
-    // Enter edit mode
+    // Enter edit mode via F2, then press Enter to commit.
     fireEvent.keyDown(getGrid(), { key: 'F2' });
-    // Now commit via Enter on grid (the hook handles Enter when editing.cell is set)
+    expect(document.querySelector('input')).not.toBeNull();
     fireEvent.keyDown(getGrid(), { key: 'Enter' });
-    expect(isSelected('2', 'name')).toBe(true);
+    // Edit mode has exited and selection is still on the original cell.
+    expect(document.querySelector('input')).toBeNull();
+    expect(isSelected('1', 'name')).toBe(true);
+    expect(isSelected('2', 'name')).toBe(false);
   });
 
-  it('Shift+Enter moves focus to cell above', () => {
+  // Issue #10: Shift+Enter behaves identically to Enter while editing —
+  // commit-and-stay, no vertical movement.
+  it('Shift+Enter commits edit and keeps selection on the same cell (issue #10)', () => {
     renderGrid();
     fireEvent.click(getCell('2', 'name'));
     fireEvent.keyDown(getGrid(), { key: 'F2' });
     fireEvent.keyDown(getGrid(), { key: 'Enter', shiftKey: true });
+    expect(document.querySelector('input')).toBeNull();
+    expect(isSelected('2', 'name')).toBe(true);
+    expect(isSelected('1', 'name')).toBe(false);
+  });
+
+  // Issue #10: Tab while editing commits the value, exits edit mode, and
+  // keeps the same cell selected (no horizontal advance).
+  it('Tab commits edit and keeps selection on the same cell (issue #10)', () => {
+    renderGrid();
+    fireEvent.click(getCell('1', 'name'));
+    fireEvent.keyDown(getGrid(), { key: 'F2' });
+    expect(document.querySelector('input')).not.toBeNull();
+    fireEvent.keyDown(getGrid(), { key: 'Tab' });
+    expect(document.querySelector('input')).toBeNull();
     expect(isSelected('1', 'name')).toBe(true);
+    expect(isSelected('1', 'age')).toBe(false);
+  });
+
+  // Issue #10: Shift+Tab while editing also commits-and-stays — the reverse
+  // horizontal move is suppressed while in edit mode.
+  it('Shift+Tab commits edit and keeps selection on the same cell (issue #10)', () => {
+    renderGrid();
+    fireEvent.click(getCell('1', 'age'));
+    fireEvent.keyDown(getGrid(), { key: 'F2' });
+    fireEvent.keyDown(getGrid(), { key: 'Tab', shiftKey: true });
+    expect(document.querySelector('input')).toBeNull();
+    expect(isSelected('1', 'age')).toBe(true);
+    expect(isSelected('1', 'name')).toBe(false);
   });
 
   // -- Escape ---------------------------------------------------------------
@@ -282,66 +316,133 @@ describe('Keyboard navigation', () => {
     expect(isSelected('1', 'name')).toBe(true);
   });
 
-  // -- Shift+Arrow (extend selection) ---------------------------------------
+  // -- Shift+Arrow (scroll branch, default) ---------------------------------
+  //
+  // With the default `shiftArrowBehavior: 'scroll'`, Shift+Arrow pans the
+  // viewport and must NOT alter the selection anchor or focus.
 
-  it('Shift+ArrowRight extends selection right', () => {
+  it('Shift+ArrowRight does not change selection (default scroll branch)', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'name'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowRight', shiftKey: true });
-    // Selection anchor stays at (1, name), focus moves to (1, age).
-    // The anchor cell keeps outline.
     expect(isSelected('1', 'name')).toBe(true);
+    // Neighbouring cell should not have been pulled into the range.
+    expect(isSelected('1', 'age')).toBe(false);
   });
 
-  it('Shift+ArrowLeft extends selection left', () => {
+  it('Shift+ArrowLeft does not change selection (default scroll branch)', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'age'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowLeft', shiftKey: true });
     expect(isSelected('1', 'age')).toBe(true);
+    expect(isSelected('1', 'name')).toBe(false);
   });
 
-  it('Shift+ArrowDown extends selection down', () => {
+  it('Shift+ArrowDown does not change selection (default scroll branch)', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'name'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowDown', shiftKey: true });
     expect(isSelected('1', 'name')).toBe(true);
+    expect(isSelected('2', 'name')).toBe(false);
   });
 
-  it('Shift+ArrowUp extends selection up', () => {
+  it('Shift+ArrowUp does not change selection (default scroll branch)', () => {
     renderGrid();
     fireEvent.click(getCell('2', 'name'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowUp', shiftKey: true });
     expect(isSelected('2', 'name')).toBe(true);
+    expect(isSelected('1', 'name')).toBe(false);
   });
 
-  // -- Ctrl+Arrow (jump to edge) -------------------------------------------
+  // -- Ctrl+Arrow (Excel "End" jump) ---------------------------------------
 
-  it('Ctrl+ArrowRight jumps to last cell in row', () => {
+  // When every cell along the row or column is populated, "End" mode walks to
+  // the far edge of the populated run — which is the grid edge in this fixture.
+
+  it('Ctrl+ArrowRight jumps to last non-empty cell in row', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'name'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowRight', ctrlKey: true });
     expect(isSelected('1', 'active')).toBe(true);
   });
 
-  it('Ctrl+ArrowLeft jumps to first cell in row', () => {
+  it('Ctrl+ArrowLeft jumps to first non-empty cell in row', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'active'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowLeft', ctrlKey: true });
     expect(isSelected('1', 'name')).toBe(true);
   });
 
-  it('Ctrl+ArrowDown jumps to last row in column', () => {
+  it('Ctrl+ArrowDown jumps to last non-empty cell in column', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'name'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowDown', ctrlKey: true });
     expect(isSelected('3', 'name')).toBe(true);
   });
 
-  it('Ctrl+ArrowUp jumps to first row in column', () => {
+  it('Ctrl+ArrowUp jumps to first non-empty cell in column', () => {
     renderGrid();
     fireEvent.click(getCell('3', 'name'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowUp', ctrlKey: true });
     expect(isSelected('1', 'name')).toBe(true);
+  });
+
+  // -- Ctrl+Shift+Arrow (extend range to End target) -----------------------
+
+  /** Whether the given cell renders `aria-selected="true"` — covers the whole range. */
+  function isInRange(rowId: string, field: string): boolean {
+    return getCell(rowId, field).getAttribute('aria-selected') === 'true';
+  }
+
+  it('Ctrl+Shift+ArrowRight extends selection to the row\'s last non-empty cell', () => {
+    renderGrid();
+    fireEvent.click(getCell('1', 'name'));
+    fireEvent.keyDown(getGrid(), { key: 'ArrowRight', ctrlKey: true, shiftKey: true });
+
+    // Every cell between the anchor (inclusive) and the row's last populated cell lights up.
+    expect(isInRange('1', 'name')).toBe(true);
+    expect(isInRange('1', 'age')).toBe(true);
+    expect(isInRange('1', 'active')).toBe(true);
+    // Other rows remain untouched.
+    expect(isInRange('2', 'name')).toBe(false);
+  });
+
+  it('Ctrl+Shift+ArrowDown extends selection to the column\'s last non-empty row', () => {
+    renderGrid();
+    fireEvent.click(getCell('1', 'name'));
+    fireEvent.keyDown(getGrid(), { key: 'ArrowDown', ctrlKey: true, shiftKey: true });
+
+    expect(isInRange('1', 'name')).toBe(true);
+    expect(isInRange('2', 'name')).toBe(true);
+    expect(isInRange('3', 'name')).toBe(true);
+    // Other columns stay out of range.
+    expect(isInRange('2', 'age')).toBe(false);
+  });
+
+  it('Ctrl+Shift+ArrowLeft extends left to the first non-empty cell, keeping the anchor', () => {
+    renderGrid();
+    fireEvent.click(getCell('3', 'active'));
+    fireEvent.keyDown(getGrid(), { key: 'ArrowLeft', ctrlKey: true, shiftKey: true });
+
+    // Row 3, all three columns, selected.
+    expect(isInRange('3', 'name')).toBe(true);
+    expect(isInRange('3', 'age')).toBe(true);
+    expect(isInRange('3', 'active')).toBe(true);
+    // Rows above are untouched.
+    expect(isInRange('1', 'name')).toBe(false);
+  });
+
+  it('Ctrl+Shift+ArrowUp extends up to the first non-empty row, keeping the anchor column', () => {
+    renderGrid();
+    fireEvent.click(getCell('3', 'active'));
+    fireEvent.keyDown(getGrid(), { key: 'ArrowUp', ctrlKey: true, shiftKey: true });
+
+    // "active" column should light up from r1 through the anchor at r3.
+    expect(isInRange('1', 'active')).toBe(true);
+    expect(isInRange('2', 'active')).toBe(true);
+    expect(isInRange('3', 'active')).toBe(true);
+    // Adjacent columns stay out of range.
+    expect(isInRange('1', 'age')).toBe(false);
   });
 
   // -- PageDown / PageUp ----------------------------------------------------

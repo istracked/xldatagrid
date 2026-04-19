@@ -1,35 +1,85 @@
-/* Light theme */
+/*
+ * Declarative theme layer for the datagrid.
+ *
+ * Colour values in this file mirror the palette exposed by the
+ * `istracked/tokens` repository — the organisation-wide source of truth —
+ * as ingested into `./tokens/{light,dark}.json` by `scripts/sync-tokens.mjs`.
+ * If these values drift from the JSON snapshot it is almost certainly because
+ * the sync script needs to be re-run after a tokens-repo upgrade.
+ *
+ * Grid instances without an explicit `theme` prop inherit from the ambient
+ * stylesheet (this file). Instances that do set `theme="light" | "dark"` apply
+ * the same palette via inline custom properties resolved from the synced
+ * JSON — so the two paths converge on the same colours. See
+ * `./tokens/index.ts` for the JS projection.
+ */
+
+@import url('./excel-365-theme.css');
+
+/* Light theme — values mirror tokens/light.json (color.datagrid.*) */
 .istracked-datagrid[data-theme="light"],
 .istracked-datagrid.dg-theme-light {
-  --dg-primary-color: #3b82f6;
-  --dg-bg-color: #ffffff;
-  --dg-text-color: #1e293b;
-  --dg-border-color: #e2e8f0;
-  --dg-header-bg: #f8fafc;
+  --dg-primary-color: #3B82F6;
+  --dg-bg-color: #FFFFFF;
+  --dg-text-color: #0F172A;
+  --dg-border-color: #E2E8F0;
+  --dg-header-bg: #F1F5F9;
+  --dg-header-hover-bg: #E2E8F0;
+  --dg-header-text: #334155;
+  --dg-row-bg: #FFFFFF;
+  --dg-row-bg-alt: #F8FAFC;
+  --dg-row-bg-hover: #F1F5F9;
+  --dg-row-bg-selected: #DBEAFE;
+  --dg-row-border: #E2E8F0;
+  --dg-cell-bg: #FFFFFF;
+  --dg-cell-border: #E2E8F0;
+  --dg-selection-border: #3B82F6;
+  --dg-selection-color: #DBEAFE;
+  --dg-hover-bg: #F1F5F9;
+  --dg-error-color: #EF4444;
   --dg-cell-padding: 0 12px;
   --dg-font-family: system-ui, sans-serif;
   --dg-font-size: 14px;
   --dg-row-height: 36px;
-  --dg-selection-color: #3b82f6;
-  --dg-error-color: #ef4444;
-  --dg-hover-bg: #f1f5f9;
   color-scheme: light;
 }
 
-/* Dark theme */
+/* Dark theme — values mirror tokens/dark.json (color.datagrid.*)
+ *
+ * Header background was previously #0f172a (the app-chrome shade) which made
+ * the header read as darker than the rows behind it. It now uses the header
+ * token (#1E293B), which is one step *lighter* than the row-default
+ * (#0F172A) so the header lifts off the body rather than sinking into it.
+ *
+ * Row backgrounds are now explicitly themed — previously only
+ * `--dg-bg-color` was set, but the body rows pull from `--dg-row-bg` /
+ * `--dg-row-bg-alt` and fell back to hard-coded light values. That is the
+ * root cause of issue #17's "row bg unchanged" bug.
+ */
 .istracked-datagrid[data-theme="dark"],
 .istracked-datagrid.dg-theme-dark {
-  --dg-primary-color: #60a5fa;
-  --dg-bg-color: #1e293b;
-  --dg-text-color: #f1f5f9;
+  --dg-primary-color: #62A0EA;
+  --dg-bg-color: #0F172A;
+  --dg-text-color: #F1F5F9;
   --dg-border-color: #334155;
-  --dg-header-bg: #0f172a;
+  --dg-header-bg: #1E293B;
+  --dg-header-hover-bg: #334155;
+  --dg-header-text: #E2E8F0;
+  --dg-row-bg: #0F172A;
+  --dg-row-bg-alt: #1E293B;
+  --dg-row-bg-hover: #1E293B;
+  --dg-row-bg-selected: #1E3A8A;
+  --dg-row-border: #1E293B;
+  --dg-cell-bg: #0F172A;
+  --dg-cell-border: #1E293B;
+  --dg-selection-border: #62A0EA;
+  --dg-selection-color: #1E3A8A;
+  --dg-hover-bg: #1E293B;
+  --dg-row-number-bg: #1E293B;
+  --dg-error-color: #EF4444;
   --dg-cell-padding: 0 12px;
   --dg-font-family: system-ui, sans-serif;
   --dg-font-size: 14px;
   --dg-row-height: 36px;
-  --dg-selection-color: #60a5fa;
-  --dg-error-color: #f87171;
-  --dg-hover-bg: #334155;
   color-scheme: dark;
 }

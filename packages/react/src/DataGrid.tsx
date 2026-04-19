@@ -6,9 +6,29 @@
  * drag-drop, and theme resolution. All rendering is delegated to child
  * components in the `header/`, `body/`, and `toolbar/` directories.
  *
+ * Architecture overview:
+ *   - The grid is structured as three visual layers stacked vertically inside a
+ *     single focusable container: the **toolbar** (column visibility controls,
+ *     group expand/collapse actions), the **header** (column titles, sort
+ *     indicators, filter triggers, resize/reorder affordances, optional column
+ *     group banner), and the **body** (virtualized rows, cell editing, row
+ *     number / controls chrome columns, group summary rows).
+ *   - This module owns only presentation state and event translation. The
+ *     authoritative data model — rows, columns, sort/filter/group state, and
+ *     edit transactions — lives in a `GridModel` from `@istracked/datagrid-core`.
+ *     The React tree bridges to it through {@link useGridWithAtoms} (which
+ *     instantiates the model) and {@link useGridStore} (which subscribes to it
+ *     and produces snapshot-friendly state for rendering). All mutations flow
+ *     through `model.*` methods; callbacks like `onSortChange` / `onFilterChange`
+ *     fire after the model has accepted the change.
+ *   - Transient UI state that the core does not need to own — menu openness,
+ *     drag sessions, column visibility/width/freeze overrides, row-group
+ *     expansion — is kept in React via the `useGridInteraction` reducer and
+ *     local `useState` hooks.
+ *
  * @module DataGrid
  */
-import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useCallback, useState, useEffect, useId, useMemo } from 'react';
 import {
   GridConfig,
   ColumnDef,
@@ -48,10 +68,30 @@ import { DataGridColumnMenu } from './header/DataGridColumnMenu';
 import { DataGridColumnGroupHeader } from './header/DataGridColumnGroupHeader';
 import { DataGridBody } from './body/DataGridBody';
 import { DataGridToolbar } from './toolbar/DataGridToolbar';
+import { DataGridColumnFilterMenu } from './header/column-filter-menu/DataGridColumnFilterMenu';
+import { FilterConditionDialog } from './header/column-filter-menu/FilterConditionDialog';
+import { useBackgroundIndexer } from './hooks/use-background-indexer';
+import type { CompositeFilterDescriptor, FilterDescriptor } from '@istracked/datagrid-core';
 import * as styles from './DataGrid.styles';
+import { lightThemeTokens, darkThemeTokens } from './styles/tokens';
 
 /**
  * Props accepted by the {@link DataGrid} component.
+ *
+ * Extends `GridConfig<TData>` from `@istracked/datagrid-core` with React-only
+ * concerns: styling, dimension overrides, event callbacks, and UI-layer
+ * toggles that have no representation inside the core model (toolbar chrome,
+ * column menus, Excel-style filter menu).
+ *
+ * Callback props are fired after the model has accepted the corresponding
+ * mutation — consumers can treat them as "committed" events. They are intended
+ * for side effects such as persistence; the grid does not require a value to
+ * be returned.
+ *
+ * @typeParam TData - Shape of a single row record. Defaults to a generic
+ *   object keyed by string.
+ * @see GridConfig from `@istracked/datagrid-core` for the underlying data-model
+ *   options (columns, rows, sorting/filtering/grouping defaults, theme, etc.).
  */
 export interface DataGridProps<TData extends Record<string, unknown> = Record<string, unknown>>
   extends GridConfig<TData> {
@@ -77,11 +117,24 @@ export interface DataGridProps<TData extends Record<string, unknown> = Record<st
   showGroupControls?: boolean;
   showColumnVisibilityMenu?: boolean;
   showColumnMenu?: boolean;
+  /**
+   * Enables the Excel 365-style column filter dropdown. When true, clicking
+   * the filter icon in a header cell opens a value-list + search dropdown
+   * backed by an IndexedDB-cached column index.
+   */
+  showFilterMenu?: boolean;
+  /** Stable id used as the IndexedDB cache key prefix for the column index. */
+  gridId?: string;
   groupControlRef?: string;
 }
 
 /**
  * Props passed to custom cell renderer components.
+ *
+ * A renderer receives both the raw value and the full row so it can compute
+ * derived display (e.g. reference lookups). It is also handed the editing
+ * state so a single component can render both the static and editing views;
+ * commit/cancel callbacks funnel edits back through the model.
  */
 export interface CellRendererProps<TData = Record<string, unknown>> {
   value: CellValue;
@@ -95,49 +148,37 @@ export interface CellRendererProps<TData = Record<string, unknown>> {
 
 // ---------------------------------------------------------------------------
 // Theme token helpers
+//
+// The palette values used by the light and dark presets are ingested from the
+// organisation-wide `istracked/tokens` repository (see
+// `packages/react/src/styles/tokens/`). The grid does not carry its own
+// hand-tuned colours any more — both theme objects are projections of the
+// W3C design-token tree onto the `--dg-*` custom properties our inline styles
+// consume. Run `pnpm sync:tokens` after a tokens-repo upgrade to refresh the
+// snapshot under `src/styles/tokens/`.
 // ---------------------------------------------------------------------------
 
-const LIGHT_THEME: Record<string, string> = {
-  '--dg-primary-color': '#3b82f6',
-  '--dg-bg-color': '#ffffff',
-  '--dg-text-color': '#1e293b',
-  '--dg-border-color': '#e2e8f0',
-  '--dg-header-bg': '#f8fafc',
-  '--dg-cell-padding': '0 12px',
-  '--dg-font-family': 'system-ui, sans-serif',
-  '--dg-font-size': '14px',
-  '--dg-row-height': '36px',
-  '--dg-selection-color': '#3b82f6',
-  '--dg-error-color': '#ef4444',
-  '--dg-hover-bg': '#f1f5f9',
-  color: '#1e293b',
-  colorScheme: 'light',
-};
+const LIGHT_THEME: Record<string, string> = lightThemeTokens;
 
-const DARK_THEME: Record<string, string> = {
-  '--dg-primary-color': '#60a5fa',
-  '--dg-bg-color': '#1e293b',
-  '--dg-text-color': '#f1f5f9',
-  '--dg-border-color': '#334155',
-  '--dg-header-bg': '#0f172a',
-  '--dg-cell-padding': '0 12px',
-  '--dg-font-family': 'system-ui, sans-serif',
-  '--dg-font-size': '14px',
-  '--dg-row-height': '36px',
-  '--dg-selection-color': '#60a5fa',
-  '--dg-error-color': '#f87171',
-  '--dg-hover-bg': '#334155',
-  color: '#f1f5f9',
-  colorScheme: 'dark',
-};
+const DARK_THEME: Record<string, string> = darkThemeTokens;
 
 export function resolveThemeStyle(
   theme: 'light' | 'dark' | Record<string, string> | undefined,
 ): React.CSSProperties {
   if (!theme) return {};
-  if (theme === 'light') return LIGHT_THEME as unknown as React.CSSProperties;
-  if (theme === 'dark') return DARK_THEME as unknown as React.CSSProperties;
-  return theme as unknown as React.CSSProperties;
+  if (theme === 'light') return { ...LIGHT_THEME } as unknown as React.CSSProperties;
+  if (theme === 'dark') return { ...DARK_THEME } as unknown as React.CSSProperties;
+  // A string preset we do not recognise (e.g. `"excel365"`) is handled
+  // entirely via CSS — the grid root receives `data-theme="…"` and the
+  // matching stylesheet provides the tokens. Returning the string itself
+  // here would cause callers to spread it as indexed character properties
+  // into `style`, which React DOM then rejects with
+  // `TypeError: Indexed property setter is not supported` inside
+  // `setValueForStyle`. A custom token map is copied into a plain object
+  // for the same reason — callers treat the result as a writable
+  // `React.CSSProperties` bag and must not receive a frozen/exotic object.
+  if (typeof theme === 'string') return {};
+  return { ...theme } as unknown as React.CSSProperties;
 }
 
 export { LIGHT_THEME, DARK_THEME };
@@ -146,6 +187,37 @@ export { LIGHT_THEME, DARK_THEME };
 // DataGrid component
 // ---------------------------------------------------------------------------
 
+/**
+ * Top-level grid component.
+ *
+ * Instantiates a `GridModel` from `@istracked/datagrid-core`, wires it to a
+ * React render tree via subscription hooks, and composes the toolbar, column
+ * group banner, header, body, context menu, column menu, and (optionally) the
+ * Excel-365 filter menu into a single scrolling surface.
+ *
+ * Lifecycle notes:
+ *   - The underlying model is owned by this component; it is destroyed on
+ *     unmount via a cleanup effect to release any subscriptions the core may
+ *     have established.
+ *   - `initialFilter` is applied exactly once on mount — subsequent changes to
+ *     the prop are ignored so that controlled filter state cannot fight with
+ *     the user's interactive changes.
+ *
+ * Usage:
+ * ```tsx
+ * <DataGrid
+ *   columns={columns}
+ *   rows={rows}
+ *   showFilterMenu
+ *   gridId="orders-grid"
+ *   onFilterChange={setFilter}
+ * />
+ * ```
+ *
+ * @typeParam TData - Row shape; inferred from `columns`/`rows`.
+ * @see GridModel and GridConfig from `@istracked/datagrid-core` for the
+ *   authoritative data model this component renders.
+ */
 export function DataGrid<TData extends Record<string, unknown>>(props: DataGridProps<TData>) {
   const {
     className,
@@ -170,6 +242,8 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     showGroupControls,
     showColumnVisibilityMenu,
     showColumnMenu,
+    showFilterMenu,
+    gridId,
     groupControlRef,
     ...config
   } = props;
@@ -182,7 +256,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
 
   useEffect(() => () => { model.destroy(); }, [model]);
 
-  useKeyboard(model, containerRef, config.keyboardNavigation !== false);
+  useKeyboard(model, containerRef, config.keyboardNavigation !== false, scrollRef);
 
   // Apply initial filter once on mount
   const initialFilterApplied = useRef(false);
@@ -366,6 +440,25 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     return selectionChecker(rowIdx, colIdx);
   }, [selectionChecker, rowIds, orderedVisibleColumns]);
 
+  // Determine whether the active selection spans more than one cell so the
+  // body can apply a range-tint background (in addition to the per-cell
+  // outline) to the non-anchor cells. A single-cell selection keeps the
+  // plain outline-only appearance.
+  const hasMultiCellRange = useMemo(() => {
+    for (const r of state.selection.ranges) {
+      if (r.anchor.rowId !== r.focus.rowId || r.anchor.field !== r.focus.field) return true;
+    }
+    return false;
+  }, [state.selection.ranges]);
+
+  const isInRange = useCallback((rowId: string, field: string): boolean => {
+    if (!hasMultiCellRange) return false;
+    const rowIdx = rowIds.indexOf(rowId);
+    const colIdx = orderedVisibleColumns.findIndex(c => c.field === field);
+    if (rowIdx === -1 || colIdx === -1) return false;
+    return selectionChecker(rowIdx, colIdx);
+  }, [hasMultiCellRange, selectionChecker, rowIds, orderedVisibleColumns]);
+
   const isEditingCell = useCallback((rowId: string, field: string): boolean => {
     const cell = state.editing.cell;
     return cell !== null && cell.rowId === rowId && cell.field === field;
@@ -383,8 +476,8 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     : controlsConfig ? controlsConfig
     : null;
   const resolvedRowNumberConfig: RowNumberColumnConfig | null =
-    rowNumberConfig === true ? { width: 50 }
-    : rowNumberConfig ? rowNumberConfig
+    rowNumberConfig === true ? { width: 50, widthMode: 'fixed', reorderable: true, position: 'left' }
+    : rowNumberConfig ? { position: 'left', ...rowNumberConfig }
     : null;
   const controlsWidth = resolvedControlsConfig?.width ?? 40;
   const rowNumberWidth = resolvedRowNumberConfig?.width ?? 50;
@@ -690,6 +783,342 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
   }, [model]);
 
   // ---------------------------------------------------------------------------
+  // Excel 365 column filter menu integration
+  //
+  // Opting into `showFilterMenu` swaps the per-column header filter icon from
+  // the legacy input/predicate UI to the Excel-style dropdown, which combines
+  // a search box, a distinct-values checklist, and an entry point to a more
+  // powerful conditional filter dialog. The flow is:
+  //   1. The header emits `onFilterMenuTrigger(field, DOMRect)` on icon click.
+  //   2. A background indexer streams distinct values for each filterable
+  //      field into IndexedDB; the dropdown pulls from that cache.
+  //   3. Selections are converted back to a `CompositeFilterDescriptor` and
+  //      passed to `model.filter()` — the exact same channel the legacy UI
+  //      uses, so downstream filter handling remains shared.
+  // ---------------------------------------------------------------------------
+
+  const filterMenuEnabled = showFilterMenu === true;
+
+  // The Excel dropdown is only offered for columns that declare themselves
+  // filterable (the default) and are currently visible in the header. When the
+  // feature is off we short-circuit to an empty array so the indexer has no
+  // work to do.
+  const filterableFields = useMemo<string[]>(() => {
+    if (!filterMenuEnabled) return [];
+    return orderedVisibleColumns
+      .filter((c) => c.filterable !== false)
+      .map((c) => c.field);
+  }, [filterMenuEnabled, orderedVisibleColumns]);
+
+  // The background indexer persists distinct-value indexes to IndexedDB keyed
+  // by `gridId`. Rendering multiple grids on the same page without distinct
+  // ids would otherwise have them all collide on a shared namespace and
+  // overwrite each other's indexes. `useId()` gives us a stable, render-safe
+  // identifier per React instance so the common "two grids, no explicit id"
+  // case still stores each grid under its own IDB namespace. Consumers who
+  // want the cache to survive remounts should pass an explicit `gridId`.
+  const autoGridId = useId();
+  const resolvedGridId = gridId ?? `auto-${autoGridId}`;
+
+  // The indexer hook is invoked unconditionally so that toggling
+  // `filterMenuEnabled` at runtime does not violate the Rules of Hooks; when
+  // the feature is off it runs in a disabled, no-op state so no IDB writes or
+  // computation happens.
+  const indexerState = useBackgroundIndexer({
+    gridId: resolvedGridId,
+    data: processedData as ReadonlyArray<Record<string, unknown>>,
+    rowIds,
+    fields: filterableFields,
+    disabled: !filterMenuEnabled,
+  });
+
+  // `FilterMenuOpen` models the open state of the Excel dropdown: either a
+  // specific field is open (with the anchoring header-button rect needed for
+  // positioning) or no dropdown is open. Keeping it as a local discriminated
+  // value avoids polluting the shared interaction reducer with concerns that
+  // are specific to this feature.
+  type FilterMenuOpen = {
+    field: string;
+    anchor: { top: number; left: number; bottom: number; right: number };
+  } | null;
+
+  // `filterMenuOpen` tracks the Excel dropdown; `conditionDialogOpen` tracks
+  // the "Custom filter…" conditional dialog that the dropdown can launch. Only
+  // one of each can be open at a time, and the dropdown closes itself before
+  // the dialog opens.
+  const [filterMenuOpen, setFilterMenuOpen] = useState<FilterMenuOpen>(null);
+  const [conditionDialogOpen, setConditionDialogOpen] = useState<{ field: string } | null>(null);
+
+  // Opening the Excel dropdown must force the legacy column menu closed so
+  // they never overlap visually or compete for keyboard focus. The anchor
+  // rect is captured here (rather than stored as a live DOMRect) to decouple
+  // the popup from the header button's layout lifecycle.
+  const handleFilterMenuTrigger = useCallback((field: string, anchor: DOMRect) => {
+    // Mutual exclusion: close the legacy column menu when the Excel filter menu opens.
+    interaction.closeMenu();
+    setFilterMenuOpen({
+      field,
+      anchor: {
+        top: anchor.top,
+        left: anchor.left,
+        bottom: anchor.bottom,
+        right: anchor.right,
+      },
+    });
+  }, [interaction]);
+
+  const closeFilterMenu = useCallback(() => setFilterMenuOpen(null), []);
+
+  // Mirror of the mutual-exclusion rule on the other side: when the legacy
+  // column menu is opened (from the header's caret button), the Excel filter
+  // dropdown is dismissed so only one menu is visible per column at a time.
+  const handleColumnMenuTrigger = useCallback((field: string) => {
+    // Mutual exclusion: close the Excel filter menu when the legacy column menu opens.
+    setFilterMenuOpen(null);
+    interaction.openColumnMenu(field);
+  }, [interaction]);
+
+  // Derives the set of fields that currently have *any* filter predicate
+  // attached so the header can paint the filter icon in its "active" state.
+  // The composite filter tree is nestable (`logic` nodes containing more
+  // composites), so a recursive walk is needed to collect every leaf's
+  // `field` regardless of grouping depth.
+  const activeFilterFields = useMemo<Set<string>>(() => {
+    const set = new Set<string>();
+    const fs = state.filter;
+    if (!fs) return set;
+    function visit(node: CompositeFilterDescriptor | FilterDescriptor) {
+      if ('filters' in node) {
+        for (const child of node.filters) visit(child);
+      } else {
+        set.add(node.field);
+      }
+    }
+    visit(fs);
+    return set;
+  }, [state.filter]);
+
+  // The Excel dropdown's checklist only has a meaningful "checked subset" when
+  // the field is filtered by a single `in`-operator predicate (the shape the
+  // dropdown itself produces). Any other predicate — a range, a text contains,
+  // a nested composite — is treated as opaque: we return `undefined` so the
+  // checklist renders every value as selected, signalling that clearing it
+  // will drop the entire predicate on this field.
+  const selectedValuesByField = useMemo<Record<string, Set<string> | undefined>>(() => {
+    const out: Record<string, Set<string> | undefined> = {};
+    const fs = state.filter;
+    if (!fs) return out;
+    for (const child of fs.filters) {
+      if ('field' in child && child.operator === 'in' && Array.isArray(child.value)) {
+        out[child.field] = new Set(child.value.map(String));
+      }
+    }
+    return out;
+  }, [state.filter]);
+
+  // Central mutation helper used by every Excel-menu action. It edits the
+  // filter tree as a field-scoped replace: predicates belonging to the named
+  // field are dropped, the replacement (if any) is appended, and an empty
+  // result collapses back to `null` so the grid reports "no filter". Logic
+  // (`and`/`or`) is preserved from the existing tree or defaults to `and` for
+  // a fresh tree.
+  //
+  // Pruning walks the tree recursively so nested composites emitted by the
+  // "Custom Filter…" dialog (shape: { logic, filters: [...leaves on field] })
+  // are removed along with plain leaves. A composite whose entire subtree
+  // only targeted `field` collapses to an empty list and is dropped; a mixed
+  // composite loses its `field`-matching branches but stays in the tree.
+  const replaceFieldFilter = useCallback(
+    (field: string, replacement: FilterDescriptor | CompositeFilterDescriptor | null) => {
+      const prev = state.filter;
+
+      const stripField = (
+        node: FilterDescriptor | CompositeFilterDescriptor,
+      ): FilterDescriptor | CompositeFilterDescriptor | null => {
+        if ('filters' in node) {
+          const kept: Array<FilterDescriptor | CompositeFilterDescriptor> = [];
+          for (const child of node.filters) {
+            const pruned = stripField(child);
+            if (pruned !== null) kept.push(pruned);
+          }
+          if (kept.length === 0) return null;
+          return { ...node, filters: kept };
+        }
+        return node.field === field ? null : node;
+      };
+
+      const otherFilters: Array<FilterDescriptor | CompositeFilterDescriptor> = [];
+      if (prev) {
+        for (const child of prev.filters) {
+          const pruned = stripField(child);
+          if (pruned !== null) otherFilters.push(pruned);
+        }
+      }
+      const nextChildren = replacement ? [...otherFilters, replacement] : otherFilters;
+      const next: CompositeFilterDescriptor | null =
+        nextChildren.length > 0 ? { logic: prev?.logic ?? 'and', filters: nextChildren } : null;
+      model.filter(next);
+      _onFilterChange?.(next);
+    },
+    [state.filter, model, _onFilterChange],
+  );
+
+  // Applied when the user commits the checklist: a defined `values` set turns
+  // into an `in` predicate; an undefined set means "no restriction", which is
+  // equivalent to clearing any existing filter on this field.
+  const handleApplyValueFilter = useCallback(
+    (field: string, values: Set<string> | undefined) => {
+      if (!values) {
+        replaceFieldFilter(field, null);
+        return;
+      }
+      replaceFieldFilter(field, {
+        field,
+        operator: 'in',
+        value: [...values],
+      });
+    },
+    [replaceFieldFilter],
+  );
+
+  // Invoked from the dropdown's "Clear filter from <column>" entry. Removes
+  // the field-scoped predicate regardless of its operator.
+  const handleClearFieldFilter = useCallback(
+    (field: string) => replaceFieldFilter(field, null),
+    [replaceFieldFilter],
+  );
+
+  // The dropdown's "Custom filter…" entry hands off to a dedicated modal that
+  // builds richer predicates (between / starts-with / and-or chains). Opening
+  // the dialog simply records which field it should target.
+  const handleOpenConditionDialog = useCallback((field: string) => {
+    setConditionDialogOpen({ field });
+  }, []);
+
+  // Receives the composite predicate produced by the condition dialog and
+  // routes it through the same field-scoped replace helper so the behaviour
+  // stays consistent with the checklist path.
+  const handleApplyConditionFilter = useCallback(
+    (field: string, composite: CompositeFilterDescriptor | null) => {
+      replaceFieldFilter(field, composite);
+    },
+    [replaceFieldFilter],
+  );
+
+  // Maps column `cellType` values onto the three data-type families the
+  // Excel menu understands. This normalisation lets the menu pick the right
+  // operator set, value formatter, and input widget without knowing about
+  // every granular cell type the grid supports.
+  const resolveColumnDataType = useCallback(
+    (field: string): 'text' | 'number' | 'date' => {
+      const col = orderedVisibleColumns.find((c) => c.field === field);
+      const t = col?.cellType as string | undefined;
+      if (t === 'numeric' || t === 'number' || t === 'currency') return 'number';
+      if (t === 'calendar' || t === 'date' || t === 'datetime') return 'date';
+      return 'text';
+    },
+    [orderedVisibleColumns],
+  );
+
+  // Looks up a human-readable column label for the dropdown and dialog
+  // headings. Falls back to the field key so the UI never renders blank.
+  const resolveColumnTitle = useCallback(
+    (field: string): string => {
+      const col = orderedVisibleColumns.find((c) => c.field === field);
+      return (col?.title as string | undefined) ?? field;
+    },
+    [orderedVisibleColumns],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Sub-grid expansion rendering
+  // ---------------------------------------------------------------------------
+  //
+  // Each parent row that has `cellType: 'subGrid'` columns can render an
+  // inline expansion row beneath itself that hosts a fully independent nested
+  // grid. Recursion is handled by re-entering `<DataGrid>` with the parent
+  // cell's array value as its `data` and the parent column's `subGridColumns`
+  // as its `columns`. Every nested level receives its own `GridModel` via
+  // `useGridWithAtoms` so sort state, drag sessions, selection, and keyboard
+  // focus are scoped to that level.
+  //
+  // Depth tracking:
+  //   - `subGridDepth` increments by 1 for each nested grid; the outer grid
+  //     starts at 0.
+  //   - `config.subGrid?.maxDepth` caps recursion. When the current depth is
+  //     >= maxDepth, the toggle still renders but the expansion row is not
+  //     mounted. The minimum supported depth is 2 (parent → subgrid →
+  //     subgrid-within-subgrid).
+
+  const subGridDepth = config.subGrid?.nestingLevel ?? 0;
+  const subGridMaxDepth = config.subGrid?.maxDepth ?? 3;
+
+  // Resolve the first `subGrid` column on the parent row; the nested grid
+  // draws its data and columns from that column's configuration. Rows with
+  // more than one sub-grid column are rare — document the restriction in
+  // the PR and keep the common case simple.
+  const getSubGridColumnForRow = useCallback((): ColumnDef<TData> | null => {
+    for (const col of orderedVisibleColumns) {
+      if (col.cellType === 'subGrid') return col;
+    }
+    return null;
+  }, [orderedVisibleColumns]);
+
+  const renderSubGridExpansionRow = useCallback(
+    (rowId: string, row: TData): React.ReactNode => {
+      // Honour maxDepth: once we've reached the cap, skip mounting the nested
+      // grid. The toggle remains clickable; users see an empty expansion slot
+      // so the "tried to go deeper than supported" outcome is still visible.
+      if (subGridDepth >= subGridMaxDepth) return null;
+
+      const subCol = getSubGridColumnForRow();
+      if (!subCol) return null;
+
+      const rawValue = row[subCol.field as keyof TData];
+      const nestedData = Array.isArray(rawValue)
+        ? (rawValue as Record<string, unknown>[])
+        : [];
+      const nestedColumns = (subCol.subGridColumns ?? []) as ColumnDef<Record<string, unknown>>[];
+      const nestedRowKey = (subCol.subGridRowKey ?? 'id') as keyof Record<string, unknown>;
+
+      if (nestedColumns.length === 0) return null;
+
+      return (
+        <DataGrid<Record<string, unknown>>
+          key={`${rowId}-subgrid`}
+          data={nestedData}
+          columns={nestedColumns}
+          rowKey={nestedRowKey}
+          cellRenderers={cellRenderers as any}
+          keyboardNavigation={config.keyboardNavigation !== false}
+          selectionMode={config.selectionMode ?? 'cell'}
+          theme={config.theme}
+          subGrid={{
+            ...(config.subGrid ?? {}),
+            nestingLevel: subGridDepth + 1,
+            maxDepth: subGridMaxDepth,
+            isSubGrid: true,
+          }}
+          rowHeight={rowHeight}
+          headerHeight={headerHeight}
+        />
+      );
+    },
+    [
+      subGridDepth,
+      subGridMaxDepth,
+      getSubGridColumnForRow,
+      cellRenderers,
+      config.keyboardNavigation,
+      config.selectionMode,
+      config.theme,
+      config.subGrid,
+      rowHeight,
+      headerHeight,
+    ],
+  );
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
@@ -767,6 +1196,15 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           />
         )}
 
+        {/*
+         * The header hosts the two menu entry points: the caret-style column
+         * menu (always routed through `handleColumnMenuTrigger`) and the Excel
+         * filter-icon trigger (wired only when `filterMenuEnabled`, otherwise
+         * left `undefined` so the header suppresses the icon entirely).
+         * `activeFilterFields` tells the header which icons to paint in the
+         * filtered state; it is likewise only supplied when the Excel menu is
+         * enabled so the legacy path keeps its pre-existing styling.
+         */}
         <DataGridHeader
           columns={orderedVisibleColumns}
           columnWidths={columnWidths}
@@ -786,7 +1224,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           onDragOver={handleHeaderDragOver}
           onDrop={handleHeaderDrop}
           onDragEnd={handleHeaderDragEnd}
-          onMenuTrigger={(field) => interaction.openColumnMenu(field)}
+          onMenuTrigger={handleColumnMenuTrigger}
           onResizeStart={() => {}}
           onResizeMove={handleResizeMove}
           onResizeEnd={handleResizeEnd}
@@ -796,16 +1234,69 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           rowNumberConfig={resolvedRowNumberConfig}
           rowNumberWidth={rowNumberWidth}
           onSelectAll={handleSelectAll}
+          onFilterMenuTrigger={filterMenuEnabled ? handleFilterMenuTrigger : undefined}
+          activeFilterFields={filterMenuEnabled ? activeFilterFields : undefined}
         />
 
+        {/*
+         * The Excel filter dropdown is rendered inline in the grid subtree (as
+         * a positioned popup) only while a field is open. The conditional
+         * mount both avoids paying the render cost when closed and ensures
+         * the component fully re-initialises per open — no stale checklist
+         * state between columns.
+         */}
+        {filterMenuEnabled && filterMenuOpen && (
+          <DataGridColumnFilterMenu
+            open={true}
+            field={filterMenuOpen.field}
+            title={resolveColumnTitle(filterMenuOpen.field)}
+            dataType={resolveColumnDataType(filterMenuOpen.field)}
+            anchor={filterMenuOpen.anchor}
+            distinctValues={indexerState.indexes[filterMenuOpen.field]?.distinctValues}
+            selectedValues={selectedValuesByField[filterMenuOpen.field]}
+            hasActiveFilter={activeFilterFields.has(filterMenuOpen.field)}
+            sortDir={state.sort.find((s) => s.field === filterMenuOpen.field)?.dir ?? null}
+            onSortAsc={() => handleColumnMenuSortAsc(filterMenuOpen.field)}
+            onSortDesc={() => handleColumnMenuSortDesc(filterMenuOpen.field)}
+            onClearFilter={() => handleClearFieldFilter(filterMenuOpen.field)}
+            onApplyValueFilter={(values) => handleApplyValueFilter(filterMenuOpen.field, values)}
+            onOpenCustomFilter={() => handleOpenConditionDialog(filterMenuOpen.field)}
+            onClose={closeFilterMenu}
+          />
+        )}
+
+        {/*
+         * The custom-filter condition dialog is a separate modal launched
+         * from the Excel dropdown's "Custom filter…" entry. Applying it both
+         * commits the composite predicate and dismisses the dialog in a
+         * single callback so the flow feels atomic to the user.
+         */}
+        {filterMenuEnabled && conditionDialogOpen && (
+          <FilterConditionDialog
+            open={true}
+            field={conditionDialogOpen.field}
+            title={resolveColumnTitle(conditionDialogOpen.field)}
+            dataType={resolveColumnDataType(conditionDialogOpen.field)}
+            onApply={(filter) => {
+              handleApplyConditionFilter(conditionDialogOpen.field, filter);
+              setConditionDialogOpen(null);
+            }}
+            onClose={() => setConditionDialogOpen(null)}
+          />
+        )}
+
+        {/*
+         * The legacy column menu (hide, freeze) continues to mount
+         * unconditionally — it coexists with the Excel dropdown rather than
+         * being replaced by it. Visibility is driven by the interaction
+         * reducer's `menu` discriminant, so rendering the component while no
+         * column-menu session is active is effectively free.
+         */}
         <DataGridColumnMenu
           menuState={interaction.state.menu}
           headerHeight={headerHeight}
           hasColumnGroups={!!columnGroupConfig}
-          isSortingEnabled={isSortingEnabled}
           getColumnFrozen={getColumnFrozenByField}
-          onSortAsc={handleColumnMenuSortAsc}
-          onSortDesc={handleColumnMenuSortDesc}
           onHide={handleColumnMenuHide}
           onFreeze={handleColumnMenuFreeze}
           onUnfreeze={handleColumnMenuUnfreeze}
@@ -823,6 +1314,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           scrollRef={scrollRef}
           handleScroll={handleScroll}
           isSelected={isSelected}
+          isInRange={isInRange}
           isEditingCell={isEditingCell}
           getCellType={getCellType}
           getColumnFrozen={getColumnFrozen}
@@ -854,6 +1346,13 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           onRowDragStart={handleRowDragStart}
           onRowDragOver={handleRowDragOver}
           onRowDrop={handleRowDrop}
+          getRowBorder={chromeConfig?.getRowBorder as any}
+          getRowBackground={chromeConfig?.getRowBackground as any}
+          getChromeCellContent={chromeConfig?.getChromeCellContent as any}
+          selectionMode={config.selectionMode}
+          expandedSubGrids={state.expandedSubGrids}
+          subGridDepth={subGridDepth}
+          renderSubGridExpansionRow={renderSubGridExpansionRow}
         />
 
         {contextMenuEnabled && (
