@@ -33,7 +33,7 @@
  *  - {@link ./DataGridBody.styles} — inline CSSProperties factories used
  *    across both render paths.
  */
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   ColumnDef,
   CellAddress,
@@ -223,6 +223,14 @@ export function DataGridBody<TData extends Record<string, unknown>>(
   const ghostPosition = showGhostRow ? resolveGhostPosition(ghostRowConfig) : 'bottom';
   const ghostAtTop = ghostPosition === 'top' && showGhostRow;
 
+  // Issue #11: when Esc is pressed inside the fallback inline editor, the
+  // unmount that follows `model.cancelEdit()` triggers a native `blur` event
+  // that would otherwise commit the draft. This ref flips to `true` in the
+  // Escape handler and is consulted by `onBlur` so the cancelled draft is
+  // discarded. It lives at component scope so the closure captured by the
+  // input survives the unmount.
+  const inlineEditCancelledRef = useRef(false);
+
   // Row-number chrome column position.
   //
   // Defaults to 'left' to match the Excel 365 convention: row numbers sit to
@@ -381,7 +389,13 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             autoFocus
             defaultValue={value != null ? String(value) : ''}
             style={styles.cellInput}
+            ref={(el) => {
+              // Clear the cancellation flag each time a new edit input
+              // mounts, so a previous Esc doesn't silence the next commit.
+              if (el) inlineEditCancelledRef.current = false;
+            }}
             onBlur={e => {
+              if (inlineEditCancelledRef.current) return;
               const newVal = e.target.value;
               const vResult = validateCell(col, newVal, rowId);
               if (vResult && vResult.severity === 'error') {
@@ -409,6 +423,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
                 model.cancelEdit();
                 onCellEdit?.(rowId, col.field, newVal, value);
               } else if (e.key === 'Escape') {
+                inlineEditCancelledRef.current = true;
                 model.cancelEdit();
               }
               e.stopPropagation();

@@ -83,6 +83,38 @@ export const WithValidation: StoryObj = {
   },
 };
 
+export const EscapeCancelsAndKeepsSelection: StoryObj = {
+  render: () => {
+    const [log, setLog] = useState<string[]>([]);
+    return (
+      <div style={storyContainer}>
+        <h2 style={styles.heading}>Escape Cancels Edit and Keeps Selection</h2>
+        <p style={styles.subtitle}>
+          Click a cell to select it, press <kbd>F2</kbd> or double-click to edit,
+          type a new value, then press <kbd>Escape</kbd>. The original value is
+          preserved and the cell remains selected (issue #11). The onCellEdit
+          log below should stay empty after Escape.
+        </p>
+        <div style={gridContainer}>
+          <MuiDataGrid
+            data={makeEmployees(8)}
+            columns={defaultColumns as any}
+            rowKey="id"
+            selectionMode="cell"
+            keyboardNavigation
+            onCellEdit={(rowId, field, value, prev) =>
+              setLog((p) => [...p.slice(-6), `[${rowId}].${field}: ${String(prev)} -> ${String(value)}`])
+            }
+          />
+        </div>
+        <pre style={styles.logPre}>
+          {log.length ? log.join('\n') : '(no commits — press Escape to cancel edits)'}
+        </pre>
+      </div>
+    );
+  },
+};
+
 export const UndoRedo: StoryObj = {
   render: () => (
     <div style={storyContainer}>
