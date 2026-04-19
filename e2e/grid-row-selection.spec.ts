@@ -1,9 +1,11 @@
 /**
  * End-to-end: row-level selection outline.
  *
- * Drives the `Examples/Basic Grid → Basic Grid Left Row Numbers` story,
- * which renders the Excel-style sticky row-number gutter. Each gutter cell
- * carries `role="rowheader"` and, on click, selects the entire row.
+ * Drives the `Examples/Selection → Row-Header Selection` story, which
+ * renders the Excel-style row-number gutter with range-mode selection —
+ * the exact configuration the outline contract is designed around. Each
+ * gutter cell carries `role="rowheader"` and, on click, selects the
+ * entire row.
  *
  * Contract under test:
  *   - Clicking a `role="rowheader"` cell selects every cell in that row.
@@ -21,7 +23,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
 const ROW_NUMBERS_URL =
-  '/iframe.html?viewMode=story&id=examples-basic-grid--basic-grid-left-row-numbers';
+  '/iframe.html?viewMode=story&id=examples-selection--row-header-selection';
 
 async function waitForGrid(page: Page): Promise<void> {
   await page.locator('[role="grid"]').first().waitFor({ state: 'visible' });
@@ -79,5 +81,81 @@ test.describe('Row selection – outline rendered on row, not per cell', () => {
       (el) => getComputedStyle(el).outlineStyle,
     );
     expect(otherOutlineStyle).toBe('none');
+  });
+
+  test('clicking a gridcell directly does NOT paint the row-level outline', async ({ page }) => {
+    // Single-cell selection is the default behaviour: clicking one gridcell
+    // must leave the row container un-outlined and paint the selection on
+    // the clicked cell only. This guards against over-eager row collapse
+    // (i.e. the "full row" predicate firing when only one cell is selected).
+    const clickedCell = page
+      .locator('[role="gridcell"][data-row-id="4"][data-field="name"]')
+      .first();
+    await expect(clickedCell).toBeVisible();
+    await clickedCell.click();
+
+    await expect(clickedCell).toHaveAttribute('aria-selected', 'true');
+
+    // Row container has no outline.
+    const row = page.locator('[role="row"][data-row-id="4"]').first();
+    const rowOutlineStyle = await row.evaluate(
+      (el) => getComputedStyle(el).outlineStyle,
+    );
+    expect(rowOutlineStyle).toBe('none');
+
+    // The clicked cell paints its own outline (per-cell UX) and sibling
+    // cells in the same row remain unselected.
+    const clickedCellOutline = await clickedCell.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { style: s.outlineStyle, width: s.outlineWidth };
+    });
+    expect(clickedCellOutline.style).not.toBe('none');
+    expect(parseFloat(clickedCellOutline.width)).toBeGreaterThanOrEqual(1);
+
+    const siblingCell = page
+      .locator('[role="gridcell"][data-row-id="4"][data-field="email"]')
+      .first();
+    await expect(siblingCell).toHaveAttribute('aria-selected', 'false');
+  });
+
+  test('clicking a gridcell after a row is selected collapses to per-cell UX', async ({ page }) => {
+    // First: select the whole row via the rowheader. Row outline present,
+    // per-cell outlines suppressed.
+    const rowheader = page
+      .locator('[role="rowheader"][data-row-id="6"]')
+      .first();
+    await rowheader.click();
+
+    const row = page.locator('[role="row"][data-row-id="6"]').first();
+    const initialRowOutline = await row.evaluate(
+      (el) => getComputedStyle(el).outlineStyle,
+    );
+    expect(initialRowOutline).not.toBe('none');
+
+    // Then: click a gridcell in the same row. Selection must shrink to that
+    // one cell — the row outline vanishes and the clicked cell paints its
+    // own outline.
+    const innerCell = page
+      .locator('[role="gridcell"][data-row-id="6"][data-field="name"]')
+      .first();
+    await innerCell.click();
+    await expect(innerCell).toHaveAttribute('aria-selected', 'true');
+
+    const finalRowOutline = await row.evaluate(
+      (el) => getComputedStyle(el).outlineStyle,
+    );
+    expect(finalRowOutline).toBe('none');
+
+    const clickedCellOutlineStyle = await innerCell.evaluate(
+      (el) => getComputedStyle(el).outlineStyle,
+    );
+    expect(clickedCellOutlineStyle).not.toBe('none');
+
+    // A sibling cell that was part of the prior row-selection is now
+    // deselected.
+    const siblingCell = page
+      .locator('[role="gridcell"][data-row-id="6"][data-field="email"]')
+      .first();
+    await expect(siblingCell).toHaveAttribute('aria-selected', 'false');
   });
 });
