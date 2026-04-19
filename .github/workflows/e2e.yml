@@ -1,0 +1,131 @@
+name: E2E + Visual Regression
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+# Two jobs: `playwright` for headless end-to-end coverage of the grid,
+# and `chromatic` for visual-regression snapshots of every story.
+#
+# The `chromatic` job is guarded behind the repo-level secret
+# `CHROMATIC_PROJECT_TOKEN`. When the secret is not set (e.g. forks or
+# brand-new checkouts), the job is skipped — it MUST NOT fail the build
+# under those conditions. Chromatic itself runs with `--exit-zero-on-changes`
+# so baseline updates are never merge-blocking; reviewers accept/reject
+# changes through the Chromatic web UI.
+#
+# Add `playwright / e2e` to the branch-protection required checks on `main`
+# once this workflow has a passing run. The existing `verify-precommit-parity`
+# check stays in place; this is additive.
+jobs:
+  playwright:
+    name: e2e
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [22.x]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+    - name: Install Playwright Chromium
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      run: pnpm exec playwright install --with-deps chromium
+
+    - name: Install Playwright system deps (cache hit path)
+      if: steps.playwright-cache.outputs.cache-hit == 'true'
+      run: pnpm exec playwright install-deps chromium
+
+    - name: Build workspace packages
+      # Storybook resolves `@istracked/datagrid-*` via Vite aliases to the
+      # package `src` directories (see .storybook/main.ts) so the build is
+      # not strictly required for E2E. It is kept here to surface build
+      # breakages early rather than only at runtime inside the iframe.
+      run: pnpm run build
+
+    - name: Run Playwright tests
+      run: pnpm exec playwright test
+      env:
+        CI: 'true'
+
+    - name: Upload Playwright HTML report
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 14
+
+    - name: Upload Playwright test artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-test-results
+        path: test-results/
+        retention-days: 14
+
+  chromatic:
+    name: visual
+    runs-on: ubuntu-latest
+    # Skip entirely when the project token is absent. Forks, first-run
+    # clones, or any environment without the secret pass through without
+    # failing. `secrets` can only be referenced inside `if` expressions
+    # as a value check — a missing secret evaluates to an empty string.
+    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        # Chromatic needs the full commit history to infer the baseline
+        # from the last accepted commit on the base branch.
+        fetch-depth: 0
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Use Node.js 22.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Guard – confirm CHROMATIC_PROJECT_TOKEN is present
+      id: token-check
+      run: |
+        if [ -z "${{ secrets.CHROMATIC_PROJECT_TOKEN }}" ]; then
+          echo "token_present=false" >> "$GITHUB_OUTPUT"
+          echo "::warning::CHROMATIC_PROJECT_TOKEN secret is not set; skipping Chromatic upload."
+        else
+          echo "token_present=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Run Chromatic
+      if: steps.token-check.outputs.token_present == 'true'
+      run: pnpm run chromatic
+      env:
+        CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
