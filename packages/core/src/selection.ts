@@ -517,11 +517,17 @@ export function getRowSelectionBorders(
   const rowIdx = rowIds.indexOf(rowId);
   if (rowIdx === -1) return null;
 
+  // Multi-row covering ranges only activate borders in 'row' mode so that a
+  // Ctrl+A select-all in cell/range mode does not suppress per-cell outlines.
+  const isRowMode = state.mode === 'row';
+
   function isFullRowCovering(range: CellRange): boolean {
     const anchorRowIdx = rowIds.indexOf(range.anchor.rowId);
     const focusRowIdx = rowIds.indexOf(range.focus.rowId);
     const minRow = Math.min(anchorRowIdx, focusRowIdx);
     const maxRow = Math.max(anchorRowIdx, focusRowIdx);
+    // Multi-row ranges are gated on row mode; single-row ranges are always active.
+    if (minRow !== maxRow && !isRowMode) return false;
     if (rowIdx < minRow || rowIdx > maxRow) return false;
     return (
       (range.anchor.field === firstField && range.focus.field === lastField) ||

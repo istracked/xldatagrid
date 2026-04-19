@@ -47,7 +47,7 @@ import {
   GhostRowPosition,
   GridModel,
   SelectionMode,
-  isRowFullySelected,
+  RowOutlineSides,
 } from '@istracked/datagrid-core';
 import type {
   ControlsColumnConfig,
@@ -195,11 +195,12 @@ export interface DataGridBodyProps<TData extends Record<string, unknown>> {
   // State
   isSelected: (rowId: string, field: string) => boolean;
   /**
-   * Returns `true` when the row is fully selected (all columns covered by the
-   * active range). When true, the row container gets the selection outline and
-   * per-cell outlines are suppressed so only one outline is visible.
+   * Returns the per-side border flags for a row-selection outline, or null
+   * when the row is not fully selected. When non-null, the row container gets
+   * an inset box-shadow for each active side and per-cell outlines are
+   * suppressed so only one outline-level is visible.
    */
-  isRowSelected?: (rowId: string) => boolean;
+  getRowSelectionBorders?: (rowId: string) => RowOutlineSides | null;
   /**
    * Returns `true` when the cell is part of a multi-cell rectangular range.
    * Defaults to always-false if not supplied. Feeds the per-cell background
@@ -310,7 +311,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     scrollRef,
     handleScroll,
     isSelected,
-    isRowSelected,
+    getRowSelectionBorders,
     isInRange,
     isEditingCell,
     getCellType,
@@ -830,11 +831,12 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         // unrelated re-renders of the grid (e.g. container-prop tweaks).
         const rowBg = getCachedResolverResult(getRowBackground, row, rowId, rowIdx) ?? null;
         const rowBorder = getCachedResolverResult(getRowBorder, row, rowId, rowIdx) ?? null;
-        const rowIsFullySelected = isRowSelected ? isRowSelected(rowId) : false;
+        const rowBorders = getRowSelectionBorders ? getRowSelectionBorders(rowId) : null;
+        const rowIsFullySelected = rowBorders !== null;
         return (
           <React.Fragment key={rowId}>
             <div
-              style={styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0, background: rowBg, border: rowBorder, rowSelected: rowIsFullySelected })}
+              style={styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0, background: rowBg, border: rowBorder, borders: rowBorders })}
               role="row"
               aria-rowindex={rowIdx + 2}
               data-row-id={rowId}
@@ -937,14 +939,15 @@ export function DataGridBody<TData extends Record<string, unknown>>(
       // result; a fresh row reference (data swap) invalidates the cache slot.
       const rowBg = getCachedResolverResult(getRowBackground, row, rowId, rowIdx) ?? null;
       const rowBorder = getCachedResolverResult(getRowBorder, row, rowId, rowIdx) ?? null;
-      const rowIsFullySelected = isRowSelected ? isRowSelected(rowId) : false;
+      const rowBorders = getRowSelectionBorders ? getRowSelectionBorders(rowId) : null;
+      const rowIsFullySelected = rowBorders !== null;
 
       // When sub-grids are expanded use in-flow layout so the expansion row
       // naturally pushes subsequent rows downward. When no sub-grids are
       // expanded use absolute positioning (the original virtualised layout)
       // which is faster and avoids the reflow cost of a spacer element.
       const rowStyle = hasExpandedSubGrids
-        ? styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0, background: rowBg, border: rowBorder, rowSelected: rowIsFullySelected })
+        ? styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0, background: rowBg, border: rowBorder, borders: rowBorders })
         : styles.virtualizedRow({
             height: rowHeight,
             totalWidth,
@@ -952,7 +955,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             isEven: rowIdx % 2 === 0,
             background: rowBg,
             border: rowBorder,
-            rowSelected: rowIsFullySelected,
+            borders: rowBorders,
           });
 
       return (

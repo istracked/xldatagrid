@@ -222,10 +222,10 @@ describe('chrome.getChromeCellContent', () => {
     expect(onClick.mock.calls[0]![1]).toBe('1'); // rowId
     expect(onClick.mock.calls[0]![2]).toBe(0); // rowIndex
 
-    // Default row-selection still fires — the row container gets the outline
+    // Default row-selection still fires — the row container gets the box-shadow
     // and per-cell outlines are suppressed.
     const row1 = document.querySelector('[data-row-id="1"][role="row"]') as HTMLElement;
-    expect(row1.style.outline).toContain('2px solid');
+    expect(row1.style.boxShadow).toContain('--dg-selection-border');
     const gridcells = row1.querySelectorAll('[role="gridcell"]');
     gridcells.forEach((cell) => {
       expect((cell as HTMLElement).style.outline).toBe('none');
