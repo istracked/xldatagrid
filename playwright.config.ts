@@ -48,7 +48,7 @@ export default defineConfig({
     // `storybook dev` is fast enough for E2E and supports HMR; the static
     // build path is available via `pnpm build-storybook && pnpm exec http-server`
     // for anyone who needs to profile without Vite in the loop.
-    command: `pnpm run storybook -- --ci --port ${STORYBOOK_PORT} --quiet`,
+    command: `pnpm exec storybook dev --ci --port ${STORYBOOK_PORT} --quiet`,
     url: STORYBOOK_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
