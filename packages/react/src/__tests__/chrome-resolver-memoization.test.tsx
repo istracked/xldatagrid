@@ -57,6 +57,59 @@ const _wrongReturnType: ChromeColumnsConfig<_RowForTypes> = {
 };
 void _wrongReturnType;
 
+// ────────────────────────────────────────────────────────────────────────────
+// PR4 type assertions — the chrome-resolver call path must be typeable without
+// `as any` / `as unknown` casts. If the upstream types regress (e.g. the
+// WeakMap cache generic loses its row/resolver key types), these assignments
+// would silently fall back to `any` and hide bugs; we lock the shape here.
+// ────────────────────────────────────────────────────────────────────────────
+
+// A resolver typed against a concrete row narrows `row` inside the closure.
+const _typedBackground: NonNullable<ChromeColumnsConfig<_RowForTypes>['getRowBackground']> = (
+  row,
+  rowId,
+  rowIndex,
+) => {
+  // `row` is narrowed to _RowForTypes — these property reads must compile
+  // without any cast.
+  const _name: string = row.name;
+  const _amount: number = row.amount;
+  const _rowId: string = rowId;
+  const _rowIndex: number = rowIndex;
+  void _name;
+  void _amount;
+  void _rowId;
+  void _rowIndex;
+  return null;
+};
+void _typedBackground;
+
+// A WeakMap keyed by the row object carries the row type through to its
+// value map without needing an `as unknown as object` cast in consumer code.
+type _RowCache = WeakMap<_RowForTypes, Map<typeof _typedBackground, unknown>>;
+const _cache: _RowCache = new WeakMap();
+void _cache;
+
+// The positional resolver signature must accept three arguments where the
+// first is the row, the second the rowId string, and the third the
+// zero-based rowIndex. Passing a wrong-shape row must be a compile error.
+// The assertions below are wrapped in a never-invoked function so they are
+// compile-time-only: `tsc` checks them, but the runtime never executes
+// the body.
+type _Positional = NonNullable<ChromeColumnsConfig<_RowForTypes>['getRowBorder']>;
+function _compileOnlyCallShape(fn: _Positional): void {
+  const _okReturn: ReturnType<_Positional> = fn(
+    { id: '1', name: 'a', amount: 0 },
+    'rid',
+    0,
+  );
+  void _okReturn;
+  // Wrong-shape row: missing required `amount` — must be a type error.
+  // @ts-expect-error `amount` is required on _RowForTypes
+  fn({ id: '1', name: 'a' }, 'rid', 0);
+}
+void _compileOnlyCallShape;
+
 type TestRow = { id: string; name: string; value: number };
 
 function makeData(count = 3): TestRow[] {

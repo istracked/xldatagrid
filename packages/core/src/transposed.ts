@@ -19,6 +19,27 @@ import type {
 } from './types';
 
 /**
+ * Internal-only row shape produced by {@link createTransposedConfig}.
+ *
+ * The row builder assigns three marker fields onto every row:
+ *   - `__field_label`   — the human-readable label for the row (field)
+ *   - `__field_id`      — the stable field id (used as `rowKey`)
+ *   - `__field_config`  — the original {@link TransposedField} definition
+ *
+ * `TData` is user-supplied and does not generally declare these fields, so
+ * the resolvers inside this module intersect `TData` with this shape where
+ * they read them. The structural intersection replaces the former
+ * `as unknown as { __field_label?: unknown }` double cast with a single
+ * declaration of exactly what we depend on, keeping the rest of `TData`
+ * opaque.
+ */
+interface TransposedInternalRow {
+  __field_label?: unknown;
+  __field_id?: unknown;
+  __field_config?: TransposedField;
+}
+
+/**
  * Creates a {@link GridConfig} from a {@link TransposedGridConfig}.
  *
  * The resulting grid has:
@@ -112,7 +133,13 @@ export function createTransposedConfig<TData = Record<string, unknown>>(
           position: 'left',
         },
         getChromeCellContent: (row: TData) => {
-          const label = (row as unknown as { __field_label?: unknown }).__field_label;
+          // The transposed-grid internals populate every row with a
+          // `__field_label` marker (see the row builder above). `TData` is
+          // user-supplied and may not reflect that, so we narrow via a
+          // structural type rather than `unknown`/`any` — the shape we
+          // actually depend on is declared, the rest of `TData` stays
+          // opaque.
+          const { __field_label: label } = row as TData & TransposedInternalRow;
           return {
             text: typeof label === 'string' ? label : String(label ?? ''),
           };
