@@ -76,11 +76,16 @@ export const TextCell = React.memo(function TextCell<TData = Record<string, unkn
   const displayValue = value == null ? '' : String(value);
   const [draft, setDraft] = useState(displayValue);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  // Tracks whether the current edit was cancelled via Escape. Without this
+  // flag the blur that fires when the input unmounts on cancel would commit
+  // the partially-edited draft back to the model (issue #11).
+  const cancelledRef = useRef(false);
 
   // Sync draft when edit mode starts
   useEffect(() => {
     if (isEditing) {
       setDraft(displayValue);
+      cancelledRef.current = false;
       // Focus after render so the cursor is placed inside the input immediately
       inputRef.current?.focus();
     }
@@ -102,17 +107,38 @@ export const TextCell = React.memo(function TextCell<TData = Record<string, unkn
 
   // --- Edit mode key handling ---
 
-  /** Commits on Enter (single-line only) and cancels on Escape. */
+  /** Marks the edit as cancelled and notifies the grid to exit edit mode. */
+  const handleCancel = () => {
+    cancelledRef.current = true;
+    onCancel();
+  };
+
+  /**
+   * Commits on Enter (single-line only), commits on Tab, cancels on Escape.
+   *
+   * Issue #10: Enter and Tab both commit-and-stay — the cell exits edit mode
+   * but selection remains on the same cell. `preventDefault` suppresses the
+   * browser's Tab-focus-advance, and `stopPropagation` prevents the
+   * grid-level keyboard handler from re-entering edit mode (Enter) or moving
+   * selection to the adjacent cell (Tab).
+   */
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !column.format?.includes('multiline')) {
+      e.preventDefault();
+      e.stopPropagation();
+      onCommit(draft);
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      e.stopPropagation();
       onCommit(draft);
     } else if (e.key === 'Escape') {
-      onCancel();
+      handleCancel();
     }
   };
 
-  /** Commits the current draft when the input loses focus. */
+  /** Commits the current draft when the input loses focus, unless cancelled. */
   const handleBlur = () => {
+    if (cancelledRef.current) return;
     onCommit(draft);
   };
 
@@ -127,7 +153,15 @@ export const TextCell = React.memo(function TextCell<TData = Record<string, unkn
         placeholder={column.placeholder}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onCancel();
+          // In multiline mode Enter inserts a newline rather than committing,
+          // but Tab still commits-and-stays per issue #10. Escape cancels.
+          if (e.key === 'Tab') {
+            e.preventDefault();
+            e.stopPropagation();
+            onCommit(draft);
+          } else if (e.key === 'Escape') {
+            handleCancel();
+          }
         }}
         onBlur={handleBlur}
         style={styles.editTextarea}
