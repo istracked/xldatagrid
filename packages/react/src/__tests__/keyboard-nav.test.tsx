@@ -463,6 +463,49 @@ describe('Keyboard navigation', () => {
     expect(isSelected('1', 'name')).toBe(true);
   });
 
+  // -- IME composition guard ------------------------------------------------
+  //
+  // CJK input methods fire keydown events with isComposing:true while the
+  // candidate window is open. Committing on Enter/Tab mid-composition destroys
+  // in-progress text. Both should be no-ops until composition ends.
+
+  it('Enter with isComposing:true does NOT commit the cell edit', () => {
+    const onCellEdit = vi.fn();
+    renderGrid({ onCellEdit });
+    fireEvent.click(getCell('1', 'name'));
+    // Open edit mode
+    fireEvent.keyDown(getGrid(), { key: 'F2' });
+    expect(document.querySelector('input')).not.toBeNull();
+
+    // Simulate IME composition Enter — must be ignored
+    fireEvent.keyDown(getGrid(), { key: 'Enter', isComposing: true });
+    // Editor still visible — commit was NOT triggered
+    expect(document.querySelector('input')).not.toBeNull();
+  });
+
+  it('Tab with isComposing:true does NOT advance cell selection', () => {
+    renderGrid();
+    fireEvent.click(getCell('1', 'name'));
+    expect(isSelected('1', 'name')).toBe(true);
+
+    // Simulate IME composition Tab — must not move focus
+    fireEvent.keyDown(getGrid(), { key: 'Tab', isComposing: true });
+    expect(isSelected('1', 'name')).toBe(true);
+    expect(isSelected('1', 'age')).toBe(false);
+  });
+
+  it('keyCode 229 (pre-composition sentinel) with Enter does NOT commit', () => {
+    const onCellEdit = vi.fn();
+    renderGrid({ onCellEdit });
+    fireEvent.click(getCell('1', 'name'));
+    fireEvent.keyDown(getGrid(), { key: 'F2' });
+    expect(document.querySelector('input')).not.toBeNull();
+
+    // keyCode 229 is the pre-composition sentinel emitted by some browsers
+    fireEvent.keyDown(getGrid(), { key: 'Enter', keyCode: 229 });
+    expect(document.querySelector('input')).not.toBeNull();
+  });
+
   // -- Hidden columns -------------------------------------------------------
 
   it('keyboard navigation skips hidden columns', () => {
