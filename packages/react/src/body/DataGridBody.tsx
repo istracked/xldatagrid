@@ -33,7 +33,7 @@
  *  - {@link ./DataGridBody.styles} — inline CSSProperties factories used
  *    across both render paths.
  */
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   ColumnDef,
   CellAddress,
@@ -174,6 +174,24 @@ export interface DataGridBodyProps<TData extends Record<string, unknown>> {
   ghostRowConfig?: boolean | GhostRowConfig<TData>;
   readOnly?: boolean;
   onRowAdd?: (data: Partial<TData>) => void;
+
+  // Sub-grid expansion
+  /**
+   * Set of row ids whose sub-grid is currently expanded. For each id in this
+   * set, the body renders an inline expansion row beneath the parent row
+   * using `renderSubGridExpansionRow`. The depth is inferred from
+   * `subGridDepth` (0 for the top-level grid) so nested grids can indent and
+   * avoid re-entering themselves.
+   */
+  expandedSubGrids?: Set<string>;
+  /**
+   * Called for each expanded row to produce the React subtree rendered in
+   * the expansion row. Returning `null` hides the expansion (useful when the
+   * row has no sub-grid columns or the data is empty).
+   */
+  renderSubGridExpansionRow?: (rowId: string, row: TData) => React.ReactNode;
+  /** Current nesting depth; 0 for the outer grid. */
+  subGridDepth?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -226,10 +244,21 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     ghostRowConfig,
     readOnly,
     onRowAdd,
+    expandedSubGrids,
+    renderSubGridExpansionRow,
+    subGridDepth = 0,
   } = props;
 
   const ghostPosition = showGhostRow ? resolveGhostPosition(ghostRowConfig) : 'bottom';
   const ghostAtTop = ghostPosition === 'top' && showGhostRow;
+
+  // Issue #11: when Esc is pressed inside the fallback inline editor, the
+  // unmount that follows `model.cancelEdit()` triggers a native `blur` event
+  // that would otherwise commit the draft. This ref flips to `true` in the
+  // Escape handler and is consulted by `onBlur` so the cancelled draft is
+  // discarded. It lives at component scope so the closure captured by the
+  // input survives the unmount.
+  const inlineEditCancelledRef = useRef(false);
 
   // Row-number chrome column position.
   //
@@ -391,7 +420,13 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             autoFocus
             defaultValue={value != null ? String(value) : ''}
             style={styles.cellInput}
+            ref={(el) => {
+              // Clear the cancellation flag each time a new edit input
+              // mounts, so a previous Esc doesn't silence the next commit.
+              if (el) inlineEditCancelledRef.current = false;
+            }}
             onBlur={e => {
+              if (inlineEditCancelledRef.current) return;
               const newVal = e.target.value;
               const vResult = validateCell(col, newVal, rowId);
               if (vResult && vResult.severity === 'error') {
@@ -419,6 +454,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
                 model.cancelEdit();
                 onCellEdit?.(rowId, col.field, newVal, value);
               } else if (e.key === 'Escape') {
+                inlineEditCancelledRef.current = true;
                 model.cancelEdit();
               }
               e.stopPropagation();
@@ -501,15 +537,125 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         const row = findRowByRowId(rowId);
         if (!row) return null;
         const rowIdx = rowIds.indexOf(rowId);
+        const isExpanded = expandedSubGrids?.has(rowId) ?? false;
 
         return (
+          <React.Fragment key={rowId}>
+            <div
+              style={styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0 })}
+              role="row"
+              aria-rowindex={rowIdx + 2}
+              data-row-id={rowId}
+              data-row-header="true"
+              data-subgrid-expanded={isExpanded ? 'true' : undefined}
+              onContextMenu={(e) => {
+                if (e.target === e.currentTarget) {
+                  onContextMenu(e, rowId, null);
+                }
+              }}
+            >
+              {controlsConfig && (
+                <ChromeControlsCell
+                  actions={controlsConfig.actions}
+                  rowId={rowId}
+                  rowIndex={rowIdx}
+                  width={controlsWidth ?? 40}
+                  height={rowHeight}
+                />
+              )}
+              {rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
+              {orderedVisibleColumns.map((col, colIdx) =>
+                renderCell(col, colIdx, row, rowId, rowIdx)
+              )}
+              {!rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
+            </div>
+            {isExpanded && renderSubGridExpansionRow && (
+              <div
+                role="row"
+                data-testid={`subgrid-expansion-${rowId}`}
+                data-subgrid-row-id={rowId}
+                data-subgrid-depth={subGridDepth + 1}
+                style={styles.subGridExpansionRow({
+                  totalWidth,
+                  depth: subGridDepth,
+                })}
+              >
+                <div style={styles.subGridExpansionInner}>
+                  {renderSubGridExpansionRow(rowId, row)}
+                </div>
+              </div>
+            )}
+          </React.Fragment>
+        );
+      }
+    });
+  };
+
+  // -------------------------------------------------------------------------
+  // Sub-grid expansion detection
+  // -------------------------------------------------------------------------
+  //
+  // If any parent row has its sub-grid expanded we cannot keep the virtualised
+  // absolute-positioning layout, because the expansion rows introduce variable
+  // heights that aren't accounted for by the fixed-`rowHeight` virtualiser.
+  // In that case we fall back to a flow layout that renders the full data set
+  // (non-virtualised). Virtualisation is restored when every sub-grid is
+  // collapsed.
+  //
+  // This trade-off is acceptable because sub-grid rendering is inherently a
+  // "look at a subset of rows closely" interaction; for heavy virtualisation
+  // workloads users typically keep the rows collapsed.
+
+  const hasExpandedSubGrids = !!expandedSubGrids && expandedSubGrids.size > 0;
+
+  // -------------------------------------------------------------------------
+  // Non-grouped body rendering
+  // -------------------------------------------------------------------------
+
+  const renderNonGroupedBody = () => {
+    if (processedData.length === 0) {
+      return (
+        <div style={styles.emptyState}>
+          No data
+        </div>
+      );
+    }
+
+    // Choose the row index range: virtualised window when no sub-grids are
+    // expanded; full dataset otherwise.
+    const indices = hasExpandedSubGrids
+      ? processedData.map((_, i) => i)
+      : Array.from(
+          { length: rowRange.endIndex - rowRange.startIndex + 1 },
+          (_, i) => rowRange.startIndex + i,
+        );
+
+    return indices.map(rowIdx => {
+      const row = processedData[rowIdx];
+      if (!row) return null;
+      const rowId = rowIds[rowIdx] ?? String(rowIdx);
+      const isExpanded = expandedSubGrids?.has(rowId) ?? false;
+
+      // Use in-flow positioning (no absolute top) whenever any sub-grid is
+      // expanded, so expansion rows can push subsequent rows down naturally.
+      const rowStyle = hasExpandedSubGrids
+        ? styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0 })
+        : styles.virtualizedRow({
+            height: rowHeight,
+            totalWidth,
+            top: rowIdx * rowHeight + (ghostAtTop ? rowHeight : 0),
+            isEven: rowIdx % 2 === 0,
+          });
+
+      return (
+        <React.Fragment key={rowId}>
           <div
-            key={rowId}
-            style={styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0 })}
+            style={rowStyle}
             role="row"
             aria-rowindex={rowIdx + 2}
             data-row-id={rowId}
             data-row-header="true"
+            data-subgrid-expanded={isExpanded ? 'true' : undefined}
             onContextMenu={(e) => {
               if (e.target === e.currentTarget) {
                 onContextMenu(e, rowId, null);
@@ -531,60 +677,23 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             )}
             {!rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
           </div>
-        );
-      }
-    });
-  };
-
-  // -------------------------------------------------------------------------
-  // Non-grouped body rendering
-  // -------------------------------------------------------------------------
-
-  const renderNonGroupedBody = () => {
-    if (processedData.length === 0) {
-      return (
-        <div style={styles.emptyState}>
-          No data
-        </div>
-      );
-    }
-
-    return Array.from(
-      { length: rowRange.endIndex - rowRange.startIndex + 1 },
-      (_, i) => rowRange.startIndex + i
-    ).map(rowIdx => {
-      const row = processedData[rowIdx];
-      if (!row) return null;
-      const rowId = rowIds[rowIdx] ?? String(rowIdx);
-      return (
-        <div
-          key={rowId}
-          style={styles.virtualizedRow({ height: rowHeight, totalWidth, top: rowIdx * rowHeight + (ghostAtTop ? rowHeight : 0), isEven: rowIdx % 2 === 0 })}
-          role="row"
-          aria-rowindex={rowIdx + 2}
-          data-row-id={rowId}
-          data-row-header="true"
-          onContextMenu={(e) => {
-            if (e.target === e.currentTarget) {
-              onContextMenu(e, rowId, null);
-            }
-          }}
-        >
-          {controlsConfig && (
-            <ChromeControlsCell
-              actions={controlsConfig.actions}
-              rowId={rowId}
-              rowIndex={rowIdx}
-              width={controlsWidth ?? 40}
-              height={rowHeight}
-            />
+          {isExpanded && renderSubGridExpansionRow && (
+            <div
+              role="row"
+              data-testid={`subgrid-expansion-${rowId}`}
+              data-subgrid-row-id={rowId}
+              data-subgrid-depth={subGridDepth + 1}
+              style={styles.subGridExpansionRow({
+                totalWidth,
+                depth: subGridDepth,
+              })}
+            >
+              <div style={styles.subGridExpansionInner}>
+                {renderSubGridExpansionRow(rowId, row)}
+              </div>
+            </div>
           )}
-          {rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
-          {orderedVisibleColumns.map((col, colIdx) =>
-            renderCell(col, colIdx, row, rowId, rowIdx)
-          )}
-          {!rowNumberOnLeft && renderRowNumberCell(rowId, rowIdx)}
-        </div>
+        </React.Fragment>
       );
     });
   };
@@ -628,9 +737,18 @@ export function DataGridBody<TData extends Record<string, unknown>>(
           )}
         </div>
       ) : (
-        <div style={styles.virtualizedBodyWrapper(rowRange.totalSize + (showGhostRow ? rowHeight : 0), totalWidth)}>
+        <div
+          style={
+            hasExpandedSubGrids
+              ? styles.groupedBodyWrapper(totalWidth)
+              : styles.virtualizedBodyWrapper(
+                  rowRange.totalSize + (showGhostRow ? rowHeight : 0),
+                  totalWidth,
+                )
+          }
+        >
           {renderNonGroupedBody()}
-          {showGhostRow && ghostRowConfig && (
+          {showGhostRow && ghostRowConfig && !hasExpandedSubGrids && (
             <GhostRow
               columns={orderedVisibleColumns}
               columnWidths={columnWidths}

@@ -26,6 +26,8 @@ export const FullKeyboardSupport: StoryObj = {
             {[
               ['Arrow keys', 'Move selection'],
               ['Shift + Arrow', 'Pan viewport (scroll) — default; switch to range-extend via shiftArrowBehavior'],
+              ['Ctrl + Arrow', 'Jump to edge of the current data block (Excel "End" mode)'],
+              ['Ctrl + Shift + Arrow', 'Extend selection to edge of the current data block'],
               ['Tab / Shift+Tab', 'Move to next/previous cell'],
               ['Enter', 'Start editing / commit + move down'],
               ['Escape', 'Cancel edit / clear selection'],
