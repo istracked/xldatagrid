@@ -1,9 +1,19 @@
 /**
  * Bridges a MUI theme to CSS custom properties used by the datagrid.
  *
+ * Colour values are drawn from the MUI theme at call time, so host
+ * applications stay in control of their own palette. The *default*
+ * header-background value used when no per-mode override is supplied falls
+ * back to the corresponding iAsBuilt token from `@istracked/datagrid-react`
+ * (which ingests from the organisation-wide `istracked/tokens` repository)
+ * so the MUI bridge cannot drift away from the source of truth.
+ *
  * @module theme-bridge
  * @packageDocumentation
  */
+
+// eslint-disable-next-line import/no-relative-packages -- in-monorepo sibling package.
+import { lightThemeTokens, darkThemeTokens } from '@istracked/datagrid-react';
 
 /** Minimal MUI theme shape needed for the bridge. */
 export interface MuiThemeShape {
@@ -31,6 +41,9 @@ export interface MuiThemeShape {
  * @returns A record of CSS custom property names to their string values.
  */
 export function bridgeMuiTheme(theme: MuiThemeShape): Record<string, string> {
+  // Pick the row/header colours for the matching mode so MUI-mode grids are
+  // not stuck with the light-theme fallbacks when the host app is dark.
+  const base = theme.palette.mode === 'dark' ? darkThemeTokens : lightThemeTokens;
   return {
     '--dg-primary-color': theme.palette.primary.main,
     '--dg-bg-color': theme.palette.background.paper,
@@ -43,7 +56,9 @@ export function bridgeMuiTheme(theme: MuiThemeShape): Record<string, string> {
     '--dg-error-color': theme.palette.error.main,
     '--dg-success-color': theme.palette.success.main,
     '--dg-warning-color': theme.palette.warning.main,
-    '--dg-header-bg': theme.palette.mode === 'dark' ? '#1e293b' : '#f8fafc',
+    '--dg-header-bg': base['--dg-header-bg'] ?? '#F1F5F9',
+    '--dg-row-bg': base['--dg-row-bg'] ?? theme.palette.background.paper,
+    '--dg-row-bg-alt': base['--dg-row-bg-alt'] ?? theme.palette.background.default,
     '--dg-font-family': theme.typography.fontFamily,
     '--dg-font-size': `${theme.typography.fontSize}px`,
   };

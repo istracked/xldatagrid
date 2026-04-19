@@ -73,6 +73,7 @@ import { FilterConditionDialog } from './header/column-filter-menu/FilterConditi
 import { useBackgroundIndexer } from './hooks/use-background-indexer';
 import type { CompositeFilterDescriptor, FilterDescriptor } from '@istracked/datagrid-core';
 import * as styles from './DataGrid.styles';
+import { lightThemeTokens, darkThemeTokens } from './styles/tokens';
 
 /**
  * Props accepted by the {@link DataGrid} component.
@@ -147,41 +148,19 @@ export interface CellRendererProps<TData = Record<string, unknown>> {
 
 // ---------------------------------------------------------------------------
 // Theme token helpers
+//
+// The palette values used by the light and dark presets are ingested from the
+// organisation-wide `istracked/tokens` repository (see
+// `packages/react/src/styles/tokens/`). The grid does not carry its own
+// hand-tuned colours any more — both theme objects are projections of the
+// W3C design-token tree onto the `--dg-*` custom properties our inline styles
+// consume. Run `pnpm sync:tokens` after a tokens-repo upgrade to refresh the
+// snapshot under `src/styles/tokens/`.
 // ---------------------------------------------------------------------------
 
-const LIGHT_THEME: Record<string, string> = {
-  '--dg-primary-color': '#3b82f6',
-  '--dg-bg-color': '#ffffff',
-  '--dg-text-color': '#1e293b',
-  '--dg-border-color': '#e2e8f0',
-  '--dg-header-bg': '#f8fafc',
-  '--dg-cell-padding': '0 12px',
-  '--dg-font-family': 'system-ui, sans-serif',
-  '--dg-font-size': '14px',
-  '--dg-row-height': '36px',
-  '--dg-selection-color': '#3b82f6',
-  '--dg-error-color': '#ef4444',
-  '--dg-hover-bg': '#f1f5f9',
-  color: '#1e293b',
-  colorScheme: 'light',
-};
+const LIGHT_THEME: Record<string, string> = lightThemeTokens;
 
-const DARK_THEME: Record<string, string> = {
-  '--dg-primary-color': '#60a5fa',
-  '--dg-bg-color': '#1e293b',
-  '--dg-text-color': '#f1f5f9',
-  '--dg-border-color': '#334155',
-  '--dg-header-bg': '#0f172a',
-  '--dg-cell-padding': '0 12px',
-  '--dg-font-family': 'system-ui, sans-serif',
-  '--dg-font-size': '14px',
-  '--dg-row-height': '36px',
-  '--dg-selection-color': '#60a5fa',
-  '--dg-error-color': '#f87171',
-  '--dg-hover-bg': '#334155',
-  color: '#f1f5f9',
-  colorScheme: 'dark',
-};
+const DARK_THEME: Record<string, string> = darkThemeTokens;
 
 export function resolveThemeStyle(
   theme: 'light' | 'dark' | Record<string, string> | undefined,
