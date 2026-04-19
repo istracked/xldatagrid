@@ -71,6 +71,7 @@ import { DataGridToolbar } from './toolbar/DataGridToolbar';
 import { DataGridColumnFilterMenu } from './header/column-filter-menu/DataGridColumnFilterMenu';
 import { FilterConditionDialog } from './header/column-filter-menu/FilterConditionDialog';
 import { useBackgroundIndexer } from './hooks/use-background-indexer';
+import { stripField } from './filter-utils';
 import type { CompositeFilterDescriptor, FilterDescriptor } from '@istracked/datagrid-core';
 import * as styles from './DataGrid.styles';
 import { lightThemeTokens, darkThemeTokens } from './styles/tokens';
@@ -932,25 +933,10 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     (field: string, replacement: FilterDescriptor | CompositeFilterDescriptor | null) => {
       const prev = state.filter;
 
-      const stripField = (
-        node: FilterDescriptor | CompositeFilterDescriptor,
-      ): FilterDescriptor | CompositeFilterDescriptor | null => {
-        if ('filters' in node) {
-          const kept: Array<FilterDescriptor | CompositeFilterDescriptor> = [];
-          for (const child of node.filters) {
-            const pruned = stripField(child);
-            if (pruned !== null) kept.push(pruned);
-          }
-          if (kept.length === 0) return null;
-          return { ...node, filters: kept };
-        }
-        return node.field === field ? null : node;
-      };
-
       const otherFilters: Array<FilterDescriptor | CompositeFilterDescriptor> = [];
       if (prev) {
         for (const child of prev.filters) {
-          const pruned = stripField(child);
+          const pruned = stripField(child, field);
           if (pruned !== null) otherFilters.push(pruned);
         }
       }
