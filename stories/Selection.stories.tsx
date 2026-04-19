@@ -60,6 +60,51 @@ export const RowSelection: StoryObj = {
   ),
 };
 
+/**
+ * Range selection with the Excel-style row-number gutter enabled. The
+ * contract demonstrated here:
+ *
+ *   - Clicking a `role="rowheader"` cell (the left gutter) selects every
+ *     cell in that row and paints a single 2px outline on the `role="row"`
+ *     element. Per-cell outlines are suppressed while the row is fully
+ *     selected, so the border reads as one rectangle around the whole row.
+ *   - Clicking any `role="gridcell"` switches back to per-cell selection —
+ *     the row outline disappears and the clicked cell paints its own
+ *     outline. Sibling cells deselect.
+ *
+ * This is the behaviour covered by `e2e/grid-row-selection.spec.ts`.
+ */
+export const RowHeaderSelection: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Row-header-driven row selection with Excel-style UX. Click the left row-number gutter to select the whole row (single outline on the row element). Click any data cell to collapse back to per-cell selection.',
+      },
+    },
+  },
+  render: () => (
+    <div style={storyContainer}>
+      <h2 style={styles.heading}>Row-Header Selection</h2>
+      <p style={styles.subtitle}>
+        Click a row-number cell in the left gutter to select the entire row
+        — notice the single outline around the whole row. Then click any
+        data cell to switch back to per-cell selection.
+      </p>
+      <div style={gridContainer}>
+        <MuiDataGrid
+          data={makeEmployees(20)}
+          columns={defaultColumns as any}
+          rowKey="id"
+          selectionMode="range"
+          keyboardNavigation
+          chrome={{ rowNumbers: true }}
+        />
+      </div>
+    </div>
+  ),
+};
+
 export const RangeSelection: StoryObj = {
   parameters: {
     docs: {

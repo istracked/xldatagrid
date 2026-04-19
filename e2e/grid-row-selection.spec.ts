@@ -1,9 +1,11 @@
 /**
  * End-to-end: row-level selection outline.
  *
- * Drives the `Examples/Basic Grid → Basic Grid Left Row Numbers` story,
- * which renders the Excel-style sticky row-number gutter. Each gutter cell
- * carries `role="rowheader"` and, on click, selects the entire row.
+ * Drives the `Examples/Selection → Row-Header Selection` story, which
+ * renders the Excel-style row-number gutter with range-mode selection —
+ * the exact configuration the outline contract is designed around. Each
+ * gutter cell carries `role="rowheader"` and, on click, selects the
+ * entire row.
  *
  * Contract under test:
  *   - Clicking a `role="rowheader"` cell selects every cell in that row.
@@ -21,7 +23,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
 const ROW_NUMBERS_URL =
-  '/iframe.html?viewMode=story&id=examples-basic-grid--basic-grid-left-row-numbers';
+  '/iframe.html?viewMode=story&id=examples-selection--row-header-selection';
 
 async function waitForGrid(page: Page): Promise<void> {
   await page.locator('[role="grid"]').first().waitFor({ state: 'visible' });
