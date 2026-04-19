@@ -271,6 +271,56 @@ export function DataGridBody<TData extends Record<string, unknown>>(
   const ghostPosition = showGhostRow ? resolveGhostPosition(ghostRowConfig) : 'bottom';
   const ghostAtTop = ghostPosition === 'top' && showGhostRow;
 
+  // ---------------------------------------------------------------------------
+  // Chrome resolver memoization
+  // ---------------------------------------------------------------------------
+  //
+  // Chrome resolvers (`getRowBackground`, `getRowBorder`, `getChromeCellContent`)
+  // are invoked once per rendered row. For a 10k-row grid with an expensive
+  // consumer resolver the per-render cost dominates; worse, every unrelated
+  // parent re-render (e.g. a container-prop tweak) would normally re-invoke
+  // every resolver even though the row data is unchanged.
+  //
+  // We guard against that with a WeakMap keyed by the row object. Two
+  // invariants fall out for free:
+  //
+  //   * Correctness — when a consumer mutates a row they create a new row
+  //     reference (immutable-style updates) or swap in a new object. The new
+  //     reference is absent from the WeakMap, so the resolver is invoked and
+  //     the fresh value is cached under the new key. Old entries are GC'd
+  //     with the row.
+  //   * Performance — re-rendering the body with the same `processedData`
+  //     array and the same resolver identity hits the cache on every row.
+  //
+  // The inner `Map` is keyed by the resolver function itself so a consumer
+  // that swaps the resolver (e.g. toggles the config) transparently
+  // invalidates only its own slot without touching the other resolvers'
+  // caches for the same row.
+  //
+  // `useRef` ensures the cache survives across renders; `.current` is never
+  // reassigned, only mutated.
+  const resolverCacheRef = useRef<WeakMap<object, Map<Function, unknown>>>(new WeakMap());
+  const getCachedResolverResult = <TReturn,>(
+    resolver: ((row: TData, rowId: string, rowIndex: number) => TReturn) | undefined,
+    row: TData,
+    rowId: string,
+    rowIndex: number,
+  ): TReturn | undefined => {
+    if (!resolver) return undefined;
+    const rowKey = row as unknown as object;
+    let byResolver = resolverCacheRef.current.get(rowKey);
+    if (!byResolver) {
+      byResolver = new Map();
+      resolverCacheRef.current.set(rowKey, byResolver);
+    }
+    if (byResolver.has(resolver as unknown as Function)) {
+      return byResolver.get(resolver as unknown as Function) as TReturn;
+    }
+    const value = resolver(row, rowId, rowIndex);
+    byResolver.set(resolver as unknown as Function, value);
+    return value;
+  };
+
   // Issue #11: when Esc is pressed inside the fallback inline editor, the
   // unmount that follows `model.cancelEdit()` triggers a native `blur` event
   // that would otherwise commit the draft. This ref flips to `true` in the
@@ -338,8 +388,8 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     // brief reconciliation window (e.g. a data swap), in which case we fall
     // back to the default digit rather than propagating `undefined` into user
     // code.
-    const content = row !== undefined && getChromeCellContent
-      ? getChromeCellContent(row, rowId, rowIdx) ?? null
+    const content = row !== undefined
+      ? getCachedResolverResult(getChromeCellContent, row, rowId, rowIdx) ?? null
       : null;
     return (
       <ChromeRowNumberCell
@@ -619,12 +669,12 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         const rowIdx = rowIds.indexOf(rowId);
         const isExpanded = expandedSubGrids?.has(rowId) ?? false;
 
-        // Resolve per-row presentation overrides for this data row. Evaluated
-        // eagerly rather than memoised: resolvers are typically pure and cheap,
-        // and the grouped render path is not virtualised so callers are not
-        // paying the cost for unrendered rows.
-        const rowBg = getRowBackground ? getRowBackground(row, rowId, rowIdx) ?? null : null;
-        const rowBorder = getRowBorder ? getRowBorder(row, rowId, rowIdx) ?? null : null;
+        // Resolve per-row presentation overrides for this data row. Results
+        // are cached per-row-object via `getCachedResolverResult`, so an
+        // unchanged `processedData` reference skips resolver work across
+        // unrelated re-renders of the grid (e.g. container-prop tweaks).
+        const rowBg = getCachedResolverResult(getRowBackground, row, rowId, rowIdx) ?? null;
+        const rowBorder = getCachedResolverResult(getRowBorder, row, rowId, rowIdx) ?? null;
         return (
           <React.Fragment key={rowId}>
             <div
@@ -722,11 +772,11 @@ export function DataGridBody<TData extends Record<string, unknown>>(
       const rowId = rowIds[rowIdx] ?? String(rowIdx);
       const isExpanded = expandedSubGrids?.has(rowId) ?? false;
 
-      // Per-row presentation overrides (issue #14). Resolvers are invoked
-      // once per rendered row; `null`/`undefined` results preserve the
-      // default zebra stripe and row-separator styling.
-      const rowBg = getRowBackground ? getRowBackground(row, rowId, rowIdx) ?? null : null;
-      const rowBorder = getRowBorder ? getRowBorder(row, rowId, rowIdx) ?? null : null;
+      // Per-row presentation overrides (issue #14). Cached per-row-object via
+      // `getCachedResolverResult` so unrelated re-renders reuse the prior
+      // result; a fresh row reference (data swap) invalidates the cache slot.
+      const rowBg = getCachedResolverResult(getRowBackground, row, rowId, rowIdx) ?? null;
+      const rowBorder = getCachedResolverResult(getRowBorder, row, rowId, rowIdx) ?? null;
 
       // Use in-flow positioning (no absolute top) whenever any sub-grid is
       // expanded, so expansion rows can push subsequent rows down naturally.
