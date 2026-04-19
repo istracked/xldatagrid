@@ -77,11 +77,14 @@ export const PasswordCell = React.memo(function PasswordCell<TData = Record<stri
   const [revealed, setRevealed] = useState(false);
   const [draft, setDraft] = useState(strValue);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Prevents the unmount-blur from committing a cancelled draft (issue #11).
+  const cancelledRef = useRef(false);
 
   // Sync draft and auto-focus when entering edit mode
   useEffect(() => {
     if (isEditing) {
       setDraft(strValue);
+      cancelledRef.current = false;
       inputRef.current?.focus();
     }
   }, [isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -121,7 +124,10 @@ export const PasswordCell = React.memo(function PasswordCell<TData = Record<stri
       e.preventDefault();
       e.stopPropagation();
       onCommit(draft);
-    } else if (e.key === 'Escape') onCancel();
+    } else if (e.key === 'Escape') {
+      cancelledRef.current = true;
+      onCancel();
+    }
   };
 
   // --- Edit mode ---
@@ -133,7 +139,10 @@ export const PasswordCell = React.memo(function PasswordCell<TData = Record<stri
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onKeyDown={handleKeyDown}
-      onBlur={() => onCommit(draft)}
+      onBlur={() => {
+        if (cancelledRef.current) return;
+        onCommit(draft);
+      }}
       style={styles.editInput}
     />
   );

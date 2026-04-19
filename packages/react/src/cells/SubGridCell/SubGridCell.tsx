@@ -1,129 +1,134 @@
 /**
  * SubGridCell module for the datagrid component library.
  *
- * Provides a cell renderer that embeds a nested DataGrid inside a parent grid cell.
- * The sub-grid is collapsible: a toggle button shows the row count as a badge, and
- * expanding the section lazy-loads the DataGrid component via React.lazy/Suspense to
- * avoid circular imports and enable code splitting.
+ * A compact toggle affordance rendered inside the cell whose column is
+ * declared as `cellType: 'subGrid'`. The cell itself no longer hosts the
+ * nested grid — that is rendered as a full-width expansion row beneath the
+ * parent row by `DataGridBody` (see `expandedSubGrids` in the grid model and
+ * the per-row expansion handling in the body renderer).
+ *
+ * The toggle shows:
+ *   - an arrow icon that flips between `▶` (collapsed) and `×` (expanded, acts
+ *     as an affordance to close the expansion row),
+ *   - a numeric badge with the row count of the nested data.
+ *
+ * Clicking the toggle dispatches `model.toggleSubGridExpansion(rowId)` on the
+ * owning grid model, which flips the row's id in `expandedSubGrids`. This
+ * single source of truth lets the body renderer mount/unmount the nested
+ * grid consistently with keyboard and programmatic toggling.
  *
  * @module SubGridCell
  */
-import React, { useState, lazy, Suspense } from 'react';
-import type { CellValue, ColumnDef } from '@istracked/datagrid-core';
+import React, { useContext, useSyncExternalStore, useCallback } from 'react';
+import type { CellValue } from '@istracked/datagrid-core';
+import { GridContext } from '../../context';
 import * as styles from './SubGridCell.styles';
-
-// Lazy-load the DataGrid to avoid circular imports and enable code splitting
-const DataGrid = lazy(() => import('../../DataGrid').then((m) => ({ default: m.DataGrid })));
 
 /**
  * Props accepted by the {@link SubGridCell} component.
  *
- * @typeParam TData - The shape of a single row in the parent datagrid. Defaults to a generic record.
+ * Matches `CellRendererProps` from `DataGrid.tsx` so the cell can be used as
+ * a drop-in cell renderer through the `cellRenderers` map.
+ *
+ * @typeParam TData - The shape of a single row in the parent datagrid.
  */
 interface SubGridCellProps<TData = Record<string, unknown>> {
-  /** The raw cell value, expected to be an array of row objects for the nested grid. */
+  /** The raw cell value, expected to be an array of nested row objects. */
   value: CellValue;
   /** The full parent row data object that this cell belongs to. */
   row: TData;
-  /** Column definition providing `subGridColumns` and `subGridRowKey` for the nested grid. */
-  column: ColumnDef<TData>;
+  /** Column definition (unused at runtime — kept for cell-renderer shape). */
+  column: unknown;
   /** Zero-based index of the parent row within the visible datagrid. */
   rowIndex: number;
-  /** Whether the cell is currently in inline-edit mode (unused for sub-grid cells). */
+  /** Whether the cell is currently in inline-edit mode (unused). */
   isEditing: boolean;
-  /** Callback to persist updates (unused for sub-grid cells). */
+  /** Callback to persist updates (unused). */
   onCommit: (value: CellValue) => void;
-  /** Callback to discard changes (unused for sub-grid cells). */
+  /** Callback to discard changes (unused). */
   onCancel: () => void;
 }
 
-/**
- * Coerces a {@link CellValue} into an array of record objects for sub-grid rows.
- *
- * Returns the value directly if it is already an array; otherwise returns an empty array.
- *
- * @param value - The raw cell value to parse.
- * @returns An array of row objects suitable for the nested DataGrid.
- */
 function parseRows(value: CellValue): Record<string, unknown>[] {
   if (Array.isArray(value)) return value as Record<string, unknown>[];
   return [];
 }
 
 /**
- * A datagrid cell renderer that embeds a collapsible nested DataGrid.
+ * Badge + icon + count toggle for a sub-grid column.
  *
- * Displays a toggle button with an expand/collapse arrow and a badge showing the number
- * of nested rows. When expanded, the nested DataGrid is rendered inside a bordered
- * container using React Suspense for lazy loading. Column definitions and the row key
- * for the sub-grid are sourced from the parent column's `subGridColumns` and
- * `subGridRowKey` properties.
+ * Renders a button with an arrow icon (or `×` when the row is already
+ * expanded) and a pill-shaped count badge. Clicking the button dispatches
+ * `toggleSubGridExpansion(rowId)` on the enclosing grid model. The nested
+ * grid itself is rendered by the parent grid's body as a full-width
+ * expansion row when `expandedSubGrids.has(rowId)`.
  *
- * @typeParam TData - Parent row data shape, defaults to `Record<string, unknown>`.
+ * The button stops event propagation so the cell's onClick handler (which
+ * selects the cell) does not also fire, preventing an edit-mode toggle or
+ * spurious selection while the user targets the affordance itself.
  *
- * @param props - The component props conforming to {@link SubGridCellProps}.
- * @returns A React element with a toggle button and, when expanded, a nested DataGrid.
- *
- * @example
- * ```tsx
- * <SubGridCell
- *   value={[{ id: 1, name: 'Sub-row 1' }, { id: 2, name: 'Sub-row 2' }]}
- *   row={parentRow}
- *   column={{ ...columnDef, subGridColumns: nestedColumns, subGridRowKey: 'id' }}
- *   rowIndex={0}
- *   isEditing={false}
- *   onCommit={handleCommit}
- *   onCancel={handleCancel}
- * />
- * ```
+ * @typeParam TData - Parent row data shape.
  */
-export const SubGridCell = React.memo(function SubGridCell<TData = Record<string, unknown>>({
+export const SubGridCell = React.memo(function SubGridCell<TData extends Record<string, unknown> = Record<string, unknown>>({
   value,
-  column,
+  rowIndex,
 }: SubGridCellProps<TData>) {
-  // Parse the cell value into sub-grid row data
   const rows = parseRows(value);
-  const [expanded, setExpanded] = useState(false);
+  const ctx = useContext(GridContext);
+  const model = ctx?.model ?? null;
 
-  // Extract nested grid configuration from the column definition
-  const subGridColumns = column.subGridColumns ?? [];
-  const rowKey = column.subGridRowKey ?? 'id';
+  // Subscribe to the grid model so this cell re-renders when the
+  // `expandedSubGrids` set mutates. We read the resolved rowId from
+  // `model.getRowIds()[rowIndex]` inside the snapshot so the subscription
+  // stays narrow (a single boolean) and avoids re-rendering the cell for
+  // unrelated state changes.
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      if (!model) return () => {};
+      return model.subscribe(onChange);
+    },
+    [model],
+  );
+  const getSnapshot = useCallback(() => {
+    if (!model) return false;
+    const state = model.getState();
+    const rowIds = model.getRowIds();
+    const id = rowIds[rowIndex];
+    return id ? state.expandedSubGrids.has(id) : false;
+  }, [model, rowIndex]);
+  const getServerSnapshot = useCallback(() => false, []);
 
-  // Support nestingLevel-based indentation via column metadata or default to 0
-  const nestingLevel = (column as ColumnDef<TData> & { nestingLevel?: number }).nestingLevel ?? 0;
-  const indentPx = nestingLevel * 16;
+  const isExpanded = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  const onClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (!model) return;
+    const rowIds = model.getRowIds();
+    const id = rowIds[rowIndex];
+    if (!id) return;
+    model.toggleSubGridExpansion(id);
+  };
 
   return (
-    <div style={styles.container(indentPx)}>
-      {/* Toggle button with a rotation-animated arrow and row count badge */}
+    <div style={styles.container(0)}>
       <button
         type="button"
-        aria-label={expanded ? 'Collapse sub-grid' : 'Expand sub-grid'}
-        aria-expanded={expanded}
-        onClick={() => setExpanded((v) => !v)}
+        data-testid="subgrid-toggle"
+        data-expanded={isExpanded ? 'true' : 'false'}
+        aria-label={isExpanded ? 'Collapse sub-grid' : 'Expand sub-grid'}
+        aria-expanded={isExpanded}
+        onClick={onClick}
         style={styles.toggleButton}
       >
-        {/* Directional arrow that rotates 90 degrees when expanded */}
-        <span style={styles.arrow(expanded)}>
-          ▶
+        <span style={styles.arrow(isExpanded)} aria-hidden="true">
+          {isExpanded ? '\u00D7' : '\u25B6'}
         </span>
-        {/* Row count badge */}
-        <span style={styles.rowCountBadge}>
+        <span style={styles.rowCountBadge} data-testid="subgrid-count">
           {rows.length}
         </span>
       </button>
-      {/* Nested DataGrid rendered inside a bordered container when expanded */}
-      {expanded && (
-        <div style={styles.subGridContainer}>
-          <Suspense fallback={<div style={styles.suspenseFallback}>Loading...</div>}>
-            <DataGrid
-              columns={subGridColumns}
-              data={rows}
-              rowKey={rowKey}
-            />
-          </Suspense>
-        </div>
-      )}
     </div>
   );
-}) as <TData = Record<string, unknown>>(props: SubGridCellProps<TData>) => React.ReactElement;
+}) as <TData extends Record<string, unknown> = Record<string, unknown>>(
+  props: SubGridCellProps<TData>,
+) => React.ReactElement;

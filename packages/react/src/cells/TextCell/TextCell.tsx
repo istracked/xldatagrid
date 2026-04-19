@@ -76,11 +76,16 @@ export const TextCell = React.memo(function TextCell<TData = Record<string, unkn
   const displayValue = value == null ? '' : String(value);
   const [draft, setDraft] = useState(displayValue);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  // Tracks whether the current edit was cancelled via Escape. Without this
+  // flag the blur that fires when the input unmounts on cancel would commit
+  // the partially-edited draft back to the model (issue #11).
+  const cancelledRef = useRef(false);
 
   // Sync draft when edit mode starts
   useEffect(() => {
     if (isEditing) {
       setDraft(displayValue);
+      cancelledRef.current = false;
       // Focus after render so the cursor is placed inside the input immediately
       inputRef.current?.focus();
     }
@@ -102,6 +107,12 @@ export const TextCell = React.memo(function TextCell<TData = Record<string, unkn
 
   // --- Edit mode key handling ---
 
+  /** Marks the edit as cancelled and notifies the grid to exit edit mode. */
+  const handleCancel = () => {
+    cancelledRef.current = true;
+    onCancel();
+  };
+
   /**
    * Commits on Enter (single-line only), commits on Tab, cancels on Escape.
    *
@@ -121,12 +132,13 @@ export const TextCell = React.memo(function TextCell<TData = Record<string, unkn
       e.stopPropagation();
       onCommit(draft);
     } else if (e.key === 'Escape') {
-      onCancel();
+      handleCancel();
     }
   };
 
-  /** Commits the current draft when the input loses focus. */
+  /** Commits the current draft when the input loses focus, unless cancelled. */
   const handleBlur = () => {
+    if (cancelledRef.current) return;
     onCommit(draft);
   };
 
@@ -148,7 +160,7 @@ export const TextCell = React.memo(function TextCell<TData = Record<string, unkn
             e.stopPropagation();
             onCommit(draft);
           } else if (e.key === 'Escape') {
-            onCancel();
+            handleCancel();
           }
         }}
         onBlur={handleBlur}

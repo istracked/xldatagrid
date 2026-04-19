@@ -5,7 +5,8 @@
  * keyboard events into {@link GridModel} mutations -- cell navigation,
  * selection extension, editing lifecycle, undo/redo, and boolean toggling.
  * Supports standard spreadsheet-like key bindings including arrow keys with
- * Shift (extend selection), Ctrl/Cmd (jump to edge), Tab (move within row
+ * Shift (extend selection), Ctrl/Cmd (Excel "End" jump to the edge of the
+ * current data block), Ctrl+Shift (extend to that edge), Tab (move within row
  * when idle; commit-and-stay while editing), Enter (begin edit when idle;
  * commit-and-stay while editing), Escape (cancel), Home/End, F2, Delete,
  * Ctrl+A, and Ctrl+Z/Y.
@@ -21,6 +22,7 @@ import {
   getLastCell,
   getNextCellInRow,
   getPrevCellInRow,
+  getEndJumpCell,
   ColumnDef,
   serializeRangeToText,
   parseTextToGrid,
@@ -59,6 +61,23 @@ export function useKeyboard<TData extends Record<string, unknown>>(
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
 
+    // Events originating inside a nested grid (sub-grid) must not be handled
+    // here. Each nested DataGrid instance attaches its own keydown listener
+    // on its own container ref; when the user focuses a cell inside a
+    // sub-grid the nested listener fires first and calls `stopPropagation`
+    // on handled events (see end of this switch). However native `keydown`
+    // events without an explicit stop still bubble — we guard by checking
+    // that the event target (or the closest descendant focus target) lives
+    // inside another `[role="grid"]` subtree that is not our container.
+    const container = containerRef.current;
+    if (container && e.target instanceof Element) {
+      const closestGrid = e.target.closest('[role="grid"]');
+      if (closestGrid && closestGrid !== container) {
+        // Event originated inside a nested grid — defer to its listener.
+        return;
+      }
+    }
+
     // Snapshot the current model state needed for navigation decisions.
     const state = model.getState();
     const selection = state.selection.range;
@@ -70,6 +89,59 @@ export function useKeyboard<TData extends Record<string, unknown>>(
     // selection anchor. Most key handlers are no-ops without a current cell.
     const current: CellAddress | null = editing.cell ?? selection?.anchor ?? null;
     if (!current && !['Tab'].includes(e.key)) return;
+
+    // ---------------------------------------------------------------------
+    // Sub-grid keyboard transitions
+    // ---------------------------------------------------------------------
+    //
+    // Enter on a selected sub-grid cell expands the nested grid and
+    // transfers focus into it (if the row has a sub-grid column). This
+    // overrides the default "begin edit" behaviour, which is inappropriate
+    // for sub-grid cells since they are not editable as scalars.
+    //
+    // Escape in a nested grid (when nothing is selected inside) collapses
+    // the expansion back and returns focus to the parent grid container.
+    // That arm is implemented in the outer container's listener — since
+    // `useKeyboard` runs per grid level, each listener handles its own
+    // side of the transition.
+
+    if (e.key === 'Enter' && current && !editing.cell) {
+      const col = columns.find(c => c.field === current.field);
+      if (col?.cellType === 'subGrid') {
+        e.preventDefault();
+        e.stopPropagation();
+        const expanded = state.expandedSubGrids.has(current.rowId);
+        if (!expanded) {
+          model.toggleSubGridExpansion(current.rowId);
+        }
+        // Focus the nested grid after the expansion row mounts. We look up
+        // the expansion row via the `data-testid` attribute written by the
+        // body renderer; that's a stable contract between layers.
+        requestAnimationFrame(() => {
+          if (!container) return;
+          const nested = container.querySelector<HTMLElement>(
+            `[data-testid="subgrid-expansion-${CSS.escape(current.rowId)}"] [role="grid"]`,
+          );
+          nested?.focus();
+        });
+        return;
+      }
+    }
+
+    // Escape-to-exit a sub-grid: if we're a nested grid and the user presses
+    // Escape while nothing is being edited, return focus to the nearest
+    // outer grid. This path is triggered by noting that our container has
+    // an ancestor `[role="grid"]` that isn't us.
+    if (e.key === 'Escape' && !editing.cell && container) {
+      const outerGrid = container.parentElement?.closest('[role="grid"]');
+      if (outerGrid && outerGrid !== container) {
+        e.preventDefault();
+        e.stopPropagation();
+        model.clearSelectionState();
+        (outerGrid as HTMLElement).focus();
+        return;
+      }
+    }
 
     switch (e.key) {
       // --- Tab: commit-and-stay while editing, move within row otherwise ---
@@ -133,12 +205,34 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         }
         break;
       }
-      // --- Escape: cancel edit or clear selection ---
+      // --- Escape: cancel edit (keeps selection), or clear selection when idle ---
+      //
+      // Issue #11: Pressing Esc in edit mode must revert the cell value and
+      // keep the original cell selected. Because cell editors (e.g. TextCell)
+      // handle Escape at the input level first — calling `model.cancelEdit()`
+      // synchronously — by the time this native bubble-phase listener runs,
+      // `editing.cell` is already null. Without the `isEditor` guard below,
+      // the `else` branch would then wipe the selection.
+      //
+      // The event target tells us whether Esc was pressed inside an editor
+      // input/textarea: if so, the cell already cancelled the edit and we
+      // must preserve the selection. Otherwise (Esc pressed while the grid
+      // has focus and no edit is active), we keep the existing
+      // clear-selection behaviour.
       case 'Escape': {
         if (editing.cell) {
           model.cancelEdit();
+          e.preventDefault();
+          e.stopPropagation();
         } else {
-          model.clearSelectionState();
+          const target = e.target as HTMLElement | null;
+          const isEditor =
+            target instanceof HTMLInputElement ||
+            target instanceof HTMLTextAreaElement ||
+            (target != null && target.isContentEditable);
+          if (!isEditor) {
+            model.clearSelectionState();
+          }
         }
         break;
       }
@@ -158,23 +252,29 @@ export function useKeyboard<TData extends Record<string, unknown>>(
           e.key === 'ArrowLeft' ? 'left' :
           e.key === 'ArrowDown' ? 'down' : 'up';
 
-        if (e.shiftKey) {
+        if (e.ctrlKey || e.metaKey) {
+          // Ctrl/Cmd+Arrow jumps Excel "End" style: walk along the row/column and
+          // stop at the edge of the nearest populated block. Ctrl+Shift+Arrow
+          // extends the range to the same target instead of moving the caret.
+          const processedData = model.getProcessedData();
+          const getCellValue = (cell: CellAddress): unknown => {
+            const rowIndex = rowIds.indexOf(cell.rowId);
+            if (rowIndex < 0) return undefined;
+            const row = processedData[rowIndex] as Record<string, unknown> | undefined;
+            return row ? row[cell.field] : undefined;
+          };
+          const target = getEndJumpCell(current, dir, columns, rowIds, getCellValue);
+          if (target) {
+            if (e.shiftKey) {
+              model.extendTo(target);
+            } else {
+              model.select(target);
+            }
+          }
+        } else if (e.shiftKey) {
           // Shift+Arrow extends the selection range to the adjacent cell.
           const target = getNextCell(current, dir, columns, rowIds);
           if (target) model.extendTo(target);
-        } else if (e.ctrlKey || e.metaKey) {
-          // Ctrl/Cmd+Arrow jumps to the edge of the grid in that direction.
-          if (dir === 'right' || dir === 'left') {
-            const edge = dir === 'right'
-              ? getLastCell(columns, rowIds)
-              : getFirstCell(columns, rowIds);
-            if (edge) model.select({ rowId: current.rowId, field: edge.field });
-          } else {
-            const edge = dir === 'down'
-              ? getLastCell(columns, rowIds)
-              : getFirstCell(columns, rowIds);
-            if (edge) model.select({ rowId: edge.rowId, field: current.field });
-          }
         } else {
           // Plain arrow key moves selection by one cell.
           const next = getNextCell(current, dir, columns, rowIds);
@@ -328,7 +428,22 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         break;
       }
     }
-  }, [model, enabled]);
+
+    // Note: we deliberately do NOT call e.stopPropagation() on handled keys
+    // even though it would provide a clean Tab-boundary between nested grids.
+    // The React 19 event system delegates all synthetic events through the
+    // root, so stopping native propagation here also silences React's
+    // `onKeyDown`/`onBlur` handlers on inner elements (notably the inline
+    // editor `<input>`s), breaking commit/cancel and validation flows.
+    //
+    // The Tab-boundary guarantee is instead provided by the early-return
+    // check at the top of this handler: when an event originates inside a
+    // nested grid (`closest('[role="grid"]') !== containerRef.current`), the
+    // outer container's listener exits before doing anything, so there is no
+    // duplicate navigation. Each nested grid still updates its own model's
+    // selection in response to Tab/Shift-Tab; that update cannot bubble
+    // "through" the DOM because the model is an independent instance.
+  }, [model, enabled, containerRef]);
 
   // useEffect is necessary here because we need to imperatively attach/detach a
   // native DOM event listener on the container element after it mounts.

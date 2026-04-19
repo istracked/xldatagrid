@@ -122,11 +122,14 @@ export const CurrencyCell = React.memo(function CurrencyCell<TData = Record<stri
   const numericValue = value === null || value === undefined ? '' : String(value);
   const [draft, setDraft] = useState(numericValue);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Prevents the unmount-blur from committing a cancelled draft (issue #11).
+  const cancelledRef = useRef(false);
 
   // Reset draft and auto-focus/select when entering edit mode
   useEffect(() => {
     if (isEditing) {
       setDraft(numericValue);
+      cancelledRef.current = false;
       inputRef.current?.focus();
       inputRef.current?.select();
     }
@@ -160,6 +163,7 @@ export const CurrencyCell = React.memo(function CurrencyCell<TData = Record<stri
    * when the draft is empty, a lone minus sign, or otherwise unparseable.
    */
   const commit = () => {
+    if (cancelledRef.current) return;
     if (draft === '' || draft === '-') {
       onCommit(null);
       return;
@@ -181,7 +185,10 @@ export const CurrencyCell = React.memo(function CurrencyCell<TData = Record<stri
       e.preventDefault();
       e.stopPropagation();
       commit();
-    } else if (e.key === 'Escape') onCancel();
+    } else if (e.key === 'Escape') {
+      cancelledRef.current = true;
+      onCancel();
+    }
   };
 
   // --- Edit mode input ---

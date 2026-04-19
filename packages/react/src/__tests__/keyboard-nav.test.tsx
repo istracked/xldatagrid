@@ -348,34 +348,95 @@ describe('Keyboard navigation', () => {
     expect(isSelected('2', 'name')).toBe(true);
   });
 
-  // -- Ctrl+Arrow (jump to edge) -------------------------------------------
+  // -- Ctrl+Arrow (Excel "End" jump) ---------------------------------------
 
-  it('Ctrl+ArrowRight jumps to last cell in row', () => {
+  // When every cell along the row or column is populated, "End" mode walks to
+  // the far edge of the populated run — which is the grid edge in this fixture.
+
+  it('Ctrl+ArrowRight jumps to last non-empty cell in row', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'name'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowRight', ctrlKey: true });
     expect(isSelected('1', 'active')).toBe(true);
   });
 
-  it('Ctrl+ArrowLeft jumps to first cell in row', () => {
+  it('Ctrl+ArrowLeft jumps to first non-empty cell in row', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'active'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowLeft', ctrlKey: true });
     expect(isSelected('1', 'name')).toBe(true);
   });
 
-  it('Ctrl+ArrowDown jumps to last row in column', () => {
+  it('Ctrl+ArrowDown jumps to last non-empty cell in column', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'name'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowDown', ctrlKey: true });
     expect(isSelected('3', 'name')).toBe(true);
   });
 
-  it('Ctrl+ArrowUp jumps to first row in column', () => {
+  it('Ctrl+ArrowUp jumps to first non-empty cell in column', () => {
     renderGrid();
     fireEvent.click(getCell('3', 'name'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowUp', ctrlKey: true });
     expect(isSelected('1', 'name')).toBe(true);
+  });
+
+  // -- Ctrl+Shift+Arrow (extend range to End target) -----------------------
+
+  /** Whether the given cell renders `aria-selected="true"` — covers the whole range. */
+  function isInRange(rowId: string, field: string): boolean {
+    return getCell(rowId, field).getAttribute('aria-selected') === 'true';
+  }
+
+  it('Ctrl+Shift+ArrowRight extends selection to the row\'s last non-empty cell', () => {
+    renderGrid();
+    fireEvent.click(getCell('1', 'name'));
+    fireEvent.keyDown(getGrid(), { key: 'ArrowRight', ctrlKey: true, shiftKey: true });
+
+    // Every cell between the anchor (inclusive) and the row's last populated cell lights up.
+    expect(isInRange('1', 'name')).toBe(true);
+    expect(isInRange('1', 'age')).toBe(true);
+    expect(isInRange('1', 'active')).toBe(true);
+    // Other rows remain untouched.
+    expect(isInRange('2', 'name')).toBe(false);
+  });
+
+  it('Ctrl+Shift+ArrowDown extends selection to the column\'s last non-empty row', () => {
+    renderGrid();
+    fireEvent.click(getCell('1', 'name'));
+    fireEvent.keyDown(getGrid(), { key: 'ArrowDown', ctrlKey: true, shiftKey: true });
+
+    expect(isInRange('1', 'name')).toBe(true);
+    expect(isInRange('2', 'name')).toBe(true);
+    expect(isInRange('3', 'name')).toBe(true);
+    // Other columns stay out of range.
+    expect(isInRange('2', 'age')).toBe(false);
+  });
+
+  it('Ctrl+Shift+ArrowLeft extends left to the first non-empty cell, keeping the anchor', () => {
+    renderGrid();
+    fireEvent.click(getCell('3', 'active'));
+    fireEvent.keyDown(getGrid(), { key: 'ArrowLeft', ctrlKey: true, shiftKey: true });
+
+    // Row 3, all three columns, selected.
+    expect(isInRange('3', 'name')).toBe(true);
+    expect(isInRange('3', 'age')).toBe(true);
+    expect(isInRange('3', 'active')).toBe(true);
+    // Rows above are untouched.
+    expect(isInRange('1', 'name')).toBe(false);
+  });
+
+  it('Ctrl+Shift+ArrowUp extends up to the first non-empty row, keeping the anchor column', () => {
+    renderGrid();
+    fireEvent.click(getCell('3', 'active'));
+    fireEvent.keyDown(getGrid(), { key: 'ArrowUp', ctrlKey: true, shiftKey: true });
+
+    // "active" column should light up from r1 through the anchor at r3.
+    expect(isInRange('1', 'active')).toBe(true);
+    expect(isInRange('2', 'active')).toBe(true);
+    expect(isInRange('3', 'active')).toBe(true);
+    // Adjacent columns stay out of range.
+    expect(isInRange('1', 'age')).toBe(false);
   });
 
   // -- PageDown / PageUp ----------------------------------------------------
