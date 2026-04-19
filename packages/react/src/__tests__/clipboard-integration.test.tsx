@@ -32,36 +32,65 @@ const readOnlyColumns: ColumnDef<TestRow>[] = [
   { id: 'city', field: 'city', title: 'City' },
 ];
 
-let clipboardText = '';
-let clipboardHtml = '';
+// ---------------------------------------------------------------------------
+// Clipboard stub factory — created fresh per test to avoid mutable module-scope
+// state leaking across parallel test runs.
+// ---------------------------------------------------------------------------
 
-function mockClipboard() {
-  clipboardText = '';
-  clipboardHtml = '';
-  const clipboard = {
-    writeText: vi.fn(async (text: string) => { clipboardText = text; }),
-    readText: vi.fn(async () => clipboardText),
+interface ClipboardStub {
+  text: string;
+  html: string;
+  reset: () => void;
+  mock: {
+    writeText: ReturnType<typeof vi.fn>;
+    readText: ReturnType<typeof vi.fn>;
+    write: ReturnType<typeof vi.fn>;
+    read: ReturnType<typeof vi.fn>;
+  };
+}
+
+function createClipboardStub(): ClipboardStub {
+  const stub: ClipboardStub = {
+    text: '',
+    html: '',
+    reset() { stub.text = ''; stub.html = ''; },
+    mock: {} as ClipboardStub['mock'],
+  };
+
+  stub.mock = {
+    writeText: vi.fn(async (text: string) => { stub.text = text; }),
+    readText: vi.fn(async () => stub.text),
     write: vi.fn(async (items: ClipboardItem[]) => {
       for (const item of items) {
         if (item.types.includes('text/plain')) {
-          clipboardText = await (await item.getType('text/plain')).text();
+          stub.text = await (await item.getType('text/plain')).text();
         }
         if (item.types.includes('text/html')) {
-          clipboardHtml = await (await item.getType('text/html')).text();
+          stub.html = await (await item.getType('text/html')).text();
         }
       }
     }),
     read: vi.fn(async () => {
       const items: ClipboardItem[] = [];
       const blobs: Record<string, Blob> = {};
-      if (clipboardText) blobs['text/plain'] = new Blob([clipboardText], { type: 'text/plain' });
-      if (clipboardHtml) blobs['text/html'] = new Blob([clipboardHtml], { type: 'text/html' });
+      if (stub.text) blobs['text/plain'] = new Blob([stub.text], { type: 'text/plain' });
+      if (stub.html) blobs['text/html'] = new Blob([stub.html], { type: 'text/html' });
       if (Object.keys(blobs).length > 0) items.push(new ClipboardItem(blobs));
       return items;
     }),
   };
-  Object.defineProperty(navigator, 'clipboard', { value: clipboard, writable: true, configurable: true });
-  return clipboard;
+
+  Object.defineProperty(navigator, 'clipboard', {
+    value: stub.mock,
+    writable: true,
+    configurable: true,
+  });
+
+  return stub;
+}
+
+function mockClipboard(): ClipboardStub {
+  return createClipboardStub();
 }
 
 function createTestModel(data?: TestRow[], cols?: ColumnDef<TestRow>[]) {
@@ -181,12 +210,27 @@ describe('Clipboard integration — copy', () => {
 
   it('copy fires onCopy callback with copied data', async () => {
     const model = createTestModel();
-    const onCopy = vi.fn();
-    model.getState();
-    const bus = (model as any);
+    const copyEvents: Record<string, unknown>[] = [];
+
+    // Register a listener that captures clipboard:copy events
+    await model.registerExtension({
+      id: 'copy-listener',
+      name: 'Copy Listener',
+      hooks: () => [{
+        event: 'clipboard:copy',
+        handler: (evt) => { copyEvents.push(evt.payload); },
+      }],
+    });
+
     model.select({ rowId: '1', field: 'name' });
-    await model.dispatch('clipboard:copy', { text: 'Alice' });
-    expect(true).toBe(true);
+    const event = await model.dispatch('clipboard:copy', { text: 'Alice' });
+
+    // The dispatched event must carry the text payload — not a trivial pass
+    expect(event.type).toBe('clipboard:copy');
+    expect(event.payload.text).toBe('Alice');
+    // And the hook listener must have been invoked with the same payload
+    expect(copyEvents).toHaveLength(1);
+    expect(copyEvents[0]!.text).toBe('Alice');
   });
 });
 
@@ -216,7 +260,7 @@ describe('Clipboard integration — cut', () => {
   });
 
   it('cut single cell places value on clipboard', async () => {
-    const cb = mockClipboard();
+    const stub = mockClipboard();
     const model = createTestModel();
     model.select({ rowId: '1', field: 'name' });
     const range = model.getState().selection.range!;
@@ -227,7 +271,7 @@ describe('Clipboard integration — cut', () => {
       model.getRowIds(),
     );
     await navigator.clipboard.writeText(text);
-    expect(cb.writeText).toHaveBeenCalledWith('Alice');
+    expect(stub.mock.writeText).toHaveBeenCalledWith('Alice');
   });
 
   it('cut selected range clears source cells', async () => {
