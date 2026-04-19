@@ -1,3 +1,5 @@
+import type { Validator } from './validators';
+
 /**
  * Core type definitions for the datagrid system.
  *
@@ -277,13 +279,21 @@ export interface ColumnDef<TData = Record<string, unknown>> {
   /** Maximum allowed numeric value for `numeric` columns. */
   max?: number;
 
+  /** Cell-level validators run on every commit. Results render in a portal tooltip. */
+  validators?: Validator<TData>[];
+
   /**
-   * Custom cell-level validation function.
+   * Optional hover-tooltip content surfaced after a short delay on mouseover.
    *
-   * @param value - The current cell value to validate.
-   * @returns A {@link ValidationResult} describing the issue, or `null` if valid.
+   * - A string value is rendered verbatim for every cell in the column.
+   * - A function value is called with the row object on each hover and must
+   *   return the string to display; use this form for per-row computed notes
+   *   (e.g. "Resident of {city}"). The default content (the cell's rendered
+   *   text) is replaced entirely when `note` is provided.
+   *
+   * See `HoverTooltip` for the dismiss/delay/portal contract.
    */
-  validate?: (value: CellValue) => ValidationResult | null;
+  note?: string | ((row: TData) => string);
 
   // Sub-grid
 

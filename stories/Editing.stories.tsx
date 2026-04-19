@@ -40,21 +40,23 @@ export const InlineEditing: StoryObj = {
   },
 };
 
-// Issue #10: Enter and Tab both commit the draft AND keep selection on the
-// same cell (no vertical/horizontal auto-advance). This story makes that
-// behaviour explicit by logging before/after cell values and showing the
-// outline staying on the edited cell.
-export const EnterTabCommitAndStay: StoryObj = {
-  name: 'Enter/Tab commit-and-stay (issue #10)',
+// Excel-365 commit-and-advance: Enter commits and moves DOWN one row, Tab
+// commits and moves RIGHT one column. At the grid edge (last row for Enter,
+// last column for Tab) the selection stays on the same cell. Escape discards
+// the draft and keeps the selection on the same cell.
+export const EnterTabCommitAndAdvance: StoryObj = {
+  name: 'Enter/Tab commit-and-advance (Excel-365)',
   render: () => {
     const [log, setLog] = useState<string[]>([]);
     return (
       <div style={storyContainer}>
-        <h2 style={styles.heading}>Enter / Tab: commit-and-stay</h2>
+        <h2 style={styles.heading}>Enter / Tab: commit-and-advance</h2>
         <p style={styles.subtitle}>
           Double-click a cell, type a new value, then press <kbd>Enter</kbd> <em>or</em> <kbd>Tab</kbd>.
-          Both keys commit the value, exit edit mode, and leave the selection on the <strong>same</strong> cell —
-          the focus does NOT advance to the row below or the next column.
+          Following Excel-365, <kbd>Enter</kbd> commits the value and moves the selection
+          <strong> down one row</strong>; <kbd>Tab</kbd> commits and moves the selection
+          <strong> right one column</strong>. At the grid edge (last row for Enter, last
+          column for Tab) the selection stays put.
           <br />
           <kbd>Escape</kbd> cancels the edit and keeps selection on the same cell.
         </p>

@@ -149,11 +149,15 @@ describe('Clipboard integration — copy', () => {
     model.select({ rowId: '1', field: 'name' });
     model.extendTo({ rowId: '2', field: 'age' });
     const range = model.getState().selection.range!;
+    // Pass explicit `false` so the assertion on `lines.length === 2` is
+    // unaffected by the Feature 6 header-by-default rule for multi-row
+    // ranges.
     const text = serializeRangeToText(
       model.getState().data as Record<string, unknown>[],
       range,
       model.getVisibleColumns() as ColumnDef[],
       model.getRowIds(),
+      false,
     );
     const lines = text.split('\n');
     expect(lines).toHaveLength(2);
@@ -165,11 +169,14 @@ describe('Clipboard integration — copy', () => {
     model.select({ rowId: '1', field: 'name' });
     model.extendTo({ rowId: '3', field: 'age' });
     const range = model.getState().selection.range!;
+    // Pass explicit `false` to isolate the body rows from the Feature 6
+    // header-by-default rule for multi-row ranges.
     const text = serializeRangeToText(
       model.getState().data as Record<string, unknown>[],
       range,
       model.getVisibleColumns() as ColumnDef[],
       model.getRowIds(),
+      false,
     );
     expect(text).toBe('Alice\t30\nBob\t25\nCharlie\t35');
   });
@@ -474,5 +481,233 @@ describe('Clipboard integration — paste', () => {
     expect(parsed).toHaveLength(2);
     expect(parsed[0]).toEqual(['Hello', 'World']);
     expect(parsed[1]).toEqual([42, true]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase A — RED tests for Feature 6: Ctrl/Cmd+C upgrade to dual-flavor
+// `navigator.clipboard.write()` with a `ClipboardItem` carrying both
+// `text/plain` (TSV) and `text/html` (<table>) blobs.
+//
+// The current implementation calls `navigator.clipboard.writeText(text)` with
+// TSV only, so every test in this block is expected to fail today — either
+// because `write` is never invoked, or because the Blob it receives lacks one
+// of the two required flavors.
+//
+// jsdom does not implement `ClipboardItem`, so we install a minimal polyfill
+// inside the describe's `beforeEach` before wiring up the clipboard stub.
+// ---------------------------------------------------------------------------
+
+interface ClipboardItemLike {
+  readonly types: ReadonlyArray<string>;
+  getType(type: string): Promise<Blob>;
+}
+
+// Minimal jsdom-compatible polyfill. Spec parity only as far as the grid
+// needs: a constructor taking `{ [mime]: Blob }`, a `types` array, and
+// `getType(mime): Promise<Blob>`.
+class ClipboardItemPolyfill implements ClipboardItemLike {
+  readonly types: ReadonlyArray<string>;
+  private readonly _blobs: Record<string, Blob>;
+  constructor(blobs: Record<string, Blob>) {
+    this._blobs = blobs;
+    this.types = Object.keys(blobs);
+  }
+  async getType(type: string): Promise<Blob> {
+    const b = this._blobs[type];
+    if (!b) throw new Error(`type ${type} not present on ClipboardItem`);
+    return b;
+  }
+}
+
+function installClipboardItemPolyfill(): void {
+  if (typeof (globalThis as { ClipboardItem?: unknown }).ClipboardItem === 'undefined') {
+    (globalThis as unknown as { ClipboardItem: typeof ClipboardItemPolyfill }).ClipboardItem =
+      ClipboardItemPolyfill;
+  }
+}
+
+function fireCopy(target: HTMLElement, opts: { meta?: boolean; ctrl?: boolean } = { ctrl: true }): void {
+  fireEvent.keyDown(target, {
+    key: 'c',
+    code: 'KeyC',
+    ctrlKey: !!opts.ctrl,
+    metaKey: !!opts.meta,
+    bubbles: true,
+  });
+}
+
+function renderGridWithSelection(selection: { anchor: { rowId: string; field: keyof TestRow & string }; focus: { rowId: string; field: keyof TestRow & string } }) {
+  const result = render(
+    <DataGrid
+      data={makeData()}
+      columns={columns as ColumnDef[]}
+      rowKey="id"
+      selectionMode="range"
+      keyboardNavigation
+    />,
+  );
+  const grid = result.container.querySelector('[role="grid"]') as HTMLElement | null;
+  if (!grid) throw new Error('grid not rendered');
+  // The grid is the element that owns the keydown listener. Focus it so
+  // synthetic key events land on the correct target.
+  grid.focus();
+  // Trigger the selection by clicking the anchor cell, then shift-clicking
+  // the focus cell. Using the React testing-library API keeps this aligned
+  // with how a real user would drive the grid.
+  const cellAt = (rowId: string, field: string) =>
+    result.container.querySelector(
+      `[role="gridcell"][data-row-id="${rowId}"][data-field="${field}"]`,
+    ) as HTMLElement;
+  fireEvent.click(cellAt(selection.anchor.rowId, selection.anchor.field));
+  if (
+    selection.anchor.rowId !== selection.focus.rowId ||
+    selection.anchor.field !== selection.focus.field
+  ) {
+    fireEvent.click(cellAt(selection.focus.rowId, selection.focus.field), {
+      shiftKey: true,
+    });
+  }
+  return { ...result, grid, cellAt };
+}
+
+describe('Clipboard integration — dual-flavor copy via navigator.clipboard.write (Feature 6)', () => {
+  let stub: ClipboardStub;
+
+  beforeEach(() => {
+    installClipboardItemPolyfill();
+    stub = mockClipboard();
+  });
+
+  it('Ctrl+C on a range calls navigator.clipboard.write exactly once with both text/plain and text/html flavors', async () => {
+    const { grid } = renderGridWithSelection({
+      anchor: { rowId: '1', field: 'name' },
+      focus: { rowId: '2', field: 'age' },
+    });
+    fireCopy(grid, { ctrl: true });
+    // Allow any microtasks queued by the write to flush.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(stub.mock.write).toHaveBeenCalledTimes(1);
+    const items: ClipboardItem[] = stub.mock.write.mock.calls[0]![0];
+    expect(items).toHaveLength(1);
+    const types = Array.from(items[0]!.types);
+    expect(types).toContain('text/plain');
+    expect(types).toContain('text/html');
+  });
+
+  it('Cmd+C (macOS) produces the same dual-flavor ClipboardItem', async () => {
+    const { grid } = renderGridWithSelection({
+      anchor: { rowId: '1', field: 'name' },
+      focus: { rowId: '2', field: 'age' },
+    });
+    fireCopy(grid, { meta: true });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(stub.mock.write).toHaveBeenCalledTimes(1);
+    const items: ClipboardItem[] = stub.mock.write.mock.calls[0]![0];
+    const types = Array.from(items[0]!.types);
+    expect(types).toEqual(expect.arrayContaining(['text/plain', 'text/html']));
+  });
+
+  it('the text/plain Blob contains TSV with a header row for a range selection', async () => {
+    const { grid } = renderGridWithSelection({
+      anchor: { rowId: '1', field: 'name' },
+      focus: { rowId: '2', field: 'age' },
+    });
+    fireCopy(grid, { ctrl: true });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // The clipboard stub copies the text blob into `stub.text` as a side
+    // effect of `write`. Assert against that canonical string.
+    expect(stub.text.split('\n')[0]).toBe('Name\tAge');
+    expect(stub.text.split('\n')[1]).toBe('Alice\t30');
+    expect(stub.text.split('\n')[2]).toBe('Bob\t25');
+  });
+
+  it('the text/html Blob contains a <table> wrapping the same data', async () => {
+    const { grid } = renderGridWithSelection({
+      anchor: { rowId: '1', field: 'name' },
+      focus: { rowId: '2', field: 'age' },
+    });
+    fireCopy(grid, { ctrl: true });
+    // The stub's `write` implementation decodes both blobs via chained
+    // `await item.getType(...).text()` calls. Each decode costs 2 microtasks
+    // (one per `await`), so populating both `text/plain` AND `text/html`
+    // requires ~4 microtask ticks before assertions can observe the HTML
+    // flavour. Flushing 6 ticks is conservative and resilient to any future
+    // polyfill changes.
+    for (let i = 0; i < 6; i++) await Promise.resolve();
+
+    expect(stub.html).toContain('<table');
+    expect(stub.html).toContain('</table>');
+    expect(stub.html).toContain('Alice');
+    expect(stub.html).toContain('Bob');
+    // Header row must be present.
+    expect(stub.html).toContain('Name');
+    expect(stub.html).toContain('Age');
+  });
+
+  it('single-cell selection copies just the cell with NO header row', async () => {
+    const { grid } = renderGridWithSelection({
+      anchor: { rowId: '1', field: 'name' },
+      focus: { rowId: '1', field: 'name' },
+    });
+    fireCopy(grid, { ctrl: true });
+    // See the microtask-budget note on the "<table>" test above: 2 awaits
+    // only flush the text/plain branch; the text/html assertion needs more.
+    for (let i = 0; i < 6; i++) await Promise.resolve();
+
+    expect(stub.mock.write).toHaveBeenCalledTimes(1);
+    // No header: the entire TSV is just the one value.
+    expect(stub.text).toBe('Alice');
+    // And the HTML flavor is a single-cell table (no <th>).
+    expect(stub.html).toContain('<td');
+    expect(stub.html).not.toContain('<th');
+  });
+
+  it('excludes chrome columns from both flavors even when chrome is enabled', async () => {
+    // Render the grid with chrome columns on; the row-number gutter is
+    // enabled via `chrome: { rowNumbers: true }`. A range spanning from the
+    // gutter (conceptually) to the last data column MUST still produce TSV
+    // and HTML that contain only the data columns.
+    const { container } = render(
+      <DataGrid
+        data={makeData()}
+        columns={columns as ColumnDef[]}
+        rowKey="id"
+        selectionMode="range"
+        keyboardNavigation
+        chrome={{ rowNumbers: true }}
+      />,
+    );
+    const grid = container.querySelector('[role="grid"]') as HTMLElement;
+    grid.focus();
+    const first = container.querySelector(
+      '[role="gridcell"][data-row-id="1"][data-field="name"]',
+    ) as HTMLElement;
+    const last = container.querySelector(
+      '[role="gridcell"][data-row-id="2"][data-field="city"]',
+    ) as HTMLElement;
+    fireEvent.click(first);
+    fireEvent.click(last, { shiftKey: true });
+    fireCopy(grid, { ctrl: true });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(stub.mock.write).toHaveBeenCalled();
+    // Row number "1" / "2" are the chrome gutter digits — they must not
+    // appear as their own TSV column. Lines must contain exactly three
+    // tab-separated cells: name, age, city.
+    const lines = stub.text.split('\n').filter((l) => l.length > 0);
+    for (const line of lines) {
+      const cells = line.split('\t');
+      // Headers OR data — either way the width must be 3.
+      expect(cells).toHaveLength(3);
+    }
+    // HTML flavor: must not carry a leading row-number column.
+    expect(stub.html).not.toMatch(/<td[^>]*>\s*1\s*<\/td>\s*<td[^>]*>\s*Alice/);
   });
 });

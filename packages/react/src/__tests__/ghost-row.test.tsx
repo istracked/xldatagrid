@@ -176,10 +176,15 @@ describe('Ghost Row', () => {
       columns: [
         {
           id: 'name', field: 'name', title: 'Name',
-          validate: (value: any) => {
-            if (!value || value === '') return { message: 'Name required', severity: 'error' as const };
-            return null;
-          },
+          validators: [
+            {
+              name: 'required',
+              run: (value: any) => {
+                if (!value || value === '') return { message: 'Name required', severity: 'error' as const };
+                return null;
+              },
+            },
+          ],
         },
         { id: 'age', field: 'age', title: 'Age' },
       ],
@@ -204,10 +209,15 @@ describe('Ghost Row', () => {
       columns: [
         {
           id: 'name', field: 'name', title: 'Name',
-          validate: (value: any) => {
-            if (!value || value === '') return { message: 'Required', severity: 'error' as const };
-            return null;
-          },
+          validators: [
+            {
+              name: 'required',
+              run: (value: any) => {
+                if (!value || value === '') return { message: 'Required', severity: 'error' as const };
+                return null;
+              },
+            },
+          ],
         },
         { id: 'age', field: 'age', title: 'Age' },
       ],
@@ -339,10 +349,15 @@ describe('Ghost Row', () => {
       columns: [
         {
           id: 'name', field: 'name', title: 'Name',
-          validate: (value: any) => {
-            if (value && value.length < 2) return { message: 'Too short', severity: 'error' as const };
-            return null;
-          },
+          validators: [
+            {
+              name: 'min',
+              run: (value: any) => {
+                if (value && value.length < 2) return { message: 'Too short', severity: 'error' as const };
+                return null;
+              },
+            },
+          ],
         },
         { id: 'age', field: 'age', title: 'Age' },
       ],
@@ -366,10 +381,15 @@ describe('Ghost Row', () => {
       columns: [
         {
           id: 'name', field: 'name', title: 'Name',
-          validate: (value: any) => {
-            if (!value || value.length < 2) return { message: 'Too short', severity: 'error' as const };
-            return null;
-          },
+          validators: [
+            {
+              name: 'min',
+              run: (value: any) => {
+                if (!value || value.length < 2) return { message: 'Too short', severity: 'error' as const };
+                return null;
+              },
+            },
+          ],
         },
         { id: 'age', field: 'age', title: 'Age' },
       ],

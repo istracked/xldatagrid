@@ -66,7 +66,12 @@ describe('updateEditValue', () => {
   it('runs column validation and captures error', () => {
     const col: ColumnDef = {
       id: 'c1', field: 'name', title: 'Name',
-      validate: v => (v === '' ? { message: 'Required', severity: 'error' } : null),
+      validators: [
+        {
+          name: 'required',
+          run: v => (v === '' ? { message: 'Required', severity: 'error' } : null),
+        },
+      ],
     };
     const s = beginEdit(createEditingState(), cell, 'Alice');
     const updated = updateEditValue(s, '', col);
@@ -77,7 +82,12 @@ describe('updateEditValue', () => {
   it('marks valid when validation passes', () => {
     const col: ColumnDef = {
       id: 'c1', field: 'name', title: 'Name',
-      validate: v => (v === '' ? { message: 'Required', severity: 'error' } : null),
+      validators: [
+        {
+          name: 'required',
+          run: v => (v === '' ? { message: 'Required', severity: 'error' } : null),
+        },
+      ],
     };
     const s = beginEdit(createEditingState(), cell, '');
     const withError = updateEditValue(s, '', col);
@@ -90,7 +100,12 @@ describe('updateEditValue', () => {
   it('treats warning-severity validation as still valid', () => {
     const col: ColumnDef = {
       id: 'c1', field: 'name', title: 'Name',
-      validate: () => ({ message: 'Watch out', severity: 'warning' }),
+      validators: [
+        {
+          name: 'warn',
+          run: () => ({ message: 'Watch out', severity: 'warning' }),
+        },
+      ],
     };
     const s = beginEdit(createEditingState(), cell, 'x');
     const updated = updateEditValue(s, 'y', col);
@@ -120,7 +135,12 @@ describe('commitEdit', () => {
   it('returns null when state is invalid', () => {
     const col: ColumnDef = {
       id: 'c1', field: 'name', title: 'Name',
-      validate: () => ({ message: 'Required', severity: 'error' }),
+      validators: [
+        {
+          name: 'required',
+          run: () => ({ message: 'Required', severity: 'error' }),
+        },
+      ],
     };
     const s = updateEditValue(beginEdit(createEditingState(), cell, 'Alice'), '', col);
     expect(commitEdit(s)).toBeNull();

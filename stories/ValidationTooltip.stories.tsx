@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { MuiDataGrid } from '@istracked/datagrid-mui';
 import { createValidationTooltip } from '@istracked/datagrid-extensions';
 import type { ValidationTooltipConfig, ValidationTooltipEntry } from '@istracked/datagrid-extensions';
-import type { ColumnDef, CellValue, CellAddress, ValidationResult } from '@istracked/datagrid-core';
+import type { ColumnDef, CellValue, CellAddress, ValidationResult, Validator } from '@istracked/datagrid-core';
 import { makeEmployees, defaultColumns, Employee } from './data';
 import { storyContainer, gridContainer } from './helpers';
 import * as styles from './stories.styles';
@@ -104,75 +104,90 @@ export const Default: StoryObj = {
       createValidationTooltip({ position, autoDismissMs, showIcon, maxVisible }),
     );
 
-    // Columns with validation that populates tooltip entries on failure
+    // Columns wired to the new multi-validator API. The grid renders the
+    // authoritative tooltip portal; the in-story overlay below is a
+    // supplementary visual log that mirrors the most-severe entry per cell.
+    const emailValidators: Validator<Employee>[] = [
+      {
+        name: 'email:format',
+        run: (v: CellValue) =>
+          !v || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v))
+            ? { message: 'Invalid email address', severity: 'error' as const }
+            : null,
+      },
+    ];
+    const nameValidators: Validator<Employee>[] = [
+      {
+        name: 'name:minLength',
+        run: (v: CellValue) =>
+          !v || String(v).trim().length < 2
+            ? { message: 'Name must be at least 2 characters', severity: 'error' as const }
+            : null,
+      },
+      {
+        name: 'name:lettersOnly',
+        run: (v: CellValue) =>
+          v != null && String(v).length > 0 && !/^[A-Za-z\s]+$/.test(String(v))
+            ? { message: 'Name should contain only letters', severity: 'warning' as const }
+            : null,
+      },
+    ];
+    const salaryValidators: Validator<Employee>[] = [
+      {
+        name: 'salary:positive',
+        run: (v: CellValue) => {
+          const num = Number(v);
+          return isNaN(num) || num < 0
+            ? { message: 'Salary must be a positive number', severity: 'error' as const }
+            : null;
+        },
+      },
+      {
+        name: 'salary:range',
+        run: (v: CellValue) => {
+          const num = Number(v);
+          return !isNaN(num) && num > 200000
+            ? { message: 'Salary exceeds typical range', severity: 'warning' as const }
+            : null;
+        },
+      },
+    ];
+
     const cols: ColumnDef<Employee>[] = defaultColumns.map((c) => {
-      if (c.field === 'email') {
-        return {
-          ...c,
-          validate: (v: CellValue) => {
-            if (!v || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v))) {
-              return { message: 'Invalid email address', severity: 'error' as const };
-            }
-            return null;
-          },
-        };
-      }
-      if (c.field === 'name') {
-        return {
-          ...c,
-          validate: (v: CellValue) => {
-            if (!v || String(v).trim().length < 2) {
-              return { message: 'Name must be at least 2 characters', severity: 'error' as const };
-            }
-            if (!/^[A-Za-z\s]+$/.test(String(v))) {
-              return { message: 'Name should contain only letters', severity: 'warning' as const };
-            }
-            return null;
-          },
-        };
-      }
-      if (c.field === 'salary') {
-        return {
-          ...c,
-          validate: (v: CellValue) => {
-            const num = Number(v);
-            if (isNaN(num) || num < 0) {
-              return { message: 'Salary must be a positive number', severity: 'error' as const };
-            }
-            if (num > 200000) {
-              return { message: 'Salary exceeds typical range', severity: 'warning' as const };
-            }
-            return null;
-          },
-        };
-      }
+      if (c.field === 'email') return { ...c, validators: emailValidators };
+      if (c.field === 'name') return { ...c, validators: nameValidators };
+      if (c.field === 'salary') return { ...c, validators: salaryValidators };
       return c;
     });
 
     const handleCellChange = useCallback(
       (rowId: string, field: string, value: any) => {
-        // Find the column's validate function
+        // Mirror the grid's tooltip into the demo overlay: run each validator
+        // in sequence, collect results, keep the first (most-severe) entry.
         const col = cols.find((c) => c.field === field);
-        if (col?.validate) {
-          const result = col.validate(value) as ValidationResult | null;
-          if (result) {
-            const cell: CellAddress = { rowId, field };
-            const entry: ValidationTooltipEntry = { cell, result, timestamp: Date.now() };
-            setEntries((prev) => {
-              // Remove existing entry for this cell
-              const filtered = prev.filter(
-                (e) => !(e.cell.rowId === rowId && e.cell.field === field),
-              );
-              const next = [...filtered, entry];
-              // Trim to maxVisible
-              return next.slice(-maxVisible);
-            });
-          } else {
-            // Clear entry for this cell on valid input
-            setEntries((prev) =>
-              prev.filter((e) => !(e.cell.rowId === rowId && e.cell.field === field)),
+        const validators = col?.validators as Validator<Employee>[] | undefined;
+        if (!validators || validators.length === 0) return;
+        const results: ValidationResult[] = [];
+        for (const v of validators) {
+          const r = v.run(value, { row: { id: rowId } as Employee, rowId, field });
+          if (r) results.push(r);
+        }
+        if (results.length > 0) {
+          // Pick most-severe — error > warning > info.
+          const rank = { error: 3, warning: 2, info: 1 } as const;
+          const top = results.slice().sort((a, b) => rank[b.severity] - rank[a.severity])[0]!;
+          const cell: CellAddress = { rowId, field };
+          const entry: ValidationTooltipEntry = { cell, result: top, timestamp: Date.now() };
+          setEntries((prev) => {
+            const filtered = prev.filter(
+              (e) => !(e.cell.rowId === rowId && e.cell.field === field),
             );
-          }
+            return [...filtered, entry].slice(-maxVisible);
+          });
+        } else {
+          setEntries((prev) =>
+            prev.filter((e) => !(e.cell.rowId === rowId && e.cell.field === field)),
+          );
         }
       },
       [cols, maxVisible],
@@ -275,37 +290,44 @@ export const PersistentTooltips: StoryObj = {
   render: () => {
     const [entries, setEntries] = useState<ValidationTooltipEntry[]>([]);
 
-    const cols: ColumnDef<Employee>[] = defaultColumns.map((c) => {
-      if (c.field === 'email') {
-        return {
-          ...c,
-          validate: (v: CellValue) => {
-            if (!v || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v))) {
-              return { message: 'Invalid email', severity: 'error' as const };
-            }
-            return null;
-          },
-        };
-      }
-      return c;
-    });
+    const emailValidators: Validator<Employee>[] = [
+      {
+        name: 'email:format',
+        run: (v: CellValue) =>
+          !v || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v))
+            ? { message: 'Invalid email', severity: 'error' as const }
+            : null,
+      },
+    ];
+
+    const cols: ColumnDef<Employee>[] = defaultColumns.map((c) =>
+      c.field === 'email' ? { ...c, validators: emailValidators } : c,
+    );
 
     const handleCellChange = useCallback((rowId: string, field: string, value: any) => {
       const col = cols.find((c) => c.field === field);
-      if (col?.validate) {
-        const result = col.validate(value) as ValidationResult | null;
-        if (result) {
-          setEntries((prev) => {
-            const filtered = prev.filter(
-              (e) => !(e.cell.rowId === rowId && e.cell.field === field),
-            );
-            return [...filtered, { cell: { rowId, field }, result, timestamp: Date.now() }].slice(-5);
-          });
-        } else {
-          setEntries((prev) =>
-            prev.filter((e) => !(e.cell.rowId === rowId && e.cell.field === field)),
-          );
+      const validators = col?.validators as Validator<Employee>[] | undefined;
+      if (!validators || validators.length === 0) return;
+      let result: ValidationResult | null = null;
+      for (const v of validators) {
+        const r = v.run(value, { row: { id: rowId } as Employee, rowId, field });
+        if (r) {
+          result = r;
+          break;
         }
+      }
+      if (result) {
+        const res = result;
+        setEntries((prev) => {
+          const filtered = prev.filter(
+            (e) => !(e.cell.rowId === rowId && e.cell.field === field),
+          );
+          return [...filtered, { cell: { rowId, field }, result: res, timestamp: Date.now() }].slice(-5);
+        });
+      } else {
+        setEntries((prev) =>
+          prev.filter((e) => !(e.cell.rowId === rowId && e.cell.field === field)),
+        );
       }
     }, [cols]);
 

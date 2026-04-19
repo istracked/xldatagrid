@@ -151,9 +151,10 @@ describe('DataGrid editing', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
-  // Issue #10: Enter in the inline fallback editor must commit AND keep
-  // selection on the same cell (no vertical advance).
-  it('Enter commits and keeps selection on the same cell (issue #10)', () => {
+  // Excel-365 commit-and-advance: Enter in the inline fallback editor must
+  // commit AND move selection DOWN one row (staying on the same cell only
+  // at the last row).
+  it('Enter commits and moves selection DOWN one row (Excel-365)', () => {
     const onCellEdit = vi.fn();
     renderGrid({ onCellEdit });
     const cells = screen.getAllByRole('gridcell');
@@ -166,19 +167,20 @@ describe('DataGrid editing', () => {
     expect(onCellEdit).toHaveBeenCalledWith('1', 'name', 'Zara', 'Alice');
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     const refreshed = screen.getAllByRole('gridcell');
-    // Original cell still carries the selection outline after commit.
-    expect(refreshed[0]!).toHaveStyle({
+    // The row below's name cell carries the selection outline after commit.
+    expect(refreshed[2]!).toHaveStyle({
       outline: '2px solid var(--dg-selection-border, #3b82f6)',
     });
-    // Next row's first cell is NOT selected.
-    expect(refreshed[2]!).not.toHaveStyle({
+    // The originally edited cell no longer carries the outline.
+    expect(refreshed[0]!).not.toHaveStyle({
       outline: '2px solid var(--dg-selection-border, #3b82f6)',
     });
   });
 
-  // Issue #10: Tab in the inline fallback editor must commit AND keep
-  // selection on the same cell (no horizontal advance).
-  it('Tab commits and keeps selection on the same cell (issue #10)', () => {
+  // Excel-365 commit-and-advance: Tab in the inline fallback editor must
+  // commit AND move selection RIGHT one column (staying on the same cell
+  // only at the last column).
+  it('Tab commits and moves selection RIGHT one column (Excel-365)', () => {
     const onCellEdit = vi.fn();
     renderGrid({ onCellEdit });
     const cells = screen.getAllByRole('gridcell');
@@ -191,12 +193,12 @@ describe('DataGrid editing', () => {
     expect(onCellEdit).toHaveBeenCalledWith('1', 'name', 'Zara', 'Alice');
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     const refreshed = screen.getAllByRole('gridcell');
-    // Original cell keeps the selection outline.
-    expect(refreshed[0]!).toHaveStyle({
+    // The cell to the right (Alice's age) now carries the selection outline.
+    expect(refreshed[1]!).toHaveStyle({
       outline: '2px solid var(--dg-selection-border, #3b82f6)',
     });
-    // Adjacent cell (Alice's age) is NOT newly selected.
-    expect(refreshed[1]!).not.toHaveStyle({
+    // The originally edited cell no longer carries the outline.
+    expect(refreshed[0]!).not.toHaveStyle({
       outline: '2px solid var(--dg-selection-border, #3b82f6)',
     });
   });

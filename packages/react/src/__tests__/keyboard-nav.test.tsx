@@ -102,59 +102,14 @@ describe('Keyboard navigation', () => {
     expect(isSelected('1', 'active')).toBe(true);
   });
 
-  // -- Enter ----------------------------------------------------------------
-
-  // Issue #10: Enter while editing commits the value, exits edit mode, and
-  // leaves selection on the same cell (it does NOT advance to the row below).
-  it('Enter commits edit and keeps selection on the same cell (issue #10)', () => {
-    renderGrid();
-    fireEvent.click(getCell('1', 'name'));
-    // Enter edit mode via F2, then press Enter to commit.
-    fireEvent.keyDown(getGrid(), { key: 'F2' });
-    expect(document.querySelector('input')).not.toBeNull();
-    fireEvent.keyDown(getGrid(), { key: 'Enter' });
-    // Edit mode has exited and selection is still on the original cell.
-    expect(document.querySelector('input')).toBeNull();
-    expect(isSelected('1', 'name')).toBe(true);
-    expect(isSelected('2', 'name')).toBe(false);
-  });
-
-  // Issue #10: Shift+Enter behaves identically to Enter while editing —
-  // commit-and-stay, no vertical movement.
-  it('Shift+Enter commits edit and keeps selection on the same cell (issue #10)', () => {
-    renderGrid();
-    fireEvent.click(getCell('2', 'name'));
-    fireEvent.keyDown(getGrid(), { key: 'F2' });
-    fireEvent.keyDown(getGrid(), { key: 'Enter', shiftKey: true });
-    expect(document.querySelector('input')).toBeNull();
-    expect(isSelected('2', 'name')).toBe(true);
-    expect(isSelected('1', 'name')).toBe(false);
-  });
-
-  // Issue #10: Tab while editing commits the value, exits edit mode, and
-  // keeps the same cell selected (no horizontal advance).
-  it('Tab commits edit and keeps selection on the same cell (issue #10)', () => {
-    renderGrid();
-    fireEvent.click(getCell('1', 'name'));
-    fireEvent.keyDown(getGrid(), { key: 'F2' });
-    expect(document.querySelector('input')).not.toBeNull();
-    fireEvent.keyDown(getGrid(), { key: 'Tab' });
-    expect(document.querySelector('input')).toBeNull();
-    expect(isSelected('1', 'name')).toBe(true);
-    expect(isSelected('1', 'age')).toBe(false);
-  });
-
-  // Issue #10: Shift+Tab while editing also commits-and-stays — the reverse
-  // horizontal move is suppressed while in edit mode.
-  it('Shift+Tab commits edit and keeps selection on the same cell (issue #10)', () => {
-    renderGrid();
-    fireEvent.click(getCell('1', 'age'));
-    fireEvent.keyDown(getGrid(), { key: 'F2' });
-    fireEvent.keyDown(getGrid(), { key: 'Tab', shiftKey: true });
-    expect(document.querySelector('input')).toBeNull();
-    expect(isSelected('1', 'age')).toBe(true);
-    expect(isSelected('1', 'name')).toBe(false);
-  });
+  // -- Enter / Tab while editing -------------------------------------------
+  //
+  // The Excel-365 commit-and-advance contract for Enter/Tab fired on the
+  // editor input lives in `edit-commit-nav.test.tsx` (canonical). This
+  // file only covers the non-editing grid-level navigation, so the legacy
+  // "Issue #10 commit-and-stay" tests were removed here — they asserted a
+  // redundant, synthetic path (F2 then grid-fired Enter/Tab) that no
+  // longer matches the Excel-365 contract we ship.
 
   // -- Escape ---------------------------------------------------------------
 

@@ -10,6 +10,7 @@
  */
 
 import { CellAddress, CellValue, ColumnDef, ValidationResult } from './types';
+import { runValidators } from './validators';
 
 /**
  * Captures the full state of an in-progress cell edit.
@@ -68,10 +69,22 @@ export function beginEdit(state: EditingState, cell: CellAddress, value: CellVal
  * @returns A new {@link EditingState} reflecting the updated value and validation outcome.
  */
 export function updateEditValue(state: EditingState, value: CellValue, column?: ColumnDef): EditingState {
-  // Run column-level validation when a validator is defined
+  // Run column-level validators when defined. `runValidators` preserves
+  // declaration order and drops null results; the first error (if any) is
+  // surfaced here so the editing state's blocking-commit flag (`isValid`)
+  // remains binary.
   let validationError: ValidationResult | null = null;
-  if (column?.validate) {
-    validationError = column.validate(value);
+  if (column?.validators && column.validators.length > 0) {
+    const results = runValidators(value, column.validators, {
+      row: {} as Record<string, unknown>,
+      rowId: state.cell?.rowId ?? '',
+      field: column.field as string,
+    });
+    // Surface the first result (declaration order) for
+    // `EditingState.validationError`. `isValid` is driven strictly by
+    // error-severity below, so a warning or info still renders the message
+    // through this field without blocking commit.
+    validationError = results[0] ?? null;
   }
   return {
     ...state,

@@ -9,7 +9,7 @@
  * @module GhostRow
  */
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { ColumnDef, CellValue, GhostRowConfig, GhostRowPosition, ValidationResult } from '@istracked/datagrid-core';
+import { ColumnDef, CellValue, GhostRowConfig, GhostRowPosition, ValidationResult, runValidators, mostSevere } from '@istracked/datagrid-core';
 import { GridModel } from '@istracked/datagrid-core';
 import * as styles from './GhostRow.styles';
 
@@ -115,10 +115,15 @@ export function GhostRow<TData extends Record<string, unknown>>(props: GhostRowP
     // Per-column validators
     for (const col of columns) {
       const val = values[col.field];
-      if (col.validate) {
-        const result = col.validate(val ?? null);
-        if (result && result.severity === 'error') {
-          errors[col.field] = result.message;
+      if (col.validators && col.validators.length > 0) {
+        const results = runValidators(val ?? null, col.validators, {
+          row: values as unknown as TData,
+          rowId: 'ghost',
+          field: col.field,
+        });
+        const errResult = results.find((r: ValidationResult) => r.severity === 'error');
+        if (errResult) {
+          errors[col.field] = errResult.message;
         }
       }
     }
@@ -155,9 +160,14 @@ export function GhostRow<TData extends Record<string, unknown>>(props: GhostRowP
 
     // Clear validation error for this field on valid input
     const col = columns.find(c => c.field === field);
-    if (col?.validate) {
-      const result = col.validate(value as CellValue);
-      if (!result || result.severity !== 'error') {
+    if (col?.validators && col.validators.length > 0) {
+      const results = runValidators(value as CellValue, col.validators, {
+        row: { ...values, [field]: value } as unknown as TData,
+        rowId: 'ghost',
+        field,
+      });
+      const severe = mostSevere(results);
+      if (!severe || severe.severity !== 'error') {
         setValidationErrors(prev => {
           const next = { ...prev };
           delete next[field];
@@ -171,7 +181,7 @@ export function GhostRow<TData extends Record<string, unknown>>(props: GhostRowP
         return next;
       });
     }
-  }, [columns]);
+  }, [columns, values]);
 
   // Handle Tab (move between cells), Enter (commit or advance), and Escape (reset)
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>, field: string) => {
