@@ -12,6 +12,46 @@ A high-performance, fully-featured datagrid component library for React 19. Buil
 
 ---
 
+## Table of Contents
+
+- [Development](#development)
+  - [Prerequisites](#prerequisites)
+  - [Setup](#setup)
+  - [NPM Commands](#npm-commands)
+  - [End-to-end tests (Playwright)](#end-to-end-tests-playwright)
+  - [Visual regression (Chromatic)](#visual-regression-chromatic)
+  - [Branch protection](#branch-protection)
+  - [Playground](#playground)
+  - [Storybook](#storybook)
+  - [Project Structure](#project-structure)
+  - [Test Suite](#test-suite)
+  - [Tech Stack](#tech-stack)
+- [Packages](#packages)
+- [Features](#features)
+  - [Core Engine](#core-engine)
+  - [React Components](#react-components)
+  - [State Management (Jotai Atoms)](#state-management-jotai-atoms)
+  - [15 Cell Types](#15-cell-types)
+  - [Extensions](#extensions)
+  - [MUI Theme Bridge](#mui-theme-bridge)
+- [Quick Start](#quick-start)
+  - [Chrome Columns](#chrome-columns)
+  - [Master-Detail](#master-detail)
+  - [Ghost Row](#ghost-row)
+  - [Extensions](#extensions-1)
+  - [MUI Integration](#mui-integration)
+  - [Imperative Control via Hooks](#imperative-control-via-hooks)
+  - [Fine-Grained Atom Subscriptions](#fine-grained-atom-subscriptions)
+- [Configuration Reference](#configuration-reference)
+  - [DataGrid Props](#datagrid-props)
+  - [Event Callbacks](#event-callbacks)
+  - [Column Definition](#column-definition)
+  - [Grid Event Types](#grid-event-types)
+  - [Writing Extensions](#writing-extensions)
+- [License](#license)
+
+---
+
 ## Development
 
 ### Prerequisites
@@ -53,7 +93,7 @@ pnpm install
 | `pnpm run test:e2e:install` | Install the Chromium browser binary Playwright uses (run once per machine) |
 | `pnpm run chromatic` | Upload Storybook to [Chromatic](https://www.chromatic.com/) for visual-regression review (requires `CHROMATIC_PROJECT_TOKEN`) |
 
-#### End-to-end tests
+### End-to-end tests (Playwright)
 
 The `e2e/` directory contains Playwright specs that drive a real browser
 against the Storybook instance:
@@ -67,7 +107,7 @@ against the Storybook instance:
   markdown links) must not produce live `javascript:` hrefs or inline
   event handlers.
 
-Local workflow:
+#### Running the suite
 
 ```bash
 pnpm install
@@ -80,7 +120,103 @@ The Playwright config spins up `storybook dev -p 6006` as its
 you do not need to pre-start Storybook. When a dev server is already
 running locally it is reused instead of a second being spawned.
 
-#### Visual regression (Chromatic)
+Useful flags:
+
+```bash
+pnpm exec playwright test --headed              # open a real Chromium window
+pnpm exec playwright test --debug               # step-through with the Playwright inspector
+pnpm exec playwright test --ui                  # interactive time-travel UI mode
+pnpm exec playwright test e2e/grid-keyboard     # target a single spec file
+pnpm exec playwright test -g "commits on Enter" # filter by test title (grep)
+pnpm exec playwright test --repeat-each=10      # flake hunt by running each test 10×
+```
+
+#### Viewing the HTML report
+
+After any run Playwright writes an HTML report to `playwright-report/`.
+Open it with:
+
+```bash
+pnpm exec playwright show-report
+```
+
+This launches a local server (default `http://localhost:9323`) and opens
+the report in your browser. The report includes per-test traces, video,
+screenshots, network logs, and console output when captured. On CI the
+same directory is uploaded as an artifact on failure — download the
+`playwright-report` artifact from the failed job and run `show-report`
+against the unzipped directory:
+
+```bash
+pnpm exec playwright show-report ./playwright-report
+```
+
+#### Recording new tests with codegen
+
+Playwright's built-in generator drives the browser and emits test code as
+you click, type, and navigate:
+
+```bash
+# 1) start Storybook separately so codegen can attach to it
+pnpm run storybook
+
+# 2) in a second terminal, open codegen against the story you want to cover
+pnpm exec playwright codegen http://localhost:6006/iframe.html?id=basic-grid--default
+```
+
+As you interact with the page, codegen writes selectors (preferring
+`getByRole` / `getByLabel` / `getByTestId` over CSS) and actions to a
+side panel. Copy the generated test body into a new `e2e/*.spec.ts` file,
+then run it with `pnpm exec playwright test e2e/<your-spec>.spec.ts`.
+
+Tip: prefer role-based selectors from the generator's suggestions — they
+survive layout refactors and exercise a11y wiring, which is exactly what
+the existing `grid-subgrid.spec.ts` relies on.
+
+#### Recording tests with the Playwright CRX Chrome extension
+
+The [Playwright CRX](https://chrome.google.com/webstore/detail/playwright-crx) Chrome
+extension is a browser-resident variant of `codegen` that records tests
+against pages you open normally — useful when a deploy preview, a remote
+staging build, or a live product environment is easier to exercise than
+starting Storybook locally, and when you want to click through the same
+flow your end users hit.
+
+1. Install the extension from the Chrome Web Store. Pin it to the
+   toolbar so the record button is always visible.
+2. Navigate to the page you want to cover. For this repo that is
+   typically `http://localhost:6006/iframe.html?id=<story-id>` after
+   `pnpm run storybook`, or a deployed Storybook/Chromatic preview URL.
+3. Click the Playwright CRX icon, then **Record**. Interact with the page
+   exactly as a user would — click cells, press keys, drag handles, open
+   menus. The extension panel streams the generated Playwright script in
+   real time.
+4. When finished, click **Copy** in the panel and paste the generated
+   test into a new file under `e2e/` (e.g. `e2e/grid-my-flow.spec.ts`).
+   Wrap it in the standard test harness:
+
+   ```ts
+   import { test, expect } from '@playwright/test';
+
+   test('my recorded flow', async ({ page }) => {
+     // paste codegen output here
+   });
+   ```
+
+5. Run it with `pnpm exec playwright test e2e/grid-my-flow.spec.ts` and
+   tighten selectors / assertions by hand where the generator chose
+   something brittle (e.g. nth-child CSS). Prefer `getByRole`,
+   `getByLabel`, and `getByTestId`.
+6. Replace any hard-coded absolute URLs from the recorder with the
+   config-relative `page.goto('/iframe.html?id=…')` so the spec survives
+   port changes and CI.
+
+Because CRX runs in the same profile as your live browser session, do
+not paste cookies, auth tokens, or session storage into committed specs.
+Use Playwright storage-state fixtures for anything that needs auth, and
+commit only the scripted navigation.
+
+### Visual regression (Chromatic)
 
 `pnpm run chromatic` uploads the full Storybook to Chromatic for
 per-story visual diffing. Chromatic runs with `--exit-zero-on-changes`,
@@ -93,7 +229,7 @@ and variables → Actions → New repository secret*. When the secret is
 absent the Chromatic job is skipped with a warning — builds never fail
 for missing-token reasons.
 
-#### Branch protection
+### Branch protection
 
 Recommended required checks on `main`:
 
@@ -103,7 +239,7 @@ Recommended required checks on `main`:
 The `visual` job is intentionally left optional so forks without the
 Chromatic token can still pass CI.
 
-#### Per-Package Commands (run from any `packages/*` directory)
+### Per-Package Commands
 
 Each package (`core`, `react`, `extensions`, `mui`) exposes the same two scripts:
 
