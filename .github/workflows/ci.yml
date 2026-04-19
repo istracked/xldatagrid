@@ -6,8 +6,28 @@ on:
   pull_request:
     branches: [ main ]
 
+# The `verify-precommit-parity` job below runs EXACTLY what the local
+# pre-commit hook at `.git/hooks/pre-commit` runs (typecheck + build +
+# vitest). This makes `git commit --no-verify` useless in practice: CI
+# re-runs the same three checks on every PR and every push to protected
+# branches, so bypassing the hook only delays the failure.
+#
+# The job is intended to be a REQUIRED status check in branch protection
+# rules for `main`. Configure that via the GitHub repo settings:
+#   Settings -> Branches -> Branch protection rules -> main ->
+#   "Require status checks to pass before merging" and select
+#   `verify-precommit-parity / verify`.
+#
+# Additional guards in the same job:
+#   * `pnpm tokens:check` — fails if `packages/react/src/styles/tokens/`
+#     has drifted from the SHA-256 `contentHash` recorded in
+#     `manifest.json`. Developers who forget `pnpm sync:tokens` get a red
+#     PR instead of stale palettes shipping silently.
+#   * `pnpm test:scripts` — exercises the script-level tests (Node's
+#     built-in test runner) that cover the sync-tokens CLI surface.
 jobs:
-  test:
+  verify-precommit-parity:
+    name: verify
     runs-on: ubuntu-latest
 
     strategy:
@@ -29,11 +49,24 @@ jobs:
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
 
-    - name: Type check
+    # Pre-commit-hook parity: the three commands below MUST stay in sync
+    # with `.git/hooks/pre-commit`. If you change one, change the other.
+    - name: Type check (pre-commit parity)
       run: pnpm run typecheck
 
-    - name: Build all packages
+    - name: Build all packages (pre-commit parity)
       run: pnpm run build
 
-    - name: Run tests
+    - name: Run tests (pre-commit parity)
       run: pnpm test
+
+    # Drift guard for design tokens. Fails if committed tokens no longer
+    # match the manifest `contentHash`, i.e. someone hand-edited a token
+    # file or forgot to re-run `pnpm sync:tokens` after bumping the
+    # sibling `istracked/tokens` repo.
+    - name: Tokens drift check
+      run: pnpm tokens:check
+
+    # Script-level tests (node --test) covering sync-tokens.mjs itself.
+    - name: Run script tests
+      run: pnpm run test:scripts
