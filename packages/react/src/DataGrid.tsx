@@ -166,9 +166,19 @@ export function resolveThemeStyle(
   theme: 'light' | 'dark' | Record<string, string> | undefined,
 ): React.CSSProperties {
   if (!theme) return {};
-  if (theme === 'light') return LIGHT_THEME as unknown as React.CSSProperties;
-  if (theme === 'dark') return DARK_THEME as unknown as React.CSSProperties;
-  return theme as unknown as React.CSSProperties;
+  if (theme === 'light') return { ...LIGHT_THEME } as unknown as React.CSSProperties;
+  if (theme === 'dark') return { ...DARK_THEME } as unknown as React.CSSProperties;
+  // A string preset we do not recognise (e.g. `"excel365"`) is handled
+  // entirely via CSS — the grid root receives `data-theme="…"` and the
+  // matching stylesheet provides the tokens. Returning the string itself
+  // here would cause callers to spread it as indexed character properties
+  // into `style`, which React DOM then rejects with
+  // `TypeError: Indexed property setter is not supported` inside
+  // `setValueForStyle`. A custom token map is copied into a plain object
+  // for the same reason — callers treat the result as a writable
+  // `React.CSSProperties` bag and must not receive a frozen/exotic object.
+  if (typeof theme === 'string') return {};
+  return { ...theme } as unknown as React.CSSProperties;
 }
 
 export { LIGHT_THEME, DARK_THEME };
@@ -893,12 +903,38 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
   // result collapses back to `null` so the grid reports "no filter". Logic
   // (`and`/`or`) is preserved from the existing tree or defaults to `and` for
   // a fresh tree.
+  //
+  // Pruning walks the tree recursively so nested composites emitted by the
+  // "Custom Filter…" dialog (shape: { logic, filters: [...leaves on field] })
+  // are removed along with plain leaves. A composite whose entire subtree
+  // only targeted `field` collapses to an empty list and is dropped; a mixed
+  // composite loses its `field`-matching branches but stays in the tree.
   const replaceFieldFilter = useCallback(
     (field: string, replacement: FilterDescriptor | CompositeFilterDescriptor | null) => {
       const prev = state.filter;
-      const otherFilters = prev
-        ? prev.filters.filter((child) => !('field' in child) || child.field !== field)
-        : [];
+
+      const stripField = (
+        node: FilterDescriptor | CompositeFilterDescriptor,
+      ): FilterDescriptor | CompositeFilterDescriptor | null => {
+        if ('filters' in node) {
+          const kept: Array<FilterDescriptor | CompositeFilterDescriptor> = [];
+          for (const child of node.filters) {
+            const pruned = stripField(child);
+            if (pruned !== null) kept.push(pruned);
+          }
+          if (kept.length === 0) return null;
+          return { ...node, filters: kept };
+        }
+        return node.field === field ? null : node;
+      };
+
+      const otherFilters: Array<FilterDescriptor | CompositeFilterDescriptor> = [];
+      if (prev) {
+        for (const child of prev.filters) {
+          const pruned = stripField(child);
+          if (pruned !== null) otherFilters.push(pruned);
+        }
+      }
       const nextChildren = replacement ? [...otherFilters, replacement] : otherFilters;
       const next: CompositeFilterDescriptor | null =
         nextChildren.length > 0 ? { logic: prev?.logic ?? 'and', filters: nextChildren } : null;
@@ -973,6 +1009,94 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
       return (col?.title as string | undefined) ?? field;
     },
     [orderedVisibleColumns],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Sub-grid expansion rendering
+  // ---------------------------------------------------------------------------
+  //
+  // Each parent row that has `cellType: 'subGrid'` columns can render an
+  // inline expansion row beneath itself that hosts a fully independent nested
+  // grid. Recursion is handled by re-entering `<DataGrid>` with the parent
+  // cell's array value as its `data` and the parent column's `subGridColumns`
+  // as its `columns`. Every nested level receives its own `GridModel` via
+  // `useGridWithAtoms` so sort state, drag sessions, selection, and keyboard
+  // focus are scoped to that level.
+  //
+  // Depth tracking:
+  //   - `subGridDepth` increments by 1 for each nested grid; the outer grid
+  //     starts at 0.
+  //   - `config.subGrid?.maxDepth` caps recursion. When the current depth is
+  //     >= maxDepth, the toggle still renders but the expansion row is not
+  //     mounted. The minimum supported depth is 2 (parent → subgrid →
+  //     subgrid-within-subgrid).
+
+  const subGridDepth = config.subGrid?.nestingLevel ?? 0;
+  const subGridMaxDepth = config.subGrid?.maxDepth ?? 3;
+
+  // Resolve the first `subGrid` column on the parent row; the nested grid
+  // draws its data and columns from that column's configuration. Rows with
+  // more than one sub-grid column are rare — document the restriction in
+  // the PR and keep the common case simple.
+  const getSubGridColumnForRow = useCallback((): ColumnDef<TData> | null => {
+    for (const col of orderedVisibleColumns) {
+      if (col.cellType === 'subGrid') return col;
+    }
+    return null;
+  }, [orderedVisibleColumns]);
+
+  const renderSubGridExpansionRow = useCallback(
+    (rowId: string, row: TData): React.ReactNode => {
+      // Honour maxDepth: once we've reached the cap, skip mounting the nested
+      // grid. The toggle remains clickable; users see an empty expansion slot
+      // so the "tried to go deeper than supported" outcome is still visible.
+      if (subGridDepth >= subGridMaxDepth) return null;
+
+      const subCol = getSubGridColumnForRow();
+      if (!subCol) return null;
+
+      const rawValue = row[subCol.field as keyof TData];
+      const nestedData = Array.isArray(rawValue)
+        ? (rawValue as Record<string, unknown>[])
+        : [];
+      const nestedColumns = (subCol.subGridColumns ?? []) as ColumnDef<Record<string, unknown>>[];
+      const nestedRowKey = (subCol.subGridRowKey ?? 'id') as keyof Record<string, unknown>;
+
+      if (nestedColumns.length === 0) return null;
+
+      return (
+        <DataGrid<Record<string, unknown>>
+          key={`${rowId}-subgrid`}
+          data={nestedData}
+          columns={nestedColumns}
+          rowKey={nestedRowKey}
+          cellRenderers={cellRenderers as any}
+          keyboardNavigation={config.keyboardNavigation !== false}
+          selectionMode={config.selectionMode ?? 'cell'}
+          theme={config.theme}
+          subGrid={{
+            ...(config.subGrid ?? {}),
+            nestingLevel: subGridDepth + 1,
+            maxDepth: subGridMaxDepth,
+            isSubGrid: true,
+          }}
+          rowHeight={rowHeight}
+          headerHeight={headerHeight}
+        />
+      );
+    },
+    [
+      subGridDepth,
+      subGridMaxDepth,
+      getSubGridColumnForRow,
+      cellRenderers,
+      config.keyboardNavigation,
+      config.selectionMode,
+      config.theme,
+      config.subGrid,
+      rowHeight,
+      headerHeight,
+    ],
   );
 
   // ---------------------------------------------------------------------------
@@ -1143,7 +1267,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
         )}
 
         {/*
-         * The legacy column menu (sort, hide, freeze) continues to mount
+         * The legacy column menu (hide, freeze) continues to mount
          * unconditionally — it coexists with the Excel dropdown rather than
          * being replaced by it. Visibility is driven by the interaction
          * reducer's `menu` discriminant, so rendering the component while no
@@ -1153,10 +1277,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           menuState={interaction.state.menu}
           headerHeight={headerHeight}
           hasColumnGroups={!!columnGroupConfig}
-          isSortingEnabled={isSortingEnabled}
           getColumnFrozen={getColumnFrozenByField}
-          onSortAsc={handleColumnMenuSortAsc}
-          onSortDesc={handleColumnMenuSortDesc}
           onHide={handleColumnMenuHide}
           onFreeze={handleColumnMenuFreeze}
           onUnfreeze={handleColumnMenuUnfreeze}
@@ -1205,6 +1326,9 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           onRowDragStart={handleRowDragStart}
           onRowDragOver={handleRowDragOver}
           onRowDrop={handleRowDrop}
+          expandedSubGrids={state.expandedSubGrids}
+          subGridDepth={subGridDepth}
+          renderSubGridExpansionRow={renderSubGridExpansionRow}
         />
 
         {contextMenuEnabled && (

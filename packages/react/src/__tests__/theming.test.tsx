@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { DataGrid, LIGHT_THEME, DARK_THEME } from '../DataGrid';
+import { DataGrid, LIGHT_THEME, DARK_THEME, resolveThemeStyle } from '../DataGrid';
 import darkTokens from '../styles/tokens/dark.json';
 import lightTokens from '../styles/tokens/light.json';
 
@@ -329,5 +329,81 @@ describe('Theming', () => {
     renderGrid({ theme: 'light' });
     expect(getGridStyle('--dg-row-bg')).toBe(expectedRow);
     expect(getGridStyle('--dg-header-bg')).toBe(expectedHeader);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Non-plain-object safety (regression #20)
+  //
+  // React DOM's `setValueForStyle` assigns each style property onto a
+  // `CSSStyleDeclaration` via an indexed setter. If the `style` prop ever
+  // receives an object whose keys are numeric (e.g. the indexed characters
+  // produced by accidentally spreading a string), React throws
+  // `TypeError: Indexed property setter is not supported`.
+  //
+  // Guard against that by:
+  //   1. Asserting `resolveThemeStyle` always returns a plain POJO whose
+  //      keys are valid CSS identifiers (not `"0"`, `"1"`, …).
+  //   2. Rendering the `"excel365"` preset end-to-end to confirm the grid
+  //      mounts without that TypeError being thrown.
+  // ---------------------------------------------------------------------------
+
+  describe('resolveThemeStyle returns plain-object style bag (regression #20)', () => {
+    const hasNumericIndexKeys = (obj: object): boolean =>
+      Object.keys(obj).some((k) => /^\d+$/.test(k));
+
+    it('returns a plain object for the light preset', () => {
+      const result = resolveThemeStyle('light');
+      expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+      expect(hasNumericIndexKeys(result)).toBe(false);
+    });
+
+    it('returns a plain object for the dark preset', () => {
+      const result = resolveThemeStyle('dark');
+      expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+      expect(hasNumericIndexKeys(result)).toBe(false);
+    });
+
+    it('returns a plain object for a custom token map', () => {
+      const input = { '--dg-primary-color': '#123' };
+      const result = resolveThemeStyle(input);
+      expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+      expect(hasNumericIndexKeys(result)).toBe(false);
+      // Callers treat the result as a writable CSSProperties bag; the
+      // returned object must not share identity with the caller's input
+      // (which may be frozen or otherwise exotic).
+      expect(result).not.toBe(input);
+    });
+
+    it('returns an empty plain object for an unknown string preset', () => {
+      // A string like "excel365" is handled entirely by CSS via
+      // `data-theme="excel365"`. Returning the string itself would spread
+      // indexed character properties into `style` — the exact shape that
+      // triggers `TypeError: Indexed property setter is not supported`
+      // inside React DOM's `setValueForStyle`.
+      const result = resolveThemeStyle('excel365' as unknown as 'light');
+      expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+      expect(hasNumericIndexKeys(result)).toBe(false);
+      expect(Object.keys(result)).toHaveLength(0);
+    });
+
+    it('mounts a grid with theme="excel365" without throwing indexed-setter errors', () => {
+      // The grid mounts, and its inline `style` must not contain numeric
+      // keys — `setValueForStyle` would throw if it did.
+      render(
+        <DataGrid
+          data={makeData()}
+          columns={columns}
+          rowKey="id"
+          theme={'excel365' as unknown as 'light'}
+        />,
+      );
+      const grid = screen.getByRole('grid');
+      // The data-theme attribute is how the CSS tokens get applied.
+      expect(grid.getAttribute('data-theme')).toBe('excel365');
+      // No indexed character properties leaked into the inline style.
+      for (let i = 0; i < 'excel365'.length; i++) {
+        expect(grid.style.getPropertyValue(String(i))).toBe('');
+      }
+    });
   });
 });
