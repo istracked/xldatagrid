@@ -17,7 +17,7 @@ export type { MasterDetailProps, DetailComponentProps } from './MasterDetail';
 export { useGrid, useGridWithAtoms } from './use-grid';
 export type { UseGridResult } from './use-grid';
 export { useGridStore } from './use-grid-store';
-export { useGridContext, useGridAtomContext } from './context';
+export { GridContext, useGridContext, useGridAtomContext } from './context';
 export type { GridContextValue } from './context';
 export { createAtomicGridModel } from './atomic-grid-model';
 export type { AtomicGridBundle, AtomicStore } from './atomic-grid-model';

@@ -58,6 +58,23 @@ export function useKeyboard<TData extends Record<string, unknown>>(
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
 
+    // Events originating inside a nested grid (sub-grid) must not be handled
+    // here. Each nested DataGrid instance attaches its own keydown listener
+    // on its own container ref; when the user focuses a cell inside a
+    // sub-grid the nested listener fires first and calls `stopPropagation`
+    // on handled events (see end of this switch). However native `keydown`
+    // events without an explicit stop still bubble — we guard by checking
+    // that the event target (or the closest descendant focus target) lives
+    // inside another `[role="grid"]` subtree that is not our container.
+    const container = containerRef.current;
+    if (container && e.target instanceof Element) {
+      const closestGrid = e.target.closest('[role="grid"]');
+      if (closestGrid && closestGrid !== container) {
+        // Event originated inside a nested grid — defer to its listener.
+        return;
+      }
+    }
+
     // Snapshot the current model state needed for navigation decisions.
     const state = model.getState();
     const selection = state.selection.range;
@@ -69,6 +86,59 @@ export function useKeyboard<TData extends Record<string, unknown>>(
     // selection anchor. Most key handlers are no-ops without a current cell.
     const current: CellAddress | null = editing.cell ?? selection?.anchor ?? null;
     if (!current && !['Tab'].includes(e.key)) return;
+
+    // ---------------------------------------------------------------------
+    // Sub-grid keyboard transitions
+    // ---------------------------------------------------------------------
+    //
+    // Enter on a selected sub-grid cell expands the nested grid and
+    // transfers focus into it (if the row has a sub-grid column). This
+    // overrides the default "begin edit" behaviour, which is inappropriate
+    // for sub-grid cells since they are not editable as scalars.
+    //
+    // Escape in a nested grid (when nothing is selected inside) collapses
+    // the expansion back and returns focus to the parent grid container.
+    // That arm is implemented in the outer container's listener — since
+    // `useKeyboard` runs per grid level, each listener handles its own
+    // side of the transition.
+
+    if (e.key === 'Enter' && current && !editing.cell) {
+      const col = columns.find(c => c.field === current.field);
+      if (col?.cellType === 'subGrid') {
+        e.preventDefault();
+        e.stopPropagation();
+        const expanded = state.expandedSubGrids.has(current.rowId);
+        if (!expanded) {
+          model.toggleSubGridExpansion(current.rowId);
+        }
+        // Focus the nested grid after the expansion row mounts. We look up
+        // the expansion row via the `data-testid` attribute written by the
+        // body renderer; that's a stable contract between layers.
+        requestAnimationFrame(() => {
+          if (!container) return;
+          const nested = container.querySelector<HTMLElement>(
+            `[data-testid="subgrid-expansion-${CSS.escape(current.rowId)}"] [role="grid"]`,
+          );
+          nested?.focus();
+        });
+        return;
+      }
+    }
+
+    // Escape-to-exit a sub-grid: if we're a nested grid and the user presses
+    // Escape while nothing is being edited, return focus to the nearest
+    // outer grid. This path is triggered by noting that our container has
+    // an ancestor `[role="grid"]` that isn't us.
+    if (e.key === 'Escape' && !editing.cell && container) {
+      const outerGrid = container.parentElement?.closest('[role="grid"]');
+      if (outerGrid && outerGrid !== container) {
+        e.preventDefault();
+        e.stopPropagation();
+        model.clearSelectionState();
+        (outerGrid as HTMLElement).focus();
+        return;
+      }
+    }
 
     switch (e.key) {
       // --- Tab: commit any active edit, then move horizontally within the row ---
@@ -300,7 +370,22 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         break;
       }
     }
-  }, [model, enabled]);
+
+    // Note: we deliberately do NOT call e.stopPropagation() on handled keys
+    // even though it would provide a clean Tab-boundary between nested grids.
+    // The React 19 event system delegates all synthetic events through the
+    // root, so stopping native propagation here also silences React's
+    // `onKeyDown`/`onBlur` handlers on inner elements (notably the inline
+    // editor `<input>`s), breaking commit/cancel and validation flows.
+    //
+    // The Tab-boundary guarantee is instead provided by the early-return
+    // check at the top of this handler: when an event originates inside a
+    // nested grid (`closest('[role="grid"]') !== containerRef.current`), the
+    // outer container's listener exits before doing anything, so there is no
+    // duplicate navigation. Each nested grid still updates its own model's
+    // selection in response to Tab/Shift-Tab; that update cannot bubble
+    // "through" the DOM because the model is an independent instance.
+  }, [model, enabled, containerRef]);
 
   // useEffect is necessary here because we need to imperatively attach/detach a
   // native DOM event listener on the container element after it mounts.

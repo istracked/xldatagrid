@@ -997,6 +997,94 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
   );
 
   // ---------------------------------------------------------------------------
+  // Sub-grid expansion rendering
+  // ---------------------------------------------------------------------------
+  //
+  // Each parent row that has `cellType: 'subGrid'` columns can render an
+  // inline expansion row beneath itself that hosts a fully independent nested
+  // grid. Recursion is handled by re-entering `<DataGrid>` with the parent
+  // cell's array value as its `data` and the parent column's `subGridColumns`
+  // as its `columns`. Every nested level receives its own `GridModel` via
+  // `useGridWithAtoms` so sort state, drag sessions, selection, and keyboard
+  // focus are scoped to that level.
+  //
+  // Depth tracking:
+  //   - `subGridDepth` increments by 1 for each nested grid; the outer grid
+  //     starts at 0.
+  //   - `config.subGrid?.maxDepth` caps recursion. When the current depth is
+  //     >= maxDepth, the toggle still renders but the expansion row is not
+  //     mounted. The minimum supported depth is 2 (parent → subgrid →
+  //     subgrid-within-subgrid).
+
+  const subGridDepth = config.subGrid?.nestingLevel ?? 0;
+  const subGridMaxDepth = config.subGrid?.maxDepth ?? 3;
+
+  // Resolve the first `subGrid` column on the parent row; the nested grid
+  // draws its data and columns from that column's configuration. Rows with
+  // more than one sub-grid column are rare — document the restriction in
+  // the PR and keep the common case simple.
+  const getSubGridColumnForRow = useCallback((): ColumnDef<TData> | null => {
+    for (const col of orderedVisibleColumns) {
+      if (col.cellType === 'subGrid') return col;
+    }
+    return null;
+  }, [orderedVisibleColumns]);
+
+  const renderSubGridExpansionRow = useCallback(
+    (rowId: string, row: TData): React.ReactNode => {
+      // Honour maxDepth: once we've reached the cap, skip mounting the nested
+      // grid. The toggle remains clickable; users see an empty expansion slot
+      // so the "tried to go deeper than supported" outcome is still visible.
+      if (subGridDepth >= subGridMaxDepth) return null;
+
+      const subCol = getSubGridColumnForRow();
+      if (!subCol) return null;
+
+      const rawValue = row[subCol.field as keyof TData];
+      const nestedData = Array.isArray(rawValue)
+        ? (rawValue as Record<string, unknown>[])
+        : [];
+      const nestedColumns = (subCol.subGridColumns ?? []) as ColumnDef<Record<string, unknown>>[];
+      const nestedRowKey = (subCol.subGridRowKey ?? 'id') as keyof Record<string, unknown>;
+
+      if (nestedColumns.length === 0) return null;
+
+      return (
+        <DataGrid<Record<string, unknown>>
+          key={`${rowId}-subgrid`}
+          data={nestedData}
+          columns={nestedColumns}
+          rowKey={nestedRowKey}
+          cellRenderers={cellRenderers as any}
+          keyboardNavigation={config.keyboardNavigation !== false}
+          selectionMode={config.selectionMode ?? 'cell'}
+          theme={config.theme}
+          subGrid={{
+            ...(config.subGrid ?? {}),
+            nestingLevel: subGridDepth + 1,
+            maxDepth: subGridMaxDepth,
+            isSubGrid: true,
+          }}
+          rowHeight={rowHeight}
+          headerHeight={headerHeight}
+        />
+      );
+    },
+    [
+      subGridDepth,
+      subGridMaxDepth,
+      getSubGridColumnForRow,
+      cellRenderers,
+      config.keyboardNavigation,
+      config.selectionMode,
+      config.theme,
+      config.subGrid,
+      rowHeight,
+      headerHeight,
+    ],
+  );
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
@@ -1226,6 +1314,9 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           onRowDragStart={handleRowDragStart}
           onRowDragOver={handleRowDragOver}
           onRowDrop={handleRowDrop}
+          expandedSubGrids={state.expandedSubGrids}
+          subGridDepth={subGridDepth}
+          renderSubGridExpansionRow={renderSubGridExpansionRow}
         />
 
         {contextMenuEnabled && (
