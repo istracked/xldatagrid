@@ -6,8 +6,28 @@ on:
   pull_request:
     branches: [ main ]
 
+# The `verify-precommit-parity` job below runs EXACTLY what the local
+# pre-commit hook at `.git/hooks/pre-commit` runs (typecheck + build +
+# vitest). This makes `git commit --no-verify` useless in practice: CI
+# re-runs the same three checks on every PR and every push to protected
+# branches, so bypassing the hook only delays the failure.
+#
+# The job is intended to be a REQUIRED status check in branch protection
+# rules for `main`. Configure that via the GitHub repo settings:
+#   Settings -> Branches -> Branch protection rules -> main ->
+#   "Require status checks to pass before merging" and select
+#   `verify-precommit-parity / verify`.
+#
+# Additional guards in the same job:
+#   * `pnpm tokens:check` — fails if `packages/react/src/styles/tokens/`
+#     has drifted from the SHA-256 `contentHash` recorded in
+#     `manifest.json`. Developers who forget `pnpm sync:tokens` get a red
+#     PR instead of stale palettes shipping silently.
+#   * `pnpm test:scripts` — exercises the script-level tests (Node's
+#     built-in test runner) that cover the sync-tokens CLI surface.
 jobs:
-  test:
+  verify-precommit-parity:
+    name: verify
     runs-on: ubuntu-latest
 
     strategy:
@@ -29,11 +49,53 @@ jobs:
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
 
-    - name: Type check
+    # Pre-commit-hook parity: the three commands below MUST stay in sync
+    # with `.git/hooks/pre-commit`. If you change one, change the other.
+    - name: Type check (pre-commit parity)
       run: pnpm run typecheck
 
-    - name: Build all packages
+    - name: Build all packages (pre-commit parity)
       run: pnpm run build
 
-    - name: Run tests
+    - name: Run tests (pre-commit parity)
       run: pnpm test
+
+    # Drift guard for design tokens. Fails if committed tokens no longer
+    # match the manifest `contentHash`, i.e. someone hand-edited a token
+    # file or forgot to re-run `pnpm sync:tokens` after bumping the
+    # sibling `istracked/tokens` repo.
+    - name: Tokens drift check
+      run: pnpm tokens:check
+
+    # Script-level tests (node --test) covering sync-tokens.mjs itself.
+    - name: Run script tests
+      run: pnpm run test:scripts
+
+  # YAML-lint guard for GitHub Actions workflows. `actionlint` statically
+  # validates workflow syntax, expression usage, action references, and
+  # shell snippets in `run:` blocks. This catches regressions like
+  # typo'd `uses:` versions, invalid `if:` expressions, or malformed
+  # matrix definitions *before* they land on `main` and silently break
+  # CI on the next push.
+  #
+  # The step pattern-matches `.github/workflows/*.yml` so any workflow
+  # added later (e.g. `e2e.yml` from the Playwright/Chromatic wave) is
+  # linted automatically without this file needing to be touched again.
+  #
+  # actionlint is not distributed as a GitHub Action; the upstream
+  # project recommends downloading the pinned binary via the
+  # `download-actionlint.bash` helper script. That is what we do here.
+  lint-workflows:
+    name: lint-workflows
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download actionlint
+      id: actionlint
+      run: |
+        bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.12
+        echo "actionlint=$(pwd)/actionlint" >> "$GITHUB_OUTPUT"
+
+    - name: Run actionlint on all workflow files
+      run: ${{ steps.actionlint.outputs.actionlint }} -color .github/workflows/*.yml

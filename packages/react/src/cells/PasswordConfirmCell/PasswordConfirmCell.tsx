@@ -25,6 +25,7 @@
  */
 import React, { useState, useRef, useEffect } from 'react';
 import type { CellValue, ColumnDef } from '@istracked/datagrid-core';
+import { usePasswordInput } from '../hooks/usePasswordInput';
 import * as styles from './PasswordConfirmCell.styles';
 
 /** Unicode bullet used to mask each character of the password in display mode. */
@@ -61,7 +62,18 @@ export const PasswordConfirmCell = React.memo(function PasswordConfirmCell<TData
   onCancel,
 }: PasswordConfirmCellProps<TData>) {
   const strValue = value == null ? '' : String(value);
-  const [revealed, setRevealed] = useState(false);
+  // Shared show/hide toggle, autocomplete hint, and stable ids for the two
+  // inputs + the mismatch alert. `confirmMode: true` picks the
+  // `new-password` autocomplete token, matching the original cell.
+  const {
+    visible: revealed,
+    toggle: toggleRevealed,
+    inputType,
+    autoComplete,
+    primaryInputId: input1Id,
+    confirmInputId: input2Id,
+    describedById: mismatchId,
+  } = usePasswordInput({ confirmMode: true });
   const [draft, setDraft] = useState(strValue);
   const [confirm, setConfirm] = useState(strValue);
   // `showMismatch` is only set after a commit attempt so the user doesn't see
@@ -96,7 +108,7 @@ export const PasswordConfirmCell = React.memo(function PasswordConfirmCell<TData
           aria-label={revealed ? 'Hide password' : 'Reveal password'}
           aria-pressed={revealed}
           data-testid="password-confirm-eye-display"
-          onClick={() => setRevealed((v) => !v)}
+          onClick={toggleRevealed}
           style={styles.toggleButton}
         >
           {revealed ? '\u{1F441}' : '\u{1F441}\u2013'}
@@ -128,7 +140,7 @@ export const PasswordConfirmCell = React.memo(function PasswordConfirmCell<TData
     }
   };
 
-  const inputType = revealed ? 'text' : 'password';
+  // `inputType` and `autoComplete` are sourced from usePasswordInput above.
   const mismatch = showMismatch && draft !== confirm;
 
   return (
@@ -136,8 +148,10 @@ export const PasswordConfirmCell = React.memo(function PasswordConfirmCell<TData
       <div style={styles.editInputRow}>
         <input
           ref={firstInputRef}
+          id={input1Id}
           type={inputType}
           value={draft}
+          autoComplete={autoComplete}
           onChange={(e) => {
             setDraft(e.target.value);
             if (showMismatch) setShowMismatch(false);
@@ -146,6 +160,7 @@ export const PasswordConfirmCell = React.memo(function PasswordConfirmCell<TData
           placeholder="Password"
           data-testid="password-confirm-input"
           aria-invalid={mismatch || undefined}
+          aria-describedby={mismatch ? mismatchId : undefined}
           style={styles.editInput}
         />
         <button
@@ -153,7 +168,7 @@ export const PasswordConfirmCell = React.memo(function PasswordConfirmCell<TData
           aria-label={revealed ? 'Hide password' : 'Reveal password'}
           aria-pressed={revealed}
           data-testid="password-confirm-eye"
-          onClick={() => setRevealed((v) => !v)}
+          onClick={toggleRevealed}
           style={styles.toggleButton}
         >
           {revealed ? '\u{1F441}' : '\u{1F441}\u2013'}
@@ -161,8 +176,10 @@ export const PasswordConfirmCell = React.memo(function PasswordConfirmCell<TData
       </div>
       <div style={styles.editInputRow}>
         <input
+          id={input2Id}
           type={inputType}
           value={confirm}
+          autoComplete={autoComplete}
           onChange={(e) => {
             setConfirm(e.target.value);
             if (showMismatch) setShowMismatch(false);
@@ -171,6 +188,7 @@ export const PasswordConfirmCell = React.memo(function PasswordConfirmCell<TData
           placeholder="Confirm password"
           data-testid="password-confirm-input-confirm"
           aria-invalid={mismatch || undefined}
+          aria-describedby={mismatch ? mismatchId : undefined}
           style={styles.editInput}
         />
         {/* Spacer keeps the two input widths identical. The eye toggle only
@@ -182,6 +200,7 @@ export const PasswordConfirmCell = React.memo(function PasswordConfirmCell<TData
       {mismatch && (
         <div
           role="alert"
+          id={mismatchId}
           data-testid="password-confirm-mismatch"
           style={styles.mismatchMessage}
         >

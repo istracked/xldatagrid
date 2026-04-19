@@ -19,8 +19,9 @@
  *   4. Other selection modes (`cell`, `range`, `none`) retain their
  *      pre-existing cell-click semantics.
  */
+import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { DataGrid } from '../DataGrid';
+import { DataGrid, CellRendererProps } from '../DataGrid';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -138,6 +139,53 @@ describe('row-click selection (issue #15)', () => {
       getAllCellsInRow(rowId).forEach((cell) => {
         expect(hasSelectionOutline(cell)).toBe(true);
       });
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// defaultPrevented guard
+// ---------------------------------------------------------------------------
+
+describe('row-click selection respects e.defaultPrevented', () => {
+  it('does NOT trigger row selection when a custom cell renderer calls e.preventDefault()', () => {
+    // A custom renderer that calls preventDefault on every click. This simulates
+    // a consumer that owns the click (e.g. opens a popup). DataGridBody must
+    // check e.defaultPrevented before routing to onRowNumberClick.
+    function StopRenderer({ value }: CellRendererProps) {
+      return (
+        <span
+          data-testid="custom-cell"
+          onClick={(e: React.MouseEvent) => e.preventDefault()}
+        >
+          {String(value)}
+        </span>
+      );
+    }
+
+    const cols = [
+      { id: 'name', field: 'name', title: 'Name', cellType: 'stop' as const },
+      { id: 'age', field: 'age', title: 'Age' },
+    ];
+
+    render(
+      <DataGrid
+        data={makeRows()}
+        columns={cols as any}
+        rowKey="id"
+        selectionMode="row"
+        cellRenderers={{ stop: StopRenderer as any }}
+      />,
+    );
+
+    // Clicking the inner span will bubble up with defaultPrevented=true.
+    // The gridcell onClick (handleCellClick) must bail out before row-select.
+    const customCell = screen.getAllByTestId('custom-cell')[0]!;
+    fireEvent.click(customCell);
+
+    // No cell in row 1 should have a selection outline.
+    getAllCellsInRow('1').forEach((cell) => {
+      expect(hasSelectionOutline(cell)).toBe(false);
     });
   });
 });

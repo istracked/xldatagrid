@@ -72,20 +72,41 @@ export function useKeyboard<TData extends Record<string, unknown>>(
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
 
-    // Events originating inside a nested grid (sub-grid) must not be handled
-    // here. Each nested DataGrid instance attaches its own keydown listener
-    // on its own container ref; when the user focuses a cell inside a
-    // sub-grid the nested listener fires first and calls `stopPropagation`
-    // on handled events (see end of this switch). However native `keydown`
-    // events without an explicit stop still bubble — we guard by checking
-    // that the event target (or the closest descendant focus target) lives
-    // inside another `[role="grid"]` subtree that is not our container.
+    // Scope guard: only handle events whose target is directly inside this
+    // grid's container, not inside a nested sub-grid or an unrelated element.
+    //
+    // The previous implementation used `e.target.closest('[role="grid"]')` to
+    // detect "is this target inside a different grid subtree?" However, that
+    // approach is fragile: any consumer element with `role="grid"` placed
+    // inside the DataGrid DOM tree (e.g. a cell renderer widget) causes the
+    // closest() call to return that element instead of the DataGrid root,
+    // making `closestGrid !== container` evaluate to true and silently
+    // discarding the event.
+    //
+    // The ref-based fix uses `container.contains(e.target)` to confirm the
+    // target lives inside OUR container, then additionally checks whether it
+    // also lives inside a NESTED [role="grid"] descendant. If the target is
+    // in a proper descendant grid, we defer to that grid's own listener.
     const container = containerRef.current;
     if (container && e.target instanceof Element) {
-      const closestGrid = e.target.closest('[role="grid"]');
-      if (closestGrid && closestGrid !== container) {
-        // Event originated inside a nested grid — defer to its listener.
-        return;
+      // If the target is not inside this container at all, ignore the event.
+      if (!container.contains(e.target)) return;
+
+      // If the target is inside this container but also inside a proper
+      // nested DataGrid instance (identified by the `istracked-datagrid`
+      // class on the nested grid root), defer to that grid's own handler.
+      // We walk from the target upward and stop at container. Using the
+      // `istracked-datagrid` class rather than `role="grid"` avoids false
+      // positives from consumer elements that happen to carry `role="grid"`
+      // (e.g. accessibility wrappers, toolbar composites) which have no
+      // DataGrid keyboard handler attached to them.
+      let el: Element | null = e.target;
+      while (el && el !== container) {
+        if (el.classList.contains('istracked-datagrid')) {
+          // Target is inside a nested DataGrid — defer.
+          return;
+        }
+        el = el.parentElement;
       }
     }
 
@@ -152,6 +173,14 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         (outerGrid as HTMLElement).focus();
         return;
       }
+    }
+
+    // IME composition guard: keyCode 229 is the pre-composition sentinel
+    // emitted by some browsers; isComposing is the standard flag. Either means
+    // the candidate window is open — committing or advancing here would destroy
+    // in-progress CJK text.
+    if ((e.isComposing || e.keyCode === 229) && (e.key === 'Tab' || e.key === 'Enter')) {
+      return;
     }
 
     switch (e.key) {
