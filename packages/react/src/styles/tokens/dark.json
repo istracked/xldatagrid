@@ -1,0 +1,3255 @@
+{
+  "$schema": "https://www.designtokens.org/schemas/2025.10/format.json",
+  "$description": "iAsBuilt Semantic Color Tokens \u2014 Dark Mode",
+  "color": {
+    "global": {
+      "bg": {
+        "app": {
+          "default": {
+            "$type": "color",
+            "$description": "Top-level app chrome background; the main canvas behind shell UI.",
+            "$value": "#0B1120"
+          }
+        },
+        "appSubtle": {
+          "default": {
+            "$type": "color",
+            "$description": "Slightly elevated variant of the app background for subtle zoning.",
+            "$value": "#0F172A"
+          }
+        },
+        "canvas": {
+          "default": {
+            "$type": "color",
+            "$description": "Primary content canvas where documents and panels are rendered.",
+            "$value": "#0F172A"
+          }
+        },
+        "canvasInset": {
+          "default": {
+            "$type": "color",
+            "$description": "Recessed area within a canvas, e.g. inset toolbars or wells.",
+            "$value": "#020617"
+          }
+        },
+        "page": {
+          "default": {
+            "$type": "color",
+            "$description": "Page-level background framing the canvas; the lowest layer behind app content.",
+            "$value": "#0B1120"
+          }
+        },
+        "scrim": {
+          "default": {
+            "$type": "color",
+            "$description": "Dimming overlay placed behind modals and sheets to focus attention.",
+            "$value": "#000000"
+          }
+        },
+        "backdropTint": {
+          "default": {
+            "$type": "color",
+            "$description": "Tinted backdrop layer applied beneath floating surfaces.",
+            "$value": "#000000"
+          }
+        },
+        "inverse": {
+          "default": {
+            "$type": "color",
+            "$description": "Inverted background used for high-contrast surfaces like tooltips.",
+            "$value": "#F8FAFC"
+          }
+        }
+      },
+      "surface": {
+        "base": {
+          "default": {
+            "$type": "color",
+            "$description": "Default surface tier for cards, panels and content blocks.",
+            "$value": "#0F172A"
+          }
+        },
+        "subtle": {
+          "default": {
+            "$type": "color",
+            "$description": "Slightly elevated surface used to differentiate adjacent regions.",
+            "$value": "#1E293B"
+          }
+        },
+        "sunken": {
+          "default": {
+            "$type": "color",
+            "$description": "Recessed surface tier suggesting depth below the base layer.",
+            "$value": "#020617"
+          }
+        },
+        "raised": {
+          "default": {
+            "$type": "color",
+            "$description": "Elevated surface tier for cards lifted above the base layer.",
+            "$value": "#1E293B"
+          }
+        },
+        "floating": {
+          "default": {
+            "$type": "color",
+            "$description": "Surface tier for floating UI such as menus and dropdowns.",
+            "$value": "#1E293B"
+          }
+        },
+        "modal": {
+          "default": {
+            "$type": "color",
+            "$description": "Surface tier for modal dialogs and full overlays.",
+            "$value": "#1E293B"
+          }
+        },
+        "popover": {
+          "default": {
+            "$type": "color",
+            "$description": "Surface tier for popovers and richer detached panels.",
+            "$value": "#1E293B"
+          }
+        },
+        "tooltip": {
+          "default": {
+            "$type": "color",
+            "$description": "Inverted surface tier for tooltips to ensure strong contrast.",
+            "$value": "#F8FAFC"
+          }
+        },
+        "inverse": {
+          "default": {
+            "$type": "color",
+            "$description": "High-contrast inverted surface for emphasis blocks.",
+            "$value": "#F8FAFC"
+          }
+        },
+        "brandSubtle": {
+          "default": {
+            "$type": "color",
+            "$description": "Tinted surface in the brand hue for soft brand context.",
+            "$value": "#172554"
+          }
+        },
+        "brandStrong": {
+          "default": {
+            "$type": "color",
+            "$description": "Saturated surface in the brand hue for prominent brand context.",
+            "$value": "#3584e4"
+          }
+        },
+        "disabled": {
+          "default": {
+            "$type": "color",
+            "$description": "Surface tier indicating a disabled or inactive region.",
+            "$value": "#1E293B"
+          }
+        },
+        "selected": {
+          "default": {
+            "$type": "color",
+            "$description": "Surface tier indicating a selected or active region.",
+            "$value": "#1E3A8A"
+          }
+        }
+      },
+      "text": {
+        "primary": {
+          "default": {
+            "$type": "color",
+            "$description": "Primary body text; the highest-contrast text role.",
+            "$value": "#F8FAFC"
+          }
+        },
+        "secondary": {
+          "default": {
+            "$type": "color",
+            "$description": "Secondary text for supporting copy and labels.",
+            "$value": "#CBD5E1"
+          }
+        },
+        "tertiary": {
+          "default": {
+            "$type": "color",
+            "$description": "Tertiary text for de-emphasized helper content.",
+            "$value": "#94A3B8"
+          }
+        },
+        "muted": {
+          "default": {
+            "$type": "color",
+            "$description": "Muted text for the lowest-priority readable text.",
+            "$value": "#64748B"
+          }
+        },
+        "disabled": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color used on disabled controls and content.",
+            "$value": "#475569"
+          }
+        },
+        "inverse": {
+          "default": {
+            "$type": "color",
+            "$description": "Inverted text used on light or saturated surfaces.",
+            "$value": "#0F172A"
+          }
+        },
+        "onBrand": {
+          "default": {
+            "$type": "color",
+            "$description": "Text used directly on top of brand-strong surfaces.",
+            "$value": "#FFFFFF"
+          }
+        },
+        "link": {
+          "default": {
+            "$type": "color",
+            "$description": "Default link color in body text.",
+            "$value": "#62a0ea"
+          },
+          "hover": {
+            "$type": "color",
+            "$description": "Link color on hover; one tonal step lighter than default.",
+            "$value": "#A4C5EE"
+          },
+          "visited": {
+            "$type": "color",
+            "$description": "Visited link color in a complementary purple-blue.",
+            "$value": "#A5B4FC"
+          }
+        },
+        "success": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color conveying a successful or positive state.",
+            "$value": "#4ADE80"
+          }
+        },
+        "warning": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color conveying caution or pending attention.",
+            "$value": "#FCD34D"
+          }
+        },
+        "danger": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color conveying an error or destructive state.",
+            "$value": "#F87171"
+          }
+        },
+        "info": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color conveying informational context.",
+            "$value": "#60A5FA"
+          }
+        }
+      },
+      "icon": {
+        "primary": {
+          "default": {
+            "$type": "color",
+            "$description": "Primary icon color matching primary text emphasis.",
+            "$value": "#E2E8F0"
+          }
+        },
+        "secondary": {
+          "default": {
+            "$type": "color",
+            "$description": "Secondary icon color for supporting glyphs.",
+            "$value": "#94A3B8"
+          }
+        },
+        "tertiary": {
+          "default": {
+            "$type": "color",
+            "$description": "Tertiary icon color for low-emphasis glyphs.",
+            "$value": "#64748B"
+          }
+        },
+        "disabled": {
+          "default": {
+            "$type": "color",
+            "$description": "Icon color for disabled or inactive controls.",
+            "$value": "#475569"
+          }
+        },
+        "inverse": {
+          "default": {
+            "$type": "color",
+            "$description": "Inverted icon color for light or brand-strong surfaces.",
+            "$value": "#0F172A"
+          }
+        },
+        "onBrand": {
+          "default": {
+            "$type": "color",
+            "$description": "Icon color used directly on brand-strong surfaces.",
+            "$value": "#FFFFFF"
+          }
+        },
+        "success": {
+          "default": {
+            "$type": "color",
+            "$description": "Icon color conveying success or completion.",
+            "$value": "#4ADE80"
+          }
+        },
+        "warning": {
+          "default": {
+            "$type": "color",
+            "$description": "Icon color conveying caution or pending state.",
+            "$value": "#FBBF24"
+          }
+        },
+        "danger": {
+          "default": {
+            "$type": "color",
+            "$description": "Icon color conveying error or destructive intent.",
+            "$value": "#F87171"
+          }
+        },
+        "info": {
+          "default": {
+            "$type": "color",
+            "$description": "Icon color conveying informational context.",
+            "$value": "#60A5FA"
+          }
+        }
+      },
+      "border": {
+        "subtle": {
+          "default": {
+            "$type": "color",
+            "$description": "Subtle border for low-emphasis separation.",
+            "$value": "#1E293B"
+          }
+        },
+        "default": {
+          "default": {
+            "$type": "color",
+            "$description": "Default border for inputs, cards and containers.",
+            "$value": "#334155"
+          }
+        },
+        "strong": {
+          "default": {
+            "$type": "color",
+            "$description": "Strong border for emphasis or active outlines.",
+            "$value": "#64748B"
+          }
+        },
+        "inverse": {
+          "default": {
+            "$type": "color",
+            "$description": "Inverted border for use on light surfaces.",
+            "$value": "#CBD5E1"
+          }
+        },
+        "focus": {
+          "default": {
+            "$type": "color",
+            "$description": "Border indicating keyboard focus on a control.",
+            "$value": "#62a0ea"
+          }
+        },
+        "brand": {
+          "default": {
+            "$type": "color",
+            "$description": "Border in the brand hue used for primary emphasis.",
+            "$value": "#62a0ea"
+          }
+        },
+        "success": {
+          "default": {
+            "$type": "color",
+            "$description": "Border conveying a successful state.",
+            "$value": "#22C55E"
+          }
+        },
+        "warning": {
+          "default": {
+            "$type": "color",
+            "$description": "Border conveying a warning state.",
+            "$value": "#FBBF24"
+          }
+        },
+        "danger": {
+          "default": {
+            "$type": "color",
+            "$description": "Border conveying an error or destructive state.",
+            "$value": "#EF4444"
+          }
+        },
+        "info": {
+          "default": {
+            "$type": "color",
+            "$description": "Border conveying an informational state.",
+            "$value": "#3B82F6"
+          }
+        },
+        "disabled": {
+          "default": {
+            "$type": "color",
+            "$description": "Border color for disabled or inactive controls.",
+            "$value": "#334155"
+          }
+        }
+      },
+      "divider": {
+        "subtle": {
+          "default": {
+            "$type": "color",
+            "$description": "Subtle horizontal or vertical divider line.",
+            "$value": "#1E293B"
+          }
+        },
+        "default": {
+          "default": {
+            "$type": "color",
+            "$description": "Default divider line for sectioning content.",
+            "$value": "#334155"
+          }
+        },
+        "strong": {
+          "default": {
+            "$type": "color",
+            "$description": "Strong divider line for high-emphasis separation.",
+            "$value": "#64748B"
+          }
+        }
+      },
+      "focus": {
+        "ring": {
+          "default": {
+            "$type": "color",
+            "$description": "Focus ring color used around focused controls.",
+            "$value": "#62a0ea"
+          }
+        },
+        "ringInset": {
+          "default": {
+            "$type": "color",
+            "$description": "Inset focus ring applied inside the control bounds.",
+            "$value": "#62a0ea"
+          }
+        },
+        "outline": {
+          "default": {
+            "$type": "color",
+            "$description": "Focus outline drawn outside the control bounds.",
+            "$value": "#62a0ea"
+          }
+        }
+      },
+      "selection": {
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "Background color for selected text or items.",
+            "$value": "#1E3A8A"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border color framing a selected item.",
+            "$value": "#62a0ea"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color used inside selected regions.",
+            "$value": "#D1E2F7"
+          }
+        },
+        "handle": {
+          "default": {
+            "$type": "color",
+            "$description": "Drag handle color shown on selected ranges.",
+            "$value": "#62a0ea"
+          }
+        }
+      },
+      "shadow": {
+        "ambient": {
+          "default": {
+            "$type": "color",
+            "$description": "Ambient shadow color used for soft surrounding lift.",
+            "$value": "#000000"
+          }
+        },
+        "key": {
+          "default": {
+            "$type": "color",
+            "$description": "Key directional shadow giving primary depth cue.",
+            "$value": "#000000"
+          }
+        },
+        "overlay": {
+          "default": {
+            "$type": "color",
+            "$description": "Stronger shadow used beneath floating overlays.",
+            "$value": "#000000"
+          }
+        }
+      },
+      "brand": {
+        "primary": {
+          "default": {
+            "$type": "color",
+            "$description": "Primary iAsBuilt brand blue tuned to read on dark surfaces.",
+            "$value": "#62a0ea"
+          },
+          "hover": {
+            "$type": "color",
+            "$description": "Primary brand color on hover; one tonal step lighter.",
+            "$value": "#A4C5EE"
+          },
+          "active": {
+            "$type": "color",
+            "$description": "Primary brand color on active/pressed; two tonal steps lighter.",
+            "$value": "#D1E2F7"
+          }
+        },
+        "secondary": {
+          "default": {
+            "$type": "color",
+            "$description": "Secondary brand color in desaturated slate for supporting accents.",
+            "$value": "#94A3B8"
+          },
+          "hover": {
+            "$type": "color",
+            "$description": "Secondary brand color on hover.",
+            "$value": "#CBD5E1"
+          },
+          "active": {
+            "$type": "color",
+            "$description": "Secondary brand color on active/pressed.",
+            "$value": "#E2E8F0"
+          }
+        },
+        "accent": {
+          "default": {
+            "$type": "color",
+            "$description": "Brand accent in light Blue tuned for dark surfaces.",
+            "$value": "#A4C5EE"
+          }
+        },
+        "accentSubtle": {
+          "default": {
+            "$type": "color",
+            "$description": "Subtle brand accent for tinted backgrounds and chips.",
+            "$value": "#172554"
+          }
+        }
+      }
+    },
+    "feedback": {
+      "neutral": {
+        "bg": {
+          "subtle": {
+            "$type": "color",
+            "$description": "Subtle background tint for neutral status messaging.",
+            "$value": "#1E293B"
+          },
+          "strong": {
+            "$type": "color",
+            "$description": "Strong saturated background for neutral status emphasis.",
+            "$value": "#94A3B8"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color paired with neutral feedback surfaces.",
+            "$value": "#CBD5E1"
+          }
+        },
+        "icon": {
+          "default": {
+            "$type": "color",
+            "$description": "Icon color paired with neutral feedback surfaces.",
+            "$value": "#94A3B8"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border color paired with neutral feedback surfaces.",
+            "$value": "#334155"
+          }
+        }
+      },
+      "info": {
+        "bg": {
+          "subtle": {
+            "$type": "color",
+            "$description": "Subtle background tint for info status messaging.",
+            "$value": "#172554"
+          },
+          "strong": {
+            "$type": "color",
+            "$description": "Strong saturated background for info status emphasis.",
+            "$value": "#3B82F6"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color paired with info feedback surfaces.",
+            "$value": "#60A5FA"
+          }
+        },
+        "icon": {
+          "default": {
+            "$type": "color",
+            "$description": "Icon color paired with info feedback surfaces.",
+            "$value": "#60A5FA"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border color paired with info feedback surfaces.",
+            "$value": "#3B82F6"
+          }
+        }
+      },
+      "success": {
+        "bg": {
+          "subtle": {
+            "$type": "color",
+            "$description": "Subtle background tint for success status messaging.",
+            "$value": "#052214"
+          },
+          "strong": {
+            "$type": "color",
+            "$description": "Strong saturated background for success status emphasis.",
+            "$value": "#22C55E"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color paired with success feedback surfaces.",
+            "$value": "#4ADE80"
+          }
+        },
+        "icon": {
+          "default": {
+            "$type": "color",
+            "$description": "Icon color paired with success feedback surfaces.",
+            "$value": "#4ADE80"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border color paired with success feedback surfaces.",
+            "$value": "#22C55E"
+          }
+        }
+      },
+      "warning": {
+        "bg": {
+          "subtle": {
+            "$type": "color",
+            "$description": "Subtle background tint for warning status messaging.",
+            "$value": "#251805"
+          },
+          "strong": {
+            "$type": "color",
+            "$description": "Strong saturated background for warning status emphasis.",
+            "$value": "#FBBF24"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color paired with warning feedback surfaces.",
+            "$value": "#FCD34D"
+          }
+        },
+        "icon": {
+          "default": {
+            "$type": "color",
+            "$description": "Icon color paired with warning feedback surfaces.",
+            "$value": "#FBBF24"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border color paired with warning feedback surfaces.",
+            "$value": "#FBBF24"
+          }
+        }
+      },
+      "danger": {
+        "bg": {
+          "subtle": {
+            "$type": "color",
+            "$description": "Subtle background tint for danger status messaging.",
+            "$value": "#2D0606"
+          },
+          "strong": {
+            "$type": "color",
+            "$description": "Strong saturated background for danger status emphasis.",
+            "$value": "#EF4444"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color paired with danger feedback surfaces.",
+            "$value": "#F87171"
+          }
+        },
+        "icon": {
+          "default": {
+            "$type": "color",
+            "$description": "Icon color paired with danger feedback surfaces.",
+            "$value": "#F87171"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border color paired with danger feedback surfaces.",
+            "$value": "#EF4444"
+          }
+        }
+      },
+      "critical": {
+        "bg": {
+          "subtle": {
+            "$type": "color",
+            "$description": "Subtle background tint for critical status messaging.",
+            "$value": "#3F0707"
+          },
+          "strong": {
+            "$type": "color",
+            "$description": "Strong saturated background for critical status emphasis.",
+            "$value": "#F87171"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color paired with critical feedback surfaces.",
+            "$value": "#FCA5A5"
+          }
+        },
+        "icon": {
+          "default": {
+            "$type": "color",
+            "$description": "Icon color paired with critical feedback surfaces.",
+            "$value": "#FCA5A5"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border color paired with critical feedback surfaces.",
+            "$value": "#F87171"
+          }
+        }
+      }
+    },
+    "actions": {
+      "link": {
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Default link text color.",
+            "$value": "#62a0ea"
+          },
+          "hover": {
+            "$type": "color",
+            "$description": "Link text on hover; one tonal step lighter.",
+            "$value": "#A4C5EE"
+          },
+          "active": {
+            "$type": "color",
+            "$description": "Link text on active press; two tonal steps lighter.",
+            "$value": "#D1E2F7"
+          },
+          "visited": {
+            "$type": "color",
+            "$description": "Visited link text in complementary purple-blue.",
+            "$value": "#A5B4FC"
+          }
+        },
+        "icon": {
+          "default": {
+            "$type": "color",
+            "$description": "Default icon color paired with link text.",
+            "$value": "#62a0ea"
+          },
+          "hover": {
+            "$type": "color",
+            "$description": "Icon color paired with hovered link text.",
+            "$value": "#A4C5EE"
+          }
+        },
+        "underline": {
+          "default": {
+            "$type": "color",
+            "$description": "Default link underline color.",
+            "$value": "#62a0ea"
+          },
+          "hover": {
+            "$type": "color",
+            "$description": "Link underline color on hover.",
+            "$value": "#A4C5EE"
+          }
+        },
+        "disabled": {
+          "default": {
+            "$type": "color",
+            "$description": "Disabled state for link text, icon and underline.",
+            "$value": "#475569"
+          }
+        }
+      },
+      "toggle": {
+        "track": {
+          "off": {
+            "$type": "color",
+            "$description": "Toggle track in the off state.",
+            "$value": "#334155"
+          },
+          "on": {
+            "$type": "color",
+            "$description": "Toggle track in the on state, in brand color.",
+            "$value": "#3584e4"
+          },
+          "disabled": {
+            "$type": "color",
+            "$description": "Toggle track when the control is disabled.",
+            "$value": "#1E293B"
+          }
+        },
+        "thumb": {
+          "off": {
+            "$type": "color",
+            "$description": "Toggle thumb in the off state.",
+            "$value": "#E2E8F0"
+          },
+          "on": {
+            "$type": "color",
+            "$description": "Toggle thumb in the on state.",
+            "$value": "#FFFFFF"
+          },
+          "disabled": {
+            "$type": "color",
+            "$description": "Toggle thumb when the control is disabled.",
+            "$value": "#475569"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border around the toggle track.",
+            "$value": "#334155"
+          }
+        },
+        "focus": {
+          "default": {
+            "$type": "color",
+            "$description": "Focus ring color for the toggle.",
+            "$value": "#62a0ea"
+          }
+        }
+      },
+      "checkbox": {
+        "bg": {
+          "unchecked": {
+            "$type": "color",
+            "$description": "Checkbox background when unchecked.",
+            "$value": "#0F172A"
+          },
+          "checked": {
+            "$type": "color",
+            "$description": "Checkbox background when checked.",
+            "$value": "#3584e4"
+          },
+          "indeterminate": {
+            "$type": "color",
+            "$description": "Checkbox background in the indeterminate state.",
+            "$value": "#3584e4"
+          },
+          "disabled": {
+            "$type": "color",
+            "$description": "Checkbox background when disabled.",
+            "$value": "#1E293B"
+          }
+        },
+        "icon": {
+          "checked": {
+            "$type": "color",
+            "$description": "Checkmark glyph color shown when checked.",
+            "$value": "#FFFFFF"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Default checkbox border.",
+            "$value": "#475569"
+          },
+          "hover": {
+            "$type": "color",
+            "$description": "Checkbox border on hover.",
+            "$value": "#62a0ea"
+          },
+          "focus": {
+            "$type": "color",
+            "$description": "Checkbox border when focused.",
+            "$value": "#62a0ea"
+          }
+        }
+      },
+      "radio": {
+        "bg": {
+          "unchecked": {
+            "$type": "color",
+            "$description": "Radio background when unchecked.",
+            "$value": "#0F172A"
+          },
+          "checked": {
+            "$type": "color",
+            "$description": "Radio background when checked.",
+            "$value": "#0F172A"
+          },
+          "disabled": {
+            "$type": "color",
+            "$description": "Radio background when disabled.",
+            "$value": "#1E293B"
+          }
+        },
+        "dot": {
+          "checked": {
+            "$type": "color",
+            "$description": "Inner dot color when the radio is checked.",
+            "$value": "#62a0ea"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Default radio border.",
+            "$value": "#475569"
+          },
+          "hover": {
+            "$type": "color",
+            "$description": "Radio border on hover.",
+            "$value": "#62a0ea"
+          },
+          "focus": {
+            "$type": "color",
+            "$description": "Radio border when focused.",
+            "$value": "#62a0ea"
+          }
+        }
+      },
+      "button": {
+        "primary": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background of the primary button at rest.",
+              "$value": "#3584e4"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Background of the primary button on hover.",
+              "$value": "#62a0ea"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Background of the primary button when active or pressed.",
+              "$value": "#A4C5EE"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Background of the primary button when disabled.",
+              "$value": "#1E293B"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Background of the primary button when focused.",
+              "$value": "#3584e4"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Text color of the primary button at rest.",
+              "$value": "#FFFFFF"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Text color of the primary button on hover.",
+              "$value": "#0F172A"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Text color of the primary button when active or pressed.",
+              "$value": "#0F172A"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Text color of the primary button when disabled.",
+              "$value": "#475569"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Text color of the primary button when focused.",
+              "$value": "#FFFFFF"
+            }
+          },
+          "icon": {
+            "default": {
+              "$type": "color",
+              "$description": "Icon color of the primary button at rest.",
+              "$value": "#FFFFFF"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Icon color of the primary button on hover.",
+              "$value": "#0F172A"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Icon color of the primary button when active or pressed.",
+              "$value": "#0F172A"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Icon color of the primary button when disabled.",
+              "$value": "#475569"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Icon color of the primary button when focused.",
+              "$value": "#FFFFFF"
+            }
+          },
+          "border": {
+            "default": {
+              "$type": "color",
+              "$description": "Border color of the primary button at rest.",
+              "$value": "#3584e4"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Border color of the primary button on hover.",
+              "$value": "#62a0ea"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Border color of the primary button when active or pressed.",
+              "$value": "#A4C5EE"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Border color of the primary button when disabled.",
+              "$value": "#1E293B"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Border color of the primary button when focused.",
+              "$value": "#62a0ea"
+            }
+          }
+        },
+        "secondary": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background of the secondary button at rest.",
+              "$value": "#1E293B"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Background of the secondary button on hover.",
+              "$value": "#334155"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Background of the secondary button when active or pressed.",
+              "$value": "#475569"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Background of the secondary button when disabled.",
+              "$value": "#1E293B"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Background of the secondary button when focused.",
+              "$value": "#1E293B"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Text color of the secondary button at rest.",
+              "$value": "#F1F5F9"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Text color of the secondary button on hover.",
+              "$value": "#FFFFFF"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Text color of the secondary button when active or pressed.",
+              "$value": "#FFFFFF"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Text color of the secondary button when disabled.",
+              "$value": "#475569"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Text color of the secondary button when focused.",
+              "$value": "#F1F5F9"
+            }
+          },
+          "icon": {
+            "default": {
+              "$type": "color",
+              "$description": "Icon color of the secondary button at rest.",
+              "$value": "#F1F5F9"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Icon color of the secondary button on hover.",
+              "$value": "#FFFFFF"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Icon color of the secondary button when active or pressed.",
+              "$value": "#FFFFFF"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Icon color of the secondary button when disabled.",
+              "$value": "#475569"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Icon color of the secondary button when focused.",
+              "$value": "#F1F5F9"
+            }
+          },
+          "border": {
+            "default": {
+              "$type": "color",
+              "$description": "Border color of the secondary button at rest.",
+              "$value": "#334155"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Border color of the secondary button on hover.",
+              "$value": "#475569"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Border color of the secondary button when active or pressed.",
+              "$value": "#64748B"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Border color of the secondary button when disabled.",
+              "$value": "#1E293B"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Border color of the secondary button when focused.",
+              "$value": "#62a0ea"
+            }
+          }
+        },
+        "tertiary": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background of the tertiary button at rest.",
+              "$value": "#334155"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Background of the tertiary button on hover.",
+              "$value": "#475569"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Background of the tertiary button when active or pressed.",
+              "$value": "#64748B"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Background of the tertiary button when disabled.",
+              "$value": "#1E293B"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Background of the tertiary button when focused.",
+              "$value": "#334155"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Text color of the tertiary button at rest.",
+              "$value": "#F1F5F9"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Text color of the tertiary button on hover.",
+              "$value": "#FFFFFF"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Text color of the tertiary button when active or pressed.",
+              "$value": "#FFFFFF"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Text color of the tertiary button when disabled.",
+              "$value": "#475569"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Text color of the tertiary button when focused.",
+              "$value": "#F1F5F9"
+            }
+          },
+          "icon": {
+            "default": {
+              "$type": "color",
+              "$description": "Icon color of the tertiary button at rest.",
+              "$value": "#F1F5F9"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Icon color of the tertiary button on hover.",
+              "$value": "#FFFFFF"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Icon color of the tertiary button when active or pressed.",
+              "$value": "#FFFFFF"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Icon color of the tertiary button when disabled.",
+              "$value": "#475569"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Icon color of the tertiary button when focused.",
+              "$value": "#F1F5F9"
+            }
+          },
+          "border": {
+            "default": {
+              "$type": "color",
+              "$description": "Border color of the tertiary button at rest.",
+              "$value": "#334155"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Border color of the tertiary button on hover.",
+              "$value": "#475569"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Border color of the tertiary button when active or pressed.",
+              "$value": "#64748B"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Border color of the tertiary button when disabled.",
+              "$value": "#1E293B"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Border color of the tertiary button when focused.",
+              "$value": "#62a0ea"
+            }
+          }
+        },
+        "ghost": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background of the ghost button at rest.",
+              "$value": "#00000000"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Background of the ghost button on hover.",
+              "$value": "#1E293B"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Background of the ghost button when active or pressed.",
+              "$value": "#334155"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Background of the ghost button when disabled.",
+              "$value": "#00000000"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Background of the ghost button when focused.",
+              "$value": "#00000000"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Text color of the ghost button at rest.",
+              "$value": "#F1F5F9"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Text color of the ghost button on hover.",
+              "$value": "#FFFFFF"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Text color of the ghost button when active or pressed.",
+              "$value": "#FFFFFF"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Text color of the ghost button when disabled.",
+              "$value": "#475569"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Text color of the ghost button when focused.",
+              "$value": "#F1F5F9"
+            }
+          },
+          "icon": {
+            "default": {
+              "$type": "color",
+              "$description": "Icon color of the ghost button at rest.",
+              "$value": "#F1F5F9"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Icon color of the ghost button on hover.",
+              "$value": "#FFFFFF"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Icon color of the ghost button when active or pressed.",
+              "$value": "#FFFFFF"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Icon color of the ghost button when disabled.",
+              "$value": "#475569"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Icon color of the ghost button when focused.",
+              "$value": "#F1F5F9"
+            }
+          },
+          "border": {
+            "default": {
+              "$type": "color",
+              "$description": "Border color of the ghost button at rest.",
+              "$value": "#00000000"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Border color of the ghost button on hover.",
+              "$value": "#00000000"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Border color of the ghost button when active or pressed.",
+              "$value": "#00000000"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Border color of the ghost button when disabled.",
+              "$value": "#00000000"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Border color of the ghost button when focused.",
+              "$value": "#62a0ea"
+            }
+          }
+        },
+        "danger": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background of the danger button at rest.",
+              "$value": "#EF4444"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Background of the danger button on hover.",
+              "$value": "#F87171"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Background of the danger button when active or pressed.",
+              "$value": "#FCA5A5"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Background of the danger button when disabled.",
+              "$value": "#1E293B"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Background of the danger button when focused.",
+              "$value": "#EF4444"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Text color of the danger button at rest.",
+              "$value": "#FFFFFF"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Text color of the danger button on hover.",
+              "$value": "#0F172A"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Text color of the danger button when active or pressed.",
+              "$value": "#0F172A"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Text color of the danger button when disabled.",
+              "$value": "#475569"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Text color of the danger button when focused.",
+              "$value": "#FFFFFF"
+            }
+          },
+          "icon": {
+            "default": {
+              "$type": "color",
+              "$description": "Icon color of the danger button at rest.",
+              "$value": "#FFFFFF"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Icon color of the danger button on hover.",
+              "$value": "#0F172A"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Icon color of the danger button when active or pressed.",
+              "$value": "#0F172A"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Icon color of the danger button when disabled.",
+              "$value": "#475569"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Icon color of the danger button when focused.",
+              "$value": "#FFFFFF"
+            }
+          },
+          "border": {
+            "default": {
+              "$type": "color",
+              "$description": "Border color of the danger button at rest.",
+              "$value": "#EF4444"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Border color of the danger button on hover.",
+              "$value": "#F87171"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Border color of the danger button when active or pressed.",
+              "$value": "#FCA5A5"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Border color of the danger button when disabled.",
+              "$value": "#1E293B"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Border color of the danger button when focused.",
+              "$value": "#62a0ea"
+            }
+          }
+        },
+        "success": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background of the success button at rest.",
+              "$value": "#22C55E"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Background of the success button on hover.",
+              "$value": "#4ADE80"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Background of the success button when active or pressed.",
+              "$value": "#86EFAC"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Background of the success button when disabled.",
+              "$value": "#1E293B"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Background of the success button when focused.",
+              "$value": "#22C55E"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Text color of the success button at rest.",
+              "$value": "#FFFFFF"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Text color of the success button on hover.",
+              "$value": "#0F172A"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Text color of the success button when active or pressed.",
+              "$value": "#0F172A"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Text color of the success button when disabled.",
+              "$value": "#475569"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Text color of the success button when focused.",
+              "$value": "#FFFFFF"
+            }
+          },
+          "icon": {
+            "default": {
+              "$type": "color",
+              "$description": "Icon color of the success button at rest.",
+              "$value": "#FFFFFF"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Icon color of the success button on hover.",
+              "$value": "#0F172A"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Icon color of the success button when active or pressed.",
+              "$value": "#0F172A"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Icon color of the success button when disabled.",
+              "$value": "#475569"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Icon color of the success button when focused.",
+              "$value": "#FFFFFF"
+            }
+          },
+          "border": {
+            "default": {
+              "$type": "color",
+              "$description": "Border color of the success button at rest.",
+              "$value": "#22C55E"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Border color of the success button on hover.",
+              "$value": "#4ADE80"
+            },
+            "active": {
+              "$type": "color",
+              "$description": "Border color of the success button when active or pressed.",
+              "$value": "#86EFAC"
+            },
+            "disabled": {
+              "$type": "color",
+              "$description": "Border color of the success button when disabled.",
+              "$value": "#1E293B"
+            },
+            "focus": {
+              "$type": "color",
+              "$description": "Border color of the success button when focused.",
+              "$value": "#62a0ea"
+            }
+          }
+        }
+      }
+    },
+    "datagrid": {
+      "bg": {
+        "default": {
+          "$type": "color",
+          "$description": "Default datagrid container background.",
+          "$value": "#0F172A"
+        }
+      },
+      "border": {
+        "default": {
+          "$type": "color",
+          "$description": "Outer border around the datagrid container.",
+          "$value": "#334155"
+        }
+      },
+      "shadow": {
+        "stickyEdge": {
+          "$type": "color",
+          "$description": "Shadow cast by sticky edges of the grid.",
+          "$value": "#000000"
+        }
+      },
+      "header": {
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "Header row background at rest.",
+            "$value": "#1E293B"
+          },
+          "hover": {
+            "$type": "color",
+            "$description": "Header cell background on hover.",
+            "$value": "#334155"
+          },
+          "sorted": {
+            "$type": "color",
+            "$description": "Header cell background when its column is sorted.",
+            "$value": "#1E3A8A"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Header text color at rest.",
+            "$value": "#E2E8F0"
+          },
+          "sorted": {
+            "$type": "color",
+            "$description": "Header text color when its column is sorted.",
+            "$value": "#A4C5EE"
+          }
+        },
+        "icon": {
+          "default": {
+            "$type": "color",
+            "$description": "Header icon color at rest.",
+            "$value": "#94A3B8"
+          },
+          "sorted": {
+            "$type": "color",
+            "$description": "Header icon color when its column is sorted.",
+            "$value": "#62a0ea"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border between the header and body of the grid.",
+            "$value": "#334155"
+          }
+        },
+        "divider": {
+          "default": {
+            "$type": "color",
+            "$description": "Vertical divider between header cells.",
+            "$value": "#334155"
+          }
+        },
+        "resizeHandle": {
+          "default": {
+            "$type": "color",
+            "$description": "Column resize handle at rest.",
+            "$value": "#475569"
+          },
+          "hover": {
+            "$type": "color",
+            "$description": "Column resize handle on hover.",
+            "$value": "#62a0ea"
+          }
+        },
+        "dragPreview": {
+          "default": {
+            "$type": "color",
+            "$description": "Preview shown while dragging a column header.",
+            "$value": "#1E3A8A"
+          }
+        },
+        "dropIndicator": {
+          "default": {
+            "$type": "color",
+            "$description": "Indicator marking where a dragged column will land.",
+            "$value": "#62a0ea"
+          }
+        }
+      },
+      "row": {
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "Default row background.",
+            "$value": "#0F172A"
+          },
+          "alt": {
+            "$type": "color",
+            "$description": "Alternating row background for zebra striping.",
+            "$value": "#1E293B"
+          },
+          "hover": {
+            "$type": "color",
+            "$description": "Row background on hover.",
+            "$value": "#1E293B"
+          },
+          "selected": {
+            "$type": "color",
+            "$description": "Row background when selected.",
+            "$value": "#1E3A8A"
+          },
+          "active": {
+            "$type": "color",
+            "$description": "Row background when active or focused.",
+            "$value": "#1E3A8A"
+          },
+          "disabled": {
+            "$type": "color",
+            "$description": "Row background when disabled.",
+            "$value": "#1E293B"
+          },
+          "group": {
+            "$type": "color",
+            "$description": "Row background for group header rows.",
+            "$value": "#1E293B"
+          },
+          "summary": {
+            "$type": "color",
+            "$description": "Row background for summary or aggregate rows.",
+            "$value": "#334155"
+          },
+          "pinned": {
+            "$type": "color",
+            "$description": "Row background for pinned rows.",
+            "$value": "#172554"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Default row border.",
+            "$value": "#1E293B"
+          },
+          "selected": {
+            "$type": "color",
+            "$description": "Border on selected rows.",
+            "$value": "#62a0ea"
+          }
+        }
+      },
+      "cell": {
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "Default cell background; transparent against the row.",
+            "$value": "#0F172A"
+          },
+          "hover": {
+            "$type": "color",
+            "$description": "Cell background on hover.",
+            "$value": "#1E293B"
+          },
+          "selected": {
+            "$type": "color",
+            "$description": "Cell background when selected.",
+            "$value": "#1E3A8A"
+          },
+          "editing": {
+            "$type": "color",
+            "$description": "Cell background while editing.",
+            "$value": "#0F172A"
+          },
+          "readonly": {
+            "$type": "color",
+            "$description": "Cell background when read-only.",
+            "$value": "#1E293B"
+          },
+          "invalid": {
+            "$type": "color",
+            "$description": "Cell background when validation fails.",
+            "$value": "#2D0606"
+          },
+          "warning": {
+            "$type": "color",
+            "$description": "Cell background carrying a warning state.",
+            "$value": "#251805"
+          },
+          "formulaReference": {
+            "$type": "color",
+            "$description": "Cell background highlighted as a formula reference.",
+            "$value": "#172554"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Default cell text color.",
+            "$value": "#F1F5F9"
+          },
+          "muted": {
+            "$type": "color",
+            "$description": "Muted cell text for secondary information.",
+            "$value": "#94A3B8"
+          },
+          "selected": {
+            "$type": "color",
+            "$description": "Cell text color when selected.",
+            "$value": "#D1E2F7"
+          },
+          "readonly": {
+            "$type": "color",
+            "$description": "Cell text color when read-only.",
+            "$value": "#94A3B8"
+          },
+          "invalid": {
+            "$type": "color",
+            "$description": "Cell text color when validation fails.",
+            "$value": "#F87171"
+          },
+          "link": {
+            "$type": "color",
+            "$description": "Cell text color rendered as a hyperlink.",
+            "$value": "#62a0ea"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Default cell border.",
+            "$value": "#1E293B"
+          },
+          "focus": {
+            "$type": "color",
+            "$description": "Cell border when focused.",
+            "$value": "#62a0ea"
+          },
+          "selected": {
+            "$type": "color",
+            "$description": "Cell border when selected.",
+            "$value": "#62a0ea"
+          },
+          "editing": {
+            "$type": "color",
+            "$description": "Cell border while editing.",
+            "$value": "#62a0ea"
+          },
+          "invalid": {
+            "$type": "color",
+            "$description": "Cell border when validation fails.",
+            "$value": "#EF4444"
+          }
+        },
+        "caret": {
+          "default": {
+            "$type": "color",
+            "$description": "Text caret color inside an editing cell.",
+            "$value": "#62a0ea"
+          }
+        },
+        "selectionFill": {
+          "default": {
+            "$type": "color",
+            "$description": "Translucent fill for a multi-cell selection.",
+            "$value": "#1E3A8A"
+          }
+        },
+        "dragFillHandle": {
+          "default": {
+            "$type": "color",
+            "$description": "Drag-fill handle shown at the corner of selections.",
+            "$value": "#62a0ea"
+          }
+        }
+      },
+      "frozen": {
+        "shadow": {
+          "default": {
+            "$type": "color",
+            "$description": "Shadow cast by frozen rows or columns.",
+            "$value": "#000000"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border between frozen and scrollable regions.",
+            "$value": "#475569"
+          }
+        },
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "Background tint for frozen rows or columns.",
+            "$value": "#1E293B"
+          }
+        }
+      },
+      "gridline": {
+        "horizontal": {
+          "default": {
+            "$type": "color",
+            "$description": "Horizontal gridline between cells.",
+            "$value": "#1E293B"
+          }
+        },
+        "vertical": {
+          "default": {
+            "$type": "color",
+            "$description": "Vertical gridline between cells.",
+            "$value": "#1E293B"
+          }
+        },
+        "strong": {
+          "default": {
+            "$type": "color",
+            "$description": "Strong gridline used for emphasis or section breaks.",
+            "$value": "#475569"
+          }
+        }
+      },
+      "editor": {
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "Background of an inline cell editor.",
+            "$value": "#0F172A"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color inside an inline cell editor.",
+            "$value": "#F1F5F9"
+          }
+        },
+        "placeholder": {
+          "default": {
+            "$type": "color",
+            "$description": "Placeholder text inside an inline cell editor.",
+            "$value": "#64748B"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Default border around an inline cell editor.",
+            "$value": "#475569"
+          },
+          "focus": {
+            "$type": "color",
+            "$description": "Border around the editor when focused.",
+            "$value": "#62a0ea"
+          },
+          "invalid": {
+            "$type": "color",
+            "$description": "Border around the editor when validation fails.",
+            "$value": "#EF4444"
+          }
+        }
+      },
+      "formula": {
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "Background of the formula bar.",
+            "$value": "#1E293B"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color of formula content.",
+            "$value": "#F1F5F9"
+          }
+        },
+        "placeholder": {
+          "default": {
+            "$type": "color",
+            "$description": "Placeholder text in the formula bar.",
+            "$value": "#64748B"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border around the formula bar.",
+            "$value": "#334155"
+          }
+        },
+        "reference": {
+          "1": {
+            "$type": "color",
+            "$description": "Color for the first formula reference highlight.",
+            "$value": "#62a0ea"
+          },
+          "2": {
+            "$type": "color",
+            "$description": "Color for the second formula reference highlight.",
+            "$value": "#4ADE80"
+          },
+          "3": {
+            "$type": "color",
+            "$description": "Color for the third formula reference highlight.",
+            "$value": "#FBBF24"
+          },
+          "4": {
+            "$type": "color",
+            "$description": "Color for the fourth formula reference highlight.",
+            "$value": "#F87171"
+          },
+          "5": {
+            "$type": "color",
+            "$description": "Color for the fifth formula reference highlight.",
+            "$value": "#C084FC"
+          },
+          "6": {
+            "$type": "color",
+            "$description": "Color for the sixth formula reference highlight.",
+            "$value": "#38BDF8"
+          }
+        }
+      },
+      "filterChip": {
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "Filter chip background.",
+            "$value": "#1E3A8A"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Filter chip text color.",
+            "$value": "#A4C5EE"
+          }
+        },
+        "icon": {
+          "default": {
+            "$type": "color",
+            "$description": "Filter chip icon color.",
+            "$value": "#62a0ea"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Filter chip border color.",
+            "$value": "#1a5fb4"
+          }
+        }
+      },
+      "sortIndicator": {
+        "default": {
+          "$type": "color",
+          "$description": "Indicator showing the active sort direction.",
+          "$value": "#62a0ea"
+        }
+      },
+      "groupIndicator": {
+        "default": {
+          "$type": "color",
+          "$description": "Indicator marking grouped rows or sections.",
+          "$value": "#94A3B8"
+        }
+      },
+      "validationMarker": {
+        "error": {
+          "$type": "color",
+          "$description": "Marker shown for validation errors.",
+          "$value": "#F87171"
+        },
+        "warning": {
+          "$type": "color",
+          "$description": "Marker shown for validation warnings.",
+          "$value": "#FBBF24"
+        }
+      },
+      "commentMarker": {
+        "default": {
+          "$type": "color",
+          "$description": "Marker indicating a comment attached to a cell.",
+          "$value": "#FBBF24"
+        }
+      },
+      "attachmentMarker": {
+        "default": {
+          "$type": "color",
+          "$description": "Marker indicating an attachment on a cell.",
+          "$value": "#62a0ea"
+        }
+      }
+    },
+    "cad": {
+      "viewport": {
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "CAD viewport background at rest.",
+            "$value": "#0B1120"
+          },
+          "loading": {
+            "$type": "color",
+            "$description": "CAD viewport background while loading.",
+            "$value": "#1E293B"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border around the CAD viewport.",
+            "$value": "#334155"
+          }
+        },
+        "crosshair": {
+          "default": {
+            "$type": "color",
+            "$description": "Crosshair cursor color inside the viewport.",
+            "$value": "#94A3B8"
+          }
+        },
+        "snapHint": {
+          "default": {
+            "$type": "color",
+            "$description": "Hint marker shown while snapping to geometry.",
+            "$value": "#62a0ea"
+          }
+        },
+        "selectionBox": {
+          "fill": {
+            "$type": "color",
+            "$description": "Fill color of the rubber-band selection box.",
+            "$value": "#62a0ea33"
+          },
+          "border": {
+            "$type": "color",
+            "$description": "Border color of the rubber-band selection box.",
+            "$value": "#62a0ea"
+          }
+        },
+        "marquee": {
+          "border": {
+            "$type": "color",
+            "$description": "Border color of the marquee selection.",
+            "$value": "#62a0ea"
+          },
+          "fill": {
+            "$type": "color",
+            "$description": "Fill color of the marquee selection.",
+            "$value": "#62a0ea1A"
+          }
+        }
+      },
+      "sheet": {
+        "paper": {
+          "default": {
+            "$type": "color",
+            "$description": "Drawing sheet paper color.",
+            "$value": "#1E293B"
+          }
+        },
+        "paperShadow": {
+          "default": {
+            "$type": "color",
+            "$description": "Shadow cast by the drawing sheet.",
+            "$value": "#000000"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border around the drawing sheet.",
+            "$value": "#475569"
+          }
+        },
+        "margin": {
+          "default": {
+            "$type": "color",
+            "$description": "Sheet margin guide color.",
+            "$value": "#475569"
+          }
+        },
+        "titleBlock": {
+          "default": {
+            "$type": "color",
+            "$description": "Title block accent color on the sheet.",
+            "$value": "#CBD5E1"
+          }
+        },
+        "cropMark": {
+          "default": {
+            "$type": "color",
+            "$description": "Crop mark color at sheet corners.",
+            "$value": "#94A3B8"
+          }
+        },
+        "outOfBounds": {
+          "default": {
+            "$type": "color",
+            "$description": "Region outside the sheet boundaries.",
+            "$value": "#020617"
+          }
+        }
+      },
+      "grid": {
+        "major": {
+          "default": {
+            "$type": "color",
+            "$description": "Major gridline color in the CAD viewport.",
+            "$value": "#334155"
+          }
+        },
+        "minor": {
+          "default": {
+            "$type": "color",
+            "$description": "Minor gridline color in the CAD viewport.",
+            "$value": "#1E293B"
+          }
+        }
+      },
+      "ruler": {
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "Background of the CAD ruler bars.",
+            "$value": "#1E293B"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Tick label text color on the rulers.",
+            "$value": "#CBD5E1"
+          }
+        },
+        "tick": {
+          "default": {
+            "$type": "color",
+            "$description": "Tick mark color on the rulers.",
+            "$value": "#64748B"
+          }
+        }
+      },
+      "guide": {
+        "default": {
+          "$type": "color",
+          "$description": "User-placed guide line color.",
+          "$value": "#62a0ea"
+        },
+        "locked": {
+          "$type": "color",
+          "$description": "Guide line color when locked.",
+          "$value": "#64748B"
+        }
+      },
+      "origin": {
+        "default": {
+          "$type": "color",
+          "$description": "Origin marker color in the CAD viewport.",
+          "$value": "#F87171"
+        }
+      },
+      "layer": {
+        "row": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Layer panel row background at rest.",
+              "$value": "#0F172A"
+            },
+            "selected": {
+              "$type": "color",
+              "$description": "Layer panel row background when selected.",
+              "$value": "#1E3A8A"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Layer panel row text color.",
+              "$value": "#F1F5F9"
+            }
+          },
+          "icon": {
+            "visible": {
+              "$type": "color",
+              "$description": "Icon shown when a layer is visible.",
+              "$value": "#CBD5E1"
+            },
+            "hidden": {
+              "$type": "color",
+              "$description": "Icon shown when a layer is hidden.",
+              "$value": "#475569"
+            },
+            "locked": {
+              "$type": "color",
+              "$description": "Icon shown when a layer is locked.",
+              "$value": "#FBBF24"
+            }
+          }
+        },
+        "colorSwatch": {
+          "default": {
+            "$type": "color",
+            "$description": "Default color swatch shown next to a layer.",
+            "$value": "#475569"
+          }
+        }
+      },
+      "geometry": {
+        "default": {
+          "line": {
+            "$type": "color",
+            "$description": "Default geometry line color.",
+            "$value": "#F1F5F9"
+          },
+          "fill": {
+            "$type": "color",
+            "$description": "Default geometry fill color.",
+            "$value": "#334155"
+          }
+        },
+        "muted": {
+          "line": {
+            "$type": "color",
+            "$description": "Muted geometry line color.",
+            "$value": "#64748B"
+          }
+        },
+        "hidden": {
+          "line": {
+            "$type": "color",
+            "$description": "Hidden geometry line color (dashed strokes).",
+            "$value": "#475569"
+          }
+        },
+        "locked": {
+          "line": {
+            "$type": "color",
+            "$description": "Locked geometry line color.",
+            "$value": "#FBBF24"
+          }
+        },
+        "hover": {
+          "line": {
+            "$type": "color",
+            "$description": "Geometry line color on hover.",
+            "$value": "#62a0ea"
+          }
+        },
+        "selected": {
+          "line": {
+            "$type": "color",
+            "$description": "Geometry line color when selected.",
+            "$value": "#A4C5EE"
+          },
+          "fill": {
+            "$type": "color",
+            "$description": "Geometry fill color when selected.",
+            "$value": "#62a0ea33"
+          }
+        },
+        "reference": {
+          "line": {
+            "$type": "color",
+            "$description": "Reference geometry line color.",
+            "$value": "#A5B4FC"
+          },
+          "fill": {
+            "$type": "color",
+            "$description": "Reference geometry fill color.",
+            "$value": "#A5B4FC33"
+          }
+        },
+        "conflict": {
+          "line": {
+            "$type": "color",
+            "$description": "Geometry line color when in conflict.",
+            "$value": "#F87171"
+          },
+          "fill": {
+            "$type": "color",
+            "$description": "Geometry fill color when in conflict.",
+            "$value": "#7F1D1D66"
+          }
+        },
+        "dimmed": {
+          "line": {
+            "$type": "color",
+            "$description": "Dimmed geometry line color.",
+            "$value": "#334155"
+          }
+        }
+      },
+      "handle": {
+        "default": {
+          "$type": "color",
+          "$description": "Default transform handle fill.",
+          "$value": "#F1F5F9"
+        },
+        "hover": {
+          "$type": "color",
+          "$description": "Transform handle fill on hover.",
+          "$value": "#A4C5EE"
+        },
+        "active": {
+          "$type": "color",
+          "$description": "Transform handle fill when active.",
+          "$value": "#3584e4"
+        },
+        "disabled": {
+          "$type": "color",
+          "$description": "Transform handle fill when disabled.",
+          "$value": "#334155"
+        }
+      },
+      "grip": {
+        "default": {
+          "$type": "color",
+          "$description": "Grip point color on selected geometry.",
+          "$value": "#62a0ea"
+        }
+      },
+      "rotationHandle": {
+        "default": {
+          "$type": "color",
+          "$description": "Rotation handle color on selected geometry.",
+          "$value": "#4ADE80"
+        }
+      },
+      "transformBox": {
+        "border": {
+          "$type": "color",
+          "$description": "Transform bounding box border.",
+          "$value": "#62a0ea"
+        },
+        "fill": {
+          "$type": "color",
+          "$description": "Transform bounding box fill.",
+          "$value": "#62a0ea1A"
+        }
+      },
+      "measure": {
+        "line": {
+          "default": {
+            "$type": "color",
+            "$description": "Measurement line color.",
+            "$value": "#62a0ea"
+          }
+        },
+        "arrow": {
+          "default": {
+            "$type": "color",
+            "$description": "Measurement arrow color.",
+            "$value": "#62a0ea"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Measurement value text color.",
+            "$value": "#F1F5F9"
+          }
+        },
+        "textBg": {
+          "default": {
+            "$type": "color",
+            "$description": "Background behind measurement text.",
+            "$value": "#1E293B"
+          }
+        },
+        "guide": {
+          "default": {
+            "$type": "color",
+            "$description": "Measurement extension guide color.",
+            "$value": "#A4C5EE"
+          }
+        },
+        "highlight": {
+          "default": {
+            "$type": "color",
+            "$description": "Highlight applied while measuring.",
+            "$value": "#FCD34D"
+          }
+        }
+      },
+      "annotation": {
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Annotation text color.",
+            "$value": "#F1F5F9"
+          }
+        },
+        "textBg": {
+          "default": {
+            "$type": "color",
+            "$description": "Background behind annotation text.",
+            "$value": "#0F172ACC"
+          }
+        },
+        "leader": {
+          "default": {
+            "$type": "color",
+            "$description": "Annotation leader line color.",
+            "$value": "#CBD5E1"
+          }
+        },
+        "dimension": {
+          "default": {
+            "$type": "color",
+            "$description": "Dimension line and text color.",
+            "$value": "#CBD5E1"
+          }
+        },
+        "roomTag": {
+          "default": {
+            "$type": "color",
+            "$description": "Room tag annotation color.",
+            "$value": "#62a0ea"
+          }
+        },
+        "equipmentTag": {
+          "default": {
+            "$type": "color",
+            "$description": "Equipment tag annotation color.",
+            "$value": "#FBBF24"
+          }
+        },
+        "callout": {
+          "default": {
+            "$type": "color",
+            "$description": "Callout annotation color.",
+            "$value": "#A5B4FC"
+          }
+        },
+        "sectionMarker": {
+          "default": {
+            "$type": "color",
+            "$description": "Section marker annotation color.",
+            "$value": "#4ADE80"
+          }
+        },
+        "detailMarker": {
+          "default": {
+            "$type": "color",
+            "$description": "Detail marker annotation color.",
+            "$value": "#38BDF8"
+          }
+        },
+        "revisionCloud": {
+          "default": {
+            "$type": "color",
+            "$description": "Revision cloud annotation color.",
+            "$value": "#F87171"
+          }
+        }
+      },
+      "markup": {
+        "freehand": {
+          "default": {
+            "$type": "color",
+            "$description": "Freehand markup stroke color.",
+            "$value": "#F87171"
+          }
+        },
+        "rectangle": {
+          "default": {
+            "$type": "color",
+            "$description": "Rectangle markup stroke color.",
+            "$value": "#62a0ea"
+          }
+        },
+        "ellipse": {
+          "default": {
+            "$type": "color",
+            "$description": "Ellipse markup stroke color.",
+            "$value": "#4ADE80"
+          }
+        },
+        "arrow": {
+          "default": {
+            "$type": "color",
+            "$description": "Arrow markup stroke color.",
+            "$value": "#FBBF24"
+          }
+        },
+        "highlight": {
+          "fill": {
+            "$type": "color",
+            "$description": "Highlight markup fill color.",
+            "$value": "#FBBF2480"
+          },
+          "border": {
+            "$type": "color",
+            "$description": "Highlight markup border color.",
+            "$value": "#FBBF24"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Text markup color.",
+            "$value": "#F1F5F9"
+          }
+        },
+        "textBg": {
+          "default": {
+            "$type": "color",
+            "$description": "Background behind text markup.",
+            "$value": "#0F172ACC"
+          }
+        },
+        "stamp": {
+          "approved": {
+            "$type": "color",
+            "$description": "Approved stamp color.",
+            "$value": "#4ADE80"
+          },
+          "rejected": {
+            "$type": "color",
+            "$description": "Rejected stamp color.",
+            "$value": "#F87171"
+          },
+          "review": {
+            "$type": "color",
+            "$description": "In-review stamp color.",
+            "$value": "#FBBF24"
+          },
+          "void": {
+            "$type": "color",
+            "$description": "Void stamp color.",
+            "$value": "#94A3B8"
+          }
+        }
+      },
+      "pin": {
+        "default": {
+          "$type": "color",
+          "$description": "Default pin marker color.",
+          "$value": "#62a0ea"
+        },
+        "hover": {
+          "$type": "color",
+          "$description": "Pin marker on hover.",
+          "$value": "#A4C5EE"
+        },
+        "selected": {
+          "$type": "color",
+          "$description": "Pin marker when selected.",
+          "$value": "#D1E2F7"
+        },
+        "info": {
+          "$type": "color",
+          "$description": "Info-priority pin marker.",
+          "$value": "#60A5FA"
+        },
+        "low": {
+          "$type": "color",
+          "$description": "Low-priority pin marker.",
+          "$value": "#4ADE80"
+        },
+        "medium": {
+          "$type": "color",
+          "$description": "Medium-priority pin marker.",
+          "$value": "#FBBF24"
+        },
+        "high": {
+          "$type": "color",
+          "$description": "High-priority pin marker.",
+          "$value": "#FB923C"
+        },
+        "critical": {
+          "$type": "color",
+          "$description": "Critical-priority pin marker.",
+          "$value": "#EF4444"
+        }
+      },
+      "issue": {
+        "open": {
+          "$type": "color",
+          "$description": "Issue marker color when open.",
+          "$value": "#60A5FA"
+        },
+        "inProgress": {
+          "$type": "color",
+          "$description": "Issue marker color when in progress.",
+          "$value": "#FBBF24"
+        },
+        "blocked": {
+          "$type": "color",
+          "$description": "Issue marker color when blocked.",
+          "$value": "#F87171"
+        },
+        "resolved": {
+          "$type": "color",
+          "$description": "Issue marker color when resolved.",
+          "$value": "#4ADE80"
+        },
+        "closed": {
+          "$type": "color",
+          "$description": "Issue marker color when closed.",
+          "$value": "#94A3B8"
+        }
+      },
+      "minimap": {
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "Minimap background.",
+            "$value": "#1E293B"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Minimap outer border.",
+            "$value": "#475569"
+          }
+        },
+        "viewport": {
+          "fill": {
+            "$type": "color",
+            "$description": "Minimap viewport fill showing visible area.",
+            "$value": "#62a0ea33"
+          },
+          "border": {
+            "$type": "color",
+            "$description": "Minimap viewport border showing visible area.",
+            "$value": "#62a0ea"
+          }
+        },
+        "sheet": {
+          "default": {
+            "$type": "color",
+            "$description": "Minimap representation of the sheet bounds.",
+            "$value": "#334155"
+          }
+        }
+      },
+      "system": {
+        "architecture": {
+          "default": {
+            "$type": "color",
+            "$description": "Discipline color for architecture.",
+            "$value": "#62a0ea"
+          }
+        },
+        "structure": {
+          "default": {
+            "$type": "color",
+            "$description": "Discipline color for structure.",
+            "$value": "#94A3B8"
+          }
+        },
+        "mechanical": {
+          "default": {
+            "$type": "color",
+            "$description": "Discipline color for mechanical systems.",
+            "$value": "#22D3EE"
+          }
+        },
+        "electrical": {
+          "default": {
+            "$type": "color",
+            "$description": "Discipline color for electrical systems.",
+            "$value": "#FBBF24"
+          }
+        },
+        "plumbing": {
+          "default": {
+            "$type": "color",
+            "$description": "Discipline color for plumbing systems.",
+            "$value": "#34D399"
+          }
+        },
+        "fireProtection": {
+          "default": {
+            "$type": "color",
+            "$description": "Discipline color for fire protection systems.",
+            "$value": "#F87171"
+          }
+        },
+        "lowVoltage": {
+          "default": {
+            "$type": "color",
+            "$description": "Discipline color for low-voltage systems.",
+            "$value": "#A855F7"
+          }
+        },
+        "furniture": {
+          "default": {
+            "$type": "color",
+            "$description": "Discipline color for furniture and FF&E.",
+            "$value": "#C4B5FD"
+          }
+        },
+        "site": {
+          "default": {
+            "$type": "color",
+            "$description": "Discipline color for site and civil work.",
+            "$value": "#A3E635"
+          }
+        }
+      }
+    },
+    "comments": {
+      "bubble": {
+        "own": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background of message bubbles you authored; uses brand primary so your messages read as 'mine'.",
+              "$value": "#1a5fb4"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Hover background for your own message bubbles.",
+              "$value": "#134E94"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Text color inside your own message bubbles; white reads cleanly against the brand bubble.",
+              "$value": "#FFFFFF"
+            }
+          }
+        },
+        "others": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background of message bubbles from other participants; neutral so authored messages stand out.",
+              "$value": "#1E293B"
+            },
+            "hover": {
+              "$type": "color",
+              "$description": "Hover background for other participants' message bubbles.",
+              "$value": "#334155"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Text color inside other participants' message bubbles.",
+              "$value": "#F8FAFC"
+            }
+          }
+        },
+        "system": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background of system messages (joins, channel changes, automated events); recedes into the canvas.",
+              "$value": "#0F172A"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Text color for system messages; muted to signal informational, not authored, content.",
+              "$value": "#94A3B8"
+            }
+          }
+        },
+        "pinned": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background tint for pinned messages; warm tone signals importance without alarming.",
+              "$value": "#251805"
+            }
+          },
+          "border": {
+            "default": {
+              "$type": "color",
+              "$description": "Left-border accent applied to pinned messages.",
+              "$value": "#FBBF24"
+            }
+          }
+        },
+        "quoted": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background of quoted/replied-to message blocks shown above a reply.",
+              "$value": "#172554"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Text color used in quoted message previews.",
+              "$value": "#CBD5E1"
+            }
+          }
+        },
+        "deleted": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background of deleted-message placeholders.",
+              "$value": "#2D0606"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Italic placeholder text for deleted messages (e.g. 'Message deleted').",
+              "$value": "#64748B"
+            }
+          }
+        },
+        "editing": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background applied to a message currently being edited inline.",
+              "$value": "#172554"
+            }
+          },
+          "border": {
+            "default": {
+              "$type": "color",
+              "$description": "Border applied to a message being edited; matches info accent.",
+              "$value": "#3B82F6"
+            }
+          }
+        }
+      },
+      "author": {
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Sender display-name color shown above a message bubble.",
+            "$value": "#62a0ea"
+          },
+          "self": {
+            "$type": "color",
+            "$description": "Sender display-name color when the author is the current user.",
+            "$value": "#A4C5EE"
+          }
+        }
+      },
+      "timestamp": {
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Timestamp text shown beside or beneath messages.",
+            "$value": "#64748B"
+          },
+          "unread": {
+            "$type": "color",
+            "$description": "Timestamp text on unread messages; promotes the row's urgency.",
+            "$value": "#62a0ea"
+          }
+        }
+      },
+      "mention": {
+        "others": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background tint for an @mention of another participant inline in message text.",
+              "$value": "#172554"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Text color for an @mention of another participant.",
+              "$value": "#A4C5EE"
+            }
+          }
+        },
+        "self": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Background tint when the current user is @mentioned; warmer to draw attention.",
+              "$value": "#251805"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Text color when the current user is @mentioned.",
+              "$value": "#FBBF24"
+            }
+          },
+          "border": {
+            "default": {
+              "$type": "color",
+              "$description": "Border accent on bubbles where the current user is @mentioned.",
+              "$value": "#F59E0B"
+            }
+          }
+        }
+      },
+      "reaction": {
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "Background of an emoji-reaction chip beneath a message.",
+            "$value": "#1E293B"
+          },
+          "hover": {
+            "$type": "color",
+            "$description": "Hover background of an emoji-reaction chip.",
+            "$value": "#334155"
+          },
+          "active": {
+            "$type": "color",
+            "$description": "Background of a reaction chip the current user has added.",
+            "$value": "#172554"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Reaction-chip count text and label color.",
+            "$value": "#CBD5E1"
+          },
+          "active": {
+            "$type": "color",
+            "$description": "Reaction-chip text color for reactions added by the current user.",
+            "$value": "#A4C5EE"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Reaction-chip border color.",
+            "$value": "#334155"
+          },
+          "active": {
+            "$type": "color",
+            "$description": "Reaction-chip border color when added by the current user.",
+            "$value": "#62a0ea"
+          }
+        }
+      },
+      "status": {
+        "sending": {
+          "icon": {
+            "default": {
+              "$type": "color",
+              "$description": "Icon color for the in-flight 'sending' indicator on outgoing messages.",
+              "$value": "#64748B"
+            }
+          }
+        },
+        "sent": {
+          "icon": {
+            "default": {
+              "$type": "color",
+              "$description": "Icon color for the 'sent to server' single-check indicator.",
+              "$value": "#94A3B8"
+            }
+          }
+        },
+        "delivered": {
+          "icon": {
+            "default": {
+              "$type": "color",
+              "$description": "Icon color for the 'delivered to recipient' double-check indicator.",
+              "$value": "#CBD5E1"
+            }
+          }
+        },
+        "read": {
+          "icon": {
+            "default": {
+              "$type": "color",
+              "$description": "Icon color for the 'read by recipient' indicator; uses brand for positive confirmation.",
+              "$value": "#62a0ea"
+            }
+          }
+        },
+        "failed": {
+          "icon": {
+            "default": {
+              "$type": "color",
+              "$description": "Icon color for the 'send failed' indicator on outgoing messages.",
+              "$value": "#EF4444"
+            }
+          }
+        }
+      },
+      "thread": {
+        "connector": {
+          "default": {
+            "$type": "color",
+            "$description": "Vertical line color connecting threaded replies to a parent message.",
+            "$value": "#334155"
+          }
+        },
+        "indicator": {
+          "unread": {
+            "$type": "color",
+            "$description": "Dot/indicator color showing a thread has unread replies.",
+            "$value": "#62a0ea"
+          }
+        },
+        "bg": {
+          "active": {
+            "$type": "color",
+            "$description": "Row background for the currently focused conversation in the channel list.",
+            "$value": "#172554"
+          },
+          "unread": {
+            "$type": "color",
+            "$description": "Row background for conversations with unread messages.",
+            "$value": "#251805"
+          }
+        }
+      },
+      "avatar": {
+        "fallback": {
+          "bg": {
+            "default": {
+              "$type": "color",
+              "$description": "Fallback avatar background color when no profile image is available.",
+              "$value": "#3584e4"
+            }
+          },
+          "text": {
+            "default": {
+              "$type": "color",
+              "$description": "Fallback avatar initials text color.",
+              "$value": "#FFFFFF"
+            }
+          }
+        },
+        "status": {
+          "online": {
+            "$type": "color",
+            "$description": "Presence dot color indicating the user is online.",
+            "$value": "#22C55E"
+          },
+          "away": {
+            "$type": "color",
+            "$description": "Presence dot color indicating the user is away/idle.",
+            "$value": "#FBBF24"
+          },
+          "offline": {
+            "$type": "color",
+            "$description": "Presence dot color indicating the user is offline.",
+            "$value": "#64748B"
+          },
+          "busy": {
+            "$type": "color",
+            "$description": "Presence dot color indicating the user is busy/do-not-disturb.",
+            "$value": "#EF4444"
+          }
+        }
+      },
+      "typing": {
+        "dot": {
+          "default": {
+            "$type": "color",
+            "$description": "Animated dot color for the 'someone is typing' indicator.",
+            "$value": "#62a0ea"
+          }
+        },
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "Background of the 'someone is typing' indicator pill.",
+            "$value": "#1E293B"
+          }
+        }
+      },
+      "notification": {
+        "dot": {
+          "default": {
+            "$type": "color",
+            "$description": "Unread-badge dot color shown on conversation list items.",
+            "$value": "#EF4444"
+          },
+          "border": {
+            "$type": "color",
+            "$description": "Border around the unread badge so it remains legible against avatars.",
+            "$value": "#0F172A"
+          }
+        }
+      },
+      "code": {
+        "bg": {
+          "default": {
+            "$type": "color",
+            "$description": "Background of inline code spans and code blocks inside messages.",
+            "$value": "#020617"
+          }
+        },
+        "text": {
+          "default": {
+            "$type": "color",
+            "$description": "Text color for code inside messages.",
+            "$value": "#F8FAFC"
+          }
+        },
+        "border": {
+          "default": {
+            "$type": "color",
+            "$description": "Border color for code blocks inside messages.",
+            "$value": "#334155"
+          }
+        }
+      }
+    }
+  }
+}
