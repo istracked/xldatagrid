@@ -61,25 +61,21 @@ export const RowSelection: StoryObj = {
 };
 
 /**
- * Range selection with the Excel-style row-number gutter enabled. The
- * contract demonstrated here:
+ * Row-header-driven row selection with Excel-style UX. The contract:
  *
- *   - Clicking a `role="rowheader"` cell (the left gutter) selects every
- *     cell in that row and paints a single 2px outline on the `role="row"`
- *     element. Per-cell outlines are suppressed while the row is fully
- *     selected, so the border reads as one rectangle around the whole row.
- *   - Clicking any `role="gridcell"` switches back to per-cell selection —
- *     the row outline disappears and the clicked cell paints its own
- *     outline. Sibling cells deselect.
+ *   - Plain click on a `role="rowheader"` cell selects the whole row; the
+ *     outline is painted once on the `role="row"` element.
+ *   - Clicking any `role="gridcell"` collapses back to per-cell selection.
  *
- * This is the behaviour covered by `e2e/grid-row-selection.spec.ts`.
+ * See `RowRangeContiguous` and `RowRangeDisjoint` for the Shift/Cmd-click
+ * and keyboard-driven extensions built on top of this primitive.
  */
 export const RowHeaderSelection: StoryObj = {
   parameters: {
     docs: {
       description: {
         story:
-          'Row-header-driven row selection with Excel-style UX. Click the left row-number gutter to select the whole row (single outline on the row element). Click any data cell to collapse back to per-cell selection.',
+          'Plain-click row selection via the row-number gutter. Clicking the gutter selects the whole row; clicking any data cell collapses back to per-cell selection.',
       },
     },
   },
@@ -105,12 +101,100 @@ export const RowHeaderSelection: StoryObj = {
   ),
 };
 
+/**
+ * Contiguous row-range selection. Click a row-number gutter cell, then
+ * Shift+click another row-number cell further down: every row in between
+ * (and the anchor + focus rows themselves) is selected as a single range,
+ * and the outline is painted around the outer edges of the whole block —
+ * top border on the first row, bottom border on the last row, left/right
+ * borders on every row, no internal horizontals.
+ *
+ * Keyboard: with a row selected, Shift+ArrowDown / Shift+ArrowUp extends
+ * the range one row at a time. Plain ArrowDown / ArrowUp moves the
+ * single-row selection. Shift+ArrowLeft / Shift+ArrowRight and plain
+ * ArrowLeft / ArrowRight are no-ops while a full-row selection is active.
+ * ESC clears.
+ */
+export const RowRangeContiguous: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Shift+click a row-number cell after a plain click selects every row between the anchor and focus as a single range, outlined as one rectangle. Shift+ArrowDown / Shift+ArrowUp extends the range by one row; plain ArrowDown / ArrowUp moves the selection; left/right arrows are no-ops while a row range is active; ESC clears.',
+      },
+    },
+  },
+  render: () => (
+    <div style={storyContainer}>
+      <h2 style={styles.heading}>Contiguous Row-Range Selection</h2>
+      <p style={styles.subtitle}>
+        Click row 2's gutter cell, then <kbd>Shift</kbd>+click row 6's
+        gutter cell — rows 2–6 are one range with a single outer outline.
+        Try <kbd>Shift</kbd>+<kbd>↓</kbd> / <kbd>Shift</kbd>+<kbd>↑</kbd> to
+        grow or shrink the range.
+      </p>
+      <div style={gridContainer}>
+        <MuiDataGrid
+          data={makeEmployees(20)}
+          columns={defaultColumns as any}
+          rowKey="id"
+          selectionMode="row"
+          keyboardNavigation
+          shiftArrowBehavior="rangeSelect"
+          chrome={{ rowNumbers: true }}
+        />
+      </div>
+    </div>
+  ),
+};
+
+/**
+ * Disjoint multi-row selection. Cmd/Ctrl+click row-number gutter cells to
+ * toggle rows into or out of the selection without clearing existing
+ * selections. Each disjoint row paints its own four-sided outline so the
+ * visual grouping reads as "several independent rows", not "one range".
+ *
+ * On macOS use Cmd+click; on Windows/Linux use Ctrl+click (the rowheader
+ * handler reads both via `metaKey || ctrlKey`).
+ */
+export const RowRangeDisjoint: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Cmd/Ctrl+click row-number cells to build a disjoint row selection — non-adjacent rows highlighted independently, each with its own outline. Cmd/Ctrl+click a selected row again to toggle it off.',
+      },
+    },
+  },
+  render: () => (
+    <div style={storyContainer}>
+      <h2 style={styles.heading}>Disjoint Row-Range Selection</h2>
+      <p style={styles.subtitle}>
+        Click row 2's gutter cell, then <kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+click
+        row 5 and row 8. Three separate rows are highlighted, each with its
+        own outline. <kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+click any selected row
+        again to toggle it off.
+      </p>
+      <div style={gridContainer}>
+        <MuiDataGrid
+          data={makeEmployees(20)}
+          columns={defaultColumns as any}
+          rowKey="id"
+          selectionMode="row"
+          keyboardNavigation
+          chrome={{ rowNumbers: true }}
+        />
+      </div>
+    </div>
+  ),
+};
+
 export const RangeSelection: StoryObj = {
   parameters: {
     docs: {
       description: {
         story:
-          'Range selection with Shift + click drag. With the default `shiftArrowBehavior: "scroll"`, Shift + arrow keys pan the viewport instead of extending the range — see the `RangeSelectionKeyboard` story for opt-in keyboard-driven range extension.',
+          'Range selection with Shift+click drag across cells. With the default `shiftArrowBehavior: "scroll"`, Shift+arrow keys pan the viewport instead of extending the range — see `RangeSelectionKeyboard` for opt-in keyboard range extension. The row-number gutter is enabled here so you can also demonstrate row-level range features: plain-click a gutter cell selects one row, Shift+click a second gutter cell extends into a contiguous row range outlined as a single block, and Cmd/Ctrl+click toggles disjoint rows. See `RowRangeContiguous` and `RowRangeDisjoint` for standalone demos.',
       },
     },
   },
@@ -118,7 +202,10 @@ export const RangeSelection: StoryObj = {
     <div style={storyContainer}>
       <h2 style={styles.heading}>Range Selection</h2>
       <p style={styles.subtitle}>
-        Click a cell, then Shift + click another cell to select a rectangular range. <kbd>Ctrl+A</kbd> selects all.
+        Click a cell, then <kbd>Shift</kbd>+click another cell to select a
+        rectangular range. <kbd>Ctrl+A</kbd> selects all. Clicking the
+        left-gutter row-number cells selects whole rows — Shift+click for
+        a contiguous row range, Cmd/Ctrl+click for disjoint rows.
       </p>
       <div style={gridContainer}>
         <MuiDataGrid
@@ -127,6 +214,7 @@ export const RangeSelection: StoryObj = {
           rowKey="id"
           selectionMode="range"
           keyboardNavigation
+          chrome={{ rowNumbers: true }}
         />
       </div>
     </div>

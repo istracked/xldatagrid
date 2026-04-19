@@ -292,6 +292,20 @@ export function useKeyboard<TData extends Record<string, unknown>>(
 
         e.preventDefault();
 
+        // Row-mode horizontal arrows are no-ops. There is no cell-level
+        // focus while a whole row is selected, so stepping left/right
+        // would collapse the row range onto a single cell. Applies to
+        // plain and Shift-modified horizontal arrows alike; Ctrl/Cmd+Arrow
+        // keeps its Excel "End" semantics because a user explicitly
+        // asking for End-jump should still land on a cell.
+        if (
+          state.selection.mode === 'row' &&
+          (dir === 'left' || dir === 'right') &&
+          !(e.ctrlKey || e.metaKey)
+        ) {
+          break;
+        }
+
         if (e.ctrlKey || e.metaKey) {
           // Ctrl/Cmd+Arrow jumps Excel "End" style: walk along the row/column
           // and stop at the edge of the nearest populated block. Ctrl+Shift
