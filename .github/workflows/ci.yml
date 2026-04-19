@@ -70,3 +70,32 @@ jobs:
     # Script-level tests (node --test) covering sync-tokens.mjs itself.
     - name: Run script tests
       run: pnpm run test:scripts
+
+  # YAML-lint guard for GitHub Actions workflows. `actionlint` statically
+  # validates workflow syntax, expression usage, action references, and
+  # shell snippets in `run:` blocks. This catches regressions like
+  # typo'd `uses:` versions, invalid `if:` expressions, or malformed
+  # matrix definitions *before* they land on `main` and silently break
+  # CI on the next push.
+  #
+  # The step pattern-matches `.github/workflows/*.yml` so any workflow
+  # added later (e.g. `e2e.yml` from the Playwright/Chromatic wave) is
+  # linted automatically without this file needing to be touched again.
+  #
+  # actionlint is not distributed as a GitHub Action; the upstream
+  # project recommends downloading the pinned binary via the
+  # `download-actionlint.bash` helper script. That is what we do here.
+  lint-workflows:
+    name: lint-workflows
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download actionlint
+      id: actionlint
+      run: |
+        bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.12
+        echo "actionlint=$(pwd)/actionlint" >> "$GITHUB_OUTPUT"
+
+    - name: Run actionlint on all workflow files
+      run: ${{ steps.actionlint.outputs.actionlint }} -color .github/workflows/*.yml
