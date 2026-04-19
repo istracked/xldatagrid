@@ -8,8 +8,10 @@
   "scripts": {
     "dev": "vite playground",
     "sync:tokens": "node scripts/sync-tokens.mjs",
+    "tokens:check": "node scripts/sync-tokens.mjs --check",
     "build": "pnpm -r --filter './packages/*' run build",
     "test": "vitest run packages/",
+    "test:scripts": "node --test scripts/__tests__/*.test.mjs",
     "test:watch": "vitest packages/",
     "test:coverage": "vitest run packages/ --coverage",
     "test:storybook": "vitest run --config vitest.storybook.config.ts",

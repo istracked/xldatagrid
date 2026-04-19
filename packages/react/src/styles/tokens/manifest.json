@@ -1,10 +1,11 @@
 {
   "source": "/Volumes/MacIntosh HD 1/Users/rom-old/workspace/istracked/tokens",
-  "syncedAt": "2026-04-18T23:49:04.893Z",
+  "syncedAt": "2026-04-19T02:32:52.294Z",
   "files": [
     "light.json",
     "dark.json",
     "light.css",
     "dark.css"
-  ]
+  ],
+  "contentHash": "c851d94dac681efc2ba504de2790a5ae5e6575d07fcb276e80441924f7ea2dc8"
 }
