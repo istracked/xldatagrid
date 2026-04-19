@@ -162,6 +162,9 @@ export const NumericCell = React.memo(function NumericCell<TData = Record<string
    * Escape cancels without committing.
    */
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Guard: ignore Enter/Tab while an IME candidate window is open.
+    // isComposing is not in React's synthetic type but is present on the native event.
+    if ((e.nativeEvent as KeyboardEvent).isComposing || e.keyCode === 229) return;
     if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault();
       e.stopPropagation();

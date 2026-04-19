@@ -154,6 +154,14 @@ export function useKeyboard<TData extends Record<string, unknown>>(
       }
     }
 
+    // IME composition guard: keyCode 229 is the pre-composition sentinel
+    // emitted by some browsers; isComposing is the standard flag. Either means
+    // the candidate window is open — committing or advancing here would destroy
+    // in-progress CJK text.
+    if ((e.isComposing || e.keyCode === 229) && (e.key === 'Tab' || e.key === 'Enter')) {
+      return;
+    }
+
     switch (e.key) {
       // --- Tab: commit-and-stay while editing, move within row otherwise ---
       //
