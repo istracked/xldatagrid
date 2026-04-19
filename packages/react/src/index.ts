@@ -50,6 +50,9 @@ export type { ChromeControlsHeaderCellProps, ChromeRowNumberHeaderCellProps } fr
 // Shared cell editor hooks
 export * from './cells/hooks';
 
+// Migration helper for consumers upgrading from the HTML-backed RichTextCell.
+export { htmlToMarkdown } from './cells/RichTextCell';
+
 // Sub-components
 export { DataGridHeader } from './header';
 export type { DataGridHeaderProps } from './header';
