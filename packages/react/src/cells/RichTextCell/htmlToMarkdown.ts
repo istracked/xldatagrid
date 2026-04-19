@@ -32,14 +32,49 @@
  * htmlToMarkdown('<a href="https://x.y">link</a>'); // "[link](https://x.y)"
  * ```
  */
+/**
+ * URL schemes considered safe for anchor hrefs. An empty string covers
+ * relative URLs (no scheme at all).
+ */
+const SAFE_URL_SCHEMES = new Set(['http:', 'https:', 'mailto:', 'tel:', '']);
+
+/**
+ * Normalise a raw href string and return its lowercase scheme (e.g. "http:").
+ * Handles HTML-entity and percent-encoded colons so that obfuscations like
+ * `javascript&#x3a;` or `javascript%3a` are caught.
+ */
+function extractScheme(href: string): string {
+  // Decode percent-encoded colon (%3a / %3A) and HTML entity colon (&#x3a; &#58;)
+  const decoded = href
+    .replace(/%3a/gi, ':')
+    .replace(/&#x3a;/gi, ':')
+    .replace(/&#58;/gi, ':')
+    .trim()
+    .toLowerCase();
+  const colonIdx = decoded.indexOf(':');
+  if (colonIdx === -1) return '';
+  // A scheme contains only letters, digits, +, -, .
+  const candidate = decoded.slice(0, colonIdx);
+  if (/^[a-z][a-z0-9+\-.]*$/.test(candidate)) return `${candidate}:`;
+  return '';
+}
+
 export function htmlToMarkdown(html: string | null | undefined): string {
   if (html == null) return '';
   let out = String(html);
   if (!out.trim()) return '';
 
+  // ── Pass 1: remove HTML comments BEFORE script/style so comment-wrapped
+  //    scripts (<!-- <script>x</script> -->) cannot survive. ─────────────────
+  out = out.replace(/<!--[\s\S]*?-->/g, '');
+
   // Strip <script> and <style> blocks entirely for safety.
   out = out.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
   out = out.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+
+  // ── Pass 2: strip inline event-handler attributes from ALL tags. ──────────
+  // Handles both quoted (on*="…") and unquoted (on*=value) forms.
+  out = out.replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
 
   // Normalize <br> to a newline.
   out = out.replace(/<br\s*\/?>/gi, '\n');
@@ -71,10 +106,14 @@ export function htmlToMarkdown(html: string | null | undefined): string {
   // Underline → italic (markdown has no native underline; italic is the conventional fallback).
   out = out.replace(/<u[^>]*>([\s\S]*?)<\/u>/gi, (_m, inner: string) => `*${inner}*`);
 
-  // Links — preserve href attribute.
+  // Links — preserve href only when the scheme is safe.
   out = out.replace(
     /<a\b[^>]*?href\s*=\s*["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
-    (_m, href: string, text: string) => `[${text.trim() || href}](${href})`,
+    (_m, href: string, text: string) => {
+      const scheme = extractScheme(href);
+      const safeHref = SAFE_URL_SCHEMES.has(scheme) ? href : '#';
+      return `[${text.trim() || safeHref}](${safeHref})`;
+    },
   );
 
   // Lists — ordered and unordered. Flatten nested lists lossily (prefix stays the same).

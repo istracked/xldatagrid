@@ -19,3 +19,7 @@ export type { UseSelectStateOptions, UseSelectStateReturn } from './useSelectSta
 /** Hook that manages an array of items for multi-select / tag-list editors. */
 export { useArrayState } from './useArrayState';
 export type { UseArrayStateOptions, UseArrayStateReturn } from './useArrayState';
+
+/** Hook that manages show/hide state + stable ids for password cell editors. */
+export { usePasswordInput } from './usePasswordInput';
+export type { UsePasswordInputOptions, UsePasswordInputResult } from './usePasswordInput';

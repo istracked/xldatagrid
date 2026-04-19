@@ -327,63 +327,77 @@ export function DataGridColumnFilterMenu(props: DataGridColumnFilterMenuProps): 
   }
 
   return createPortal(
+    // role="dialog" (not "menu"): this popup is a compound widget containing
+    // a search input, a multi-select listbox, and an OK/Cancel footer. The
+    // WAI-ARIA menu role is reserved for single-action navigation lists and
+    // only permits menuitem/menuitemcheckbox/menuitemradio children, which
+    // makes role="menu" around an <input type="text"> an axe-core violation
+    // of aria-required-children. role="dialog" correctly describes the
+    // enclosing popup and places no constraints on child roles.
     <div
       ref={menuRef}
-      role="menu"
+      role="dialog"
+      aria-label={`Filter ${title ?? field}`}
       data-testid="column-filter-menu"
       data-field={field}
       style={styles.container(position.top, position.left)}
     >
-      {/* Section 1: sort rows. Clicking either sort row fires the sort
-          callback and then closes the menu (matches Excel 365 behaviour). */}
-      <MenuItem
-        testId="column-filter-sort-asc"
-        icon="↑"
-        onClick={() => { onSortAsc(); onClose(); }}
-      >
-        {sortLabel('asc', dataType)}
-      </MenuItem>
-      <MenuItem
-        testId="column-filter-sort-desc"
-        icon="↓"
-        onClick={() => { onSortDesc(); onClose(); }}
-      >
-        {sortLabel('desc', dataType)}
-      </MenuItem>
-      <MenuItem
-        testId="column-filter-sort-by-color"
-        disabled
-        hasCaret
-      >
-        Sort by Color
-      </MenuItem>
+      {/* role="menu" wraps the six menuitem rows so they have the required
+          ARIA parent. Keeping the menu scoped to just these rows is
+          intentional: the dialog's search input, listbox, and OK/Cancel
+          footer are not menuitems and must not live under role="menu". */}
+      <div role="menu" aria-label="Sort and filter actions">
+        {/* Section 1: sort rows. Clicking either sort row fires the sort
+            callback and then closes the menu (matches Excel 365 behaviour). */}
+        <MenuItem
+          testId="column-filter-sort-asc"
+          icon="↑"
+          onClick={() => { onSortAsc(); onClose(); }}
+        >
+          {sortLabel('asc', dataType)}
+        </MenuItem>
+        <MenuItem
+          testId="column-filter-sort-desc"
+          icon="↓"
+          onClick={() => { onSortDesc(); onClose(); }}
+        >
+          {sortLabel('desc', dataType)}
+        </MenuItem>
+        <MenuItem
+          testId="column-filter-sort-by-color"
+          disabled
+          hasCaret
+        >
+          Sort by Color
+        </MenuItem>
 
-      <div role="separator" style={styles.divider} />
+        <div role="separator" style={styles.divider} />
 
-      {/* Section 2: filter rows. Clear-filter is inert unless this column
-          has an active predicate; the caller is responsible for removing
-          only this field's predicate and preserving the rest. */}
-      <MenuItem
-        testId="column-filter-clear"
-        disabled={!hasActiveFilter}
-        onClick={() => { onClearFilter(); onClose(); }}
-      >
-        {`Clear Filter from "${title}"`}
-      </MenuItem>
-      <MenuItem
-        testId="column-filter-by-color"
-        disabled
-        hasCaret
-      >
-        Filter by Color
-      </MenuItem>
-      <MenuItem
-        testId="column-filter-conditions"
-        hasCaret
-        onClick={() => { onOpenCustomFilter(); onClose(); }}
-      >
-        {conditionsLabel(dataType)}
-      </MenuItem>
+        {/* Section 2: filter rows. Clear-filter is inert unless this column
+            has an active predicate; the caller is responsible for removing
+            only this field's predicate and preserving the rest. */}
+        <MenuItem
+          testId="column-filter-clear"
+          disabled={!hasActiveFilter}
+          onClick={() => { onClearFilter(); onClose(); }}
+        >
+          {`Clear Filter from "${title}"`}
+        </MenuItem>
+        <MenuItem
+          testId="column-filter-by-color"
+          disabled
+          hasCaret
+        >
+          Filter by Color
+        </MenuItem>
+        <MenuItem
+          testId="column-filter-conditions"
+          hasCaret
+          onClick={() => { onOpenCustomFilter(); onClose(); }}
+        >
+          {conditionsLabel(dataType)}
+        </MenuItem>
+      </div>
 
       <div role="separator" style={styles.divider} />
 

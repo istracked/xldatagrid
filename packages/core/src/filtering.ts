@@ -186,3 +186,60 @@ export function applyFiltering<T extends Record<string, unknown>>(data: T[], fil
   const compiled = precompileFilter(filter);
   return data.filter(row => evaluateCompositeFilter(row, compiled));
 }
+
+/**
+ * Maximum nesting depth {@link stripField} will recurse into. Real-world filter
+ * trees rarely exceed 3-4 levels; 100 leaves generous headroom while still
+ * catching runaway recursion (circular refs, programmatically-generated
+ * pathological trees) before it blows the stack.
+ */
+export const MAX_FILTER_DEPTH = 100;
+
+/**
+ * Removes all filter predicates targeting `field` from a composite filter tree.
+ *
+ * Walks the tree recursively. Leaf nodes (`FilterDescriptor`) whose `.field`
+ * matches are replaced with `null`. Composite nodes (`CompositeFilterDescriptor`)
+ * whose entire subtree only referenced `field` collapse to `null` as well.
+ * Mixed composites lose their matching branches but remain in the tree.
+ *
+ * Throws `RangeError` when the traversal exceeds {@link MAX_FILTER_DEPTH},
+ * guarding against unbounded recursion from deeply-nested composites or
+ * circular references (`a.filters = [a]`).
+ *
+ * @param node - The filter or composite to prune.
+ * @param field - The field name to strip.
+ * @param depth - Current recursion depth; callers should not pass this.
+ * @returns The pruned node, or `null` if the entire node targeted `field`.
+ *
+ * @example
+ * ```ts
+ * const tree = { logic: 'and', filters: [
+ *   { field: 'name', operator: 'contains', value: 'Alice' },
+ *   { field: 'age', operator: 'gt', value: 30 },
+ * ]};
+ * stripField(tree, 'name');
+ * // → { logic: 'and', filters: [{ field: 'age', operator: 'gt', value: 30 }] }
+ * ```
+ */
+export function stripField(
+  node: FilterDescriptor | CompositeFilterDescriptor,
+  field: string,
+  depth = 0,
+): FilterDescriptor | CompositeFilterDescriptor | null {
+  if (depth > MAX_FILTER_DEPTH) {
+    throw new RangeError(
+      `Filter tree exceeds MAX_FILTER_DEPTH (${MAX_FILTER_DEPTH})`,
+    );
+  }
+  if ('filters' in node) {
+    const kept: Array<FilterDescriptor | CompositeFilterDescriptor> = [];
+    for (const child of node.filters) {
+      const pruned = stripField(child, field, depth + 1);
+      if (pruned !== null) kept.push(pruned);
+    }
+    if (kept.length === 0) return null;
+    return { ...node, filters: kept };
+  }
+  return node.field === field ? null : node;
+}

@@ -54,6 +54,7 @@ import {
   getVisibleRowsWithGroups,
   isCellInRange,
   createSelectionChecker,
+  stripField,
 } from '@istracked/datagrid-core';
 import { useGridWithAtoms } from './use-grid';
 import { useGridStore } from './use-grid-store';
@@ -125,6 +126,18 @@ export interface DataGridProps<TData extends Record<string, unknown> = Record<st
   showFilterMenu?: boolean;
   /** Stable id used as the IndexedDB cache key prefix for the column index. */
   gridId?: string;
+  /**
+   * HTML `id` placed on the grid's root element. Used for ARIA linkage from
+   * a parent expander's `aria-controls` to the nested grid root.
+   * When omitted no `id` attribute is added to the root element.
+   */
+  domId?: string;
+  /**
+   * When set, the grid root element carries `aria-labelledby` pointing at
+   * this id. Used by sub-grids to link back to the parent cell that controls
+   * them, so screen readers can announce the context.
+   */
+  ariaLabelledBy?: string;
   groupControlRef?: string;
 }
 
@@ -144,6 +157,17 @@ export interface CellRendererProps<TData = Record<string, unknown>> {
   isEditing: boolean;
   onCommit: (value: CellValue) => void;
   onCancel: () => void;
+  /**
+   * Stable identifier of the owning grid, forwarded so cell renderers that
+   * spawn child grids (e.g. SubGridCell) can construct deterministic ARIA ids
+   * for `aria-controls` / `aria-labelledby` linkage.
+   */
+  gridId?: string;
+  /**
+   * Row identifier for the row this cell belongs to. Forwarded alongside
+   * `gridId` to let SubGridCell build the stable child-grid id.
+   */
+  rowId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -244,6 +268,8 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     showColumnMenu,
     showFilterMenu,
     gridId,
+    domId,
+    ariaLabelledBy,
     groupControlRef,
     ...config
   } = props;
@@ -932,25 +958,10 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     (field: string, replacement: FilterDescriptor | CompositeFilterDescriptor | null) => {
       const prev = state.filter;
 
-      const stripField = (
-        node: FilterDescriptor | CompositeFilterDescriptor,
-      ): FilterDescriptor | CompositeFilterDescriptor | null => {
-        if ('filters' in node) {
-          const kept: Array<FilterDescriptor | CompositeFilterDescriptor> = [];
-          for (const child of node.filters) {
-            const pruned = stripField(child);
-            if (pruned !== null) kept.push(pruned);
-          }
-          if (kept.length === 0) return null;
-          return { ...node, filters: kept };
-        }
-        return node.field === field ? null : node;
-      };
-
       const otherFilters: Array<FilterDescriptor | CompositeFilterDescriptor> = [];
       if (prev) {
         for (const child of prev.filters) {
-          const pruned = stripField(child);
+          const pruned = stripField(child, field);
           if (pruned !== null) otherFilters.push(pruned);
         }
       }
@@ -1083,6 +1094,13 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
 
       if (nestedColumns.length === 0) return null;
 
+      // Stable ids for ARIA linkage:
+      //   - childGridId:   placed on the nested grid's root <div> as `id`
+      //   - parentCellId:  placed on the parent row's cell as `id` so the
+      //                    nested grid can point at it with aria-labelledby
+      const childGridId = `${resolvedGridId}-row-${rowId}-subgrid`;
+      const parentCellId = `${resolvedGridId}-row-${rowId}-cell-${subCol.field}`;
+
       return (
         <DataGrid<Record<string, unknown>>
           key={`${rowId}-subgrid`}
@@ -1101,6 +1119,8 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           }}
           rowHeight={rowHeight}
           headerHeight={headerHeight}
+          domId={childGridId}
+          ariaLabelledBy={parentCellId}
         />
       );
     },
@@ -1115,6 +1135,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
       config.subGrid,
       rowHeight,
       headerHeight,
+      resolvedGridId,
     ],
   );
 
@@ -1126,6 +1147,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     <GridContext.Provider value={{ model, store, atoms } as any}>
       <div
         ref={containerRef}
+        id={domId}
         className={`istracked-datagrid${className ? ` ${className}` : ''}`}
         style={styles.gridContainer(!!config.theme, themeStyle, style)}
         tabIndex={0}
@@ -1133,6 +1155,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
         aria-rowcount={processedData.length}
         aria-colcount={visibleColumns.length}
         aria-readonly={isReadOnly || undefined}
+        aria-labelledby={ariaLabelledBy}
         {...(themeId ? { 'data-theme': themeId } : {})}
         {...(isReadOnly ? { 'data-readonly': 'true' } : {})}
         {...(showGhostRow ? { 'data-ghost-row': 'true' } : {})}
@@ -1346,13 +1369,14 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           onRowDragStart={handleRowDragStart}
           onRowDragOver={handleRowDragOver}
           onRowDrop={handleRowDrop}
-          getRowBorder={chromeConfig?.getRowBorder as any}
-          getRowBackground={chromeConfig?.getRowBackground as any}
-          getChromeCellContent={chromeConfig?.getChromeCellContent as any}
+          getRowBorder={chromeConfig?.getRowBorder}
+          getRowBackground={chromeConfig?.getRowBackground}
+          getChromeCellContent={chromeConfig?.getChromeCellContent}
           selectionMode={config.selectionMode}
           expandedSubGrids={state.expandedSubGrids}
           subGridDepth={subGridDepth}
           renderSubGridExpansionRow={renderSubGridExpansionRow}
+          gridId={resolvedGridId}
         />
 
         {contextMenuEnabled && (

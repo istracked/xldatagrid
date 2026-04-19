@@ -63,6 +63,10 @@ export const BooleanSelectedCell = React.memo(function BooleanSelectedCell<TData
   const isNull = value === null || value === undefined;
   const checked = Boolean(value);
   const editable = column.editable !== false;
+  // Tracked on focus/blur to render a visible focus ring — jsdom does not
+  // resolve `:focus-visible`, so the flag approach keeps the affordance
+  // testable and framework-agnostic.
+  const [focused, setFocused] = React.useState(false);
 
   const handleClick = () => {
     if (!editable) return;
@@ -95,9 +99,11 @@ export const BooleanSelectedCell = React.memo(function BooleanSelectedCell<TData
       data-testid="boolean-selected-cell"
       data-value={String(checked)}
       data-state={isNull ? 'mixed' : checked ? 'true' : 'false'}
-      style={styles.container(editable)}
+      style={styles.container(editable, focused)}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
+      onFocus={() => editable && setFocused(true)}
+      onBlur={() => setFocused(false)}
     >
       <span
         data-testid="boolean-selected-label"

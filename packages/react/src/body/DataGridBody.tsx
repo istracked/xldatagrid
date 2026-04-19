@@ -207,6 +207,11 @@ export interface DataGridBodyProps<TData extends Record<string, unknown>> {
   renderSubGridExpansionRow?: (rowId: string, row: TData) => React.ReactNode;
   /** Current nesting depth; 0 for the outer grid. */
   subGridDepth?: number;
+  /**
+   * Stable identifier of the owning grid, forwarded to cell renderers so they
+   * can construct deterministic child-grid ARIA ids for `aria-controls` linkage.
+   */
+  gridId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -266,10 +271,61 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     expandedSubGrids,
     renderSubGridExpansionRow,
     subGridDepth = 0,
+    gridId,
   } = props;
 
   const ghostPosition = showGhostRow ? resolveGhostPosition(ghostRowConfig) : 'bottom';
   const ghostAtTop = ghostPosition === 'top' && showGhostRow;
+
+  // ---------------------------------------------------------------------------
+  // Chrome resolver memoization
+  // ---------------------------------------------------------------------------
+  //
+  // Chrome resolvers (`getRowBackground`, `getRowBorder`, `getChromeCellContent`)
+  // are invoked once per rendered row. For a 10k-row grid with an expensive
+  // consumer resolver the per-render cost dominates; worse, every unrelated
+  // parent re-render (e.g. a container-prop tweak) would normally re-invoke
+  // every resolver even though the row data is unchanged.
+  //
+  // We guard against that with a WeakMap keyed by the row object. Two
+  // invariants fall out for free:
+  //
+  //   * Correctness — when a consumer mutates a row they create a new row
+  //     reference (immutable-style updates) or swap in a new object. The new
+  //     reference is absent from the WeakMap, so the resolver is invoked and
+  //     the fresh value is cached under the new key. Old entries are GC'd
+  //     with the row.
+  //   * Performance — re-rendering the body with the same `processedData`
+  //     array and the same resolver identity hits the cache on every row.
+  //
+  // The inner `Map` is keyed by the resolver function itself so a consumer
+  // that swaps the resolver (e.g. toggles the config) transparently
+  // invalidates only its own slot without touching the other resolvers'
+  // caches for the same row.
+  //
+  // `useRef` ensures the cache survives across renders; `.current` is never
+  // reassigned, only mutated.
+  const resolverCacheRef = useRef<WeakMap<object, Map<Function, unknown>>>(new WeakMap());
+  const getCachedResolverResult = <TReturn,>(
+    resolver: ((row: TData, rowId: string, rowIndex: number) => TReturn) | undefined,
+    row: TData,
+    rowId: string,
+    rowIndex: number,
+  ): TReturn | undefined => {
+    if (!resolver) return undefined;
+    const rowKey = row as unknown as object;
+    let byResolver = resolverCacheRef.current.get(rowKey);
+    if (!byResolver) {
+      byResolver = new Map();
+      resolverCacheRef.current.set(rowKey, byResolver);
+    }
+    if (byResolver.has(resolver as unknown as Function)) {
+      return byResolver.get(resolver as unknown as Function) as TReturn;
+    }
+    const value = resolver(row, rowId, rowIndex);
+    byResolver.set(resolver as unknown as Function, value);
+    return value;
+  };
 
   // Issue #11: when Esc is pressed inside the fallback inline editor, the
   // unmount that follows `model.cancelEdit()` triggers a native `blur` event
@@ -338,8 +394,8 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     // brief reconciliation window (e.g. a data swap), in which case we fall
     // back to the default digit rather than propagating `undefined` into user
     // code.
-    const content = row !== undefined && getChromeCellContent
-      ? getChromeCellContent(row, rowId, rowIdx) ?? null
+    const content = row !== undefined
+      ? getCachedResolverResult(getChromeCellContent, row, rowId, rowIdx) ?? null
       : null;
     return (
       <ChromeRowNumberCell
@@ -428,6 +484,9 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     // single cell and `onRowNumberClick`, when present, still runs
     // independently from chrome gutter clicks.
     const handleCellClick = (e: React.MouseEvent) => {
+      // If a child element already handled the click (e.g. a custom renderer
+      // that opens a popup), respect that and skip row/cell selection.
+      if (e.defaultPrevented) return;
       if (selectionMode === 'row' && onRowNumberClick) {
         onRowNumberClick(rowId, e.shiftKey, e.metaKey || e.ctrlKey);
         return;
@@ -471,6 +530,8 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             column={col}
             rowIndex={rowIdx}
             isEditing={editing}
+            gridId={gridId}
+            rowId={rowId}
             onCommit={v => {
               const vResult = validateCell(col, v, rowId);
               if (vResult && vResult.severity === 'error') {
@@ -616,12 +677,12 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         const rowIdx = rowIds.indexOf(rowId);
         const isExpanded = expandedSubGrids?.has(rowId) ?? false;
 
-        // Resolve per-row presentation overrides for this data row. Evaluated
-        // eagerly rather than memoised: resolvers are typically pure and cheap,
-        // and the grouped render path is not virtualised so callers are not
-        // paying the cost for unrendered rows.
-        const rowBg = getRowBackground ? getRowBackground(row, rowId, rowIdx) ?? null : null;
-        const rowBorder = getRowBorder ? getRowBorder(row, rowId, rowIdx) ?? null : null;
+        // Resolve per-row presentation overrides for this data row. Results
+        // are cached per-row-object via `getCachedResolverResult`, so an
+        // unchanged `processedData` reference skips resolver work across
+        // unrelated re-renders of the grid (e.g. container-prop tweaks).
+        const rowBg = getCachedResolverResult(getRowBackground, row, rowId, rowIdx) ?? null;
+        const rowBorder = getCachedResolverResult(getRowBorder, row, rowId, rowIdx) ?? null;
         return (
           <React.Fragment key={rowId}>
             <div
@@ -653,6 +714,12 @@ export function DataGridBody<TData extends Record<string, unknown>>(
               {!rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
             </div>
             {isExpanded && renderSubGridExpansionRow && (
+              // The expansion row is a spanning row that holds a nested grid.
+              // A bare role="grid" inside role="row" or role="grid" fails
+              // aria-required-children. The fix is to wrap the nested grid
+              // in a single role="gridcell" so the parent grid sees a valid
+              // row→gridcell hierarchy, and the gridcell's content (the
+              // nested grid) is opaque to the aria-required-children rule.
               <div
                 role="row"
                 data-testid={`subgrid-expansion-${rowId}`}
@@ -663,7 +730,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
                   depth: subGridDepth,
                 })}
               >
-                <div style={styles.subGridExpansionInner}>
+                <div role="gridcell" style={styles.subGridExpansionInner}>
                   {renderSubGridExpansionRow(rowId, row)}
                 </div>
               </div>
@@ -677,18 +744,6 @@ export function DataGridBody<TData extends Record<string, unknown>>(
   // -------------------------------------------------------------------------
   // Sub-grid expansion detection
   // -------------------------------------------------------------------------
-  //
-  // If any parent row has its sub-grid expanded we cannot keep the virtualised
-  // absolute-positioning layout, because the expansion rows introduce variable
-  // heights that aren't accounted for by the fixed-`rowHeight` virtualiser.
-  // In that case we fall back to a flow layout that renders the full data set
-  // (non-virtualised). Virtualisation is restored when every sub-grid is
-  // collapsed.
-  //
-  // This trade-off is acceptable because sub-grid rendering is inherently a
-  // "look at a subset of rows closely" interaction; for heavy virtualisation
-  // workloads users typically keep the rows collapsed.
-
   const hasExpandedSubGrids = !!expandedSubGrids && expandedSubGrids.size > 0;
 
   // -------------------------------------------------------------------------
@@ -704,29 +759,41 @@ export function DataGridBody<TData extends Record<string, unknown>>(
       );
     }
 
-    // Choose the row index range: virtualised window when no sub-grids are
-    // expanded; full dataset otherwise.
-    const indices = hasExpandedSubGrids
-      ? processedData.map((_, i) => i)
-      : Array.from(
-          { length: rowRange.endIndex - rowRange.startIndex + 1 },
-          (_, i) => rowRange.startIndex + i,
-        );
+    // Always use the virtualised window for the row range. When sub-grids are
+    // expanded we switch from absolute-positioning to in-flow layout within the
+    // window (so expansion rows push subsequent rows down naturally) and prepend
+    // a pixel-height spacer for the rows above the window. This preserves
+    // virtualisation — only O(viewport) rows are ever in the DOM — while still
+    // allowing variable-height expansion rows to flow correctly.
+    const windowIndices = Array.from(
+      { length: rowRange.endIndex - rowRange.startIndex + 1 },
+      (_, i) => rowRange.startIndex + i,
+    );
 
-    return indices.map(rowIdx => {
+    // When rendering in flow layout (hasExpandedSubGrids), the rows are no
+    // longer absolutely positioned. We need a top spacer to push the visible
+    // window down to its correct scroll offset so the rows appear at the right
+    // position within the oversized scroll container.
+    const topSpacerHeight = hasExpandedSubGrids
+      ? rowRange.startIndex * rowHeight + (ghostAtTop ? rowHeight : 0)
+      : 0;
+
+    const rowElements = windowIndices.map(rowIdx => {
       const row = processedData[rowIdx];
       if (!row) return null;
       const rowId = rowIds[rowIdx] ?? String(rowIdx);
       const isExpanded = expandedSubGrids?.has(rowId) ?? false;
 
-      // Per-row presentation overrides (issue #14). Resolvers are invoked
-      // once per rendered row; `null`/`undefined` results preserve the
-      // default zebra stripe and row-separator styling.
-      const rowBg = getRowBackground ? getRowBackground(row, rowId, rowIdx) ?? null : null;
-      const rowBorder = getRowBorder ? getRowBorder(row, rowId, rowIdx) ?? null : null;
+      // Per-row presentation overrides (issue #14). Cached per-row-object via
+      // `getCachedResolverResult` so unrelated re-renders reuse the prior
+      // result; a fresh row reference (data swap) invalidates the cache slot.
+      const rowBg = getCachedResolverResult(getRowBackground, row, rowId, rowIdx) ?? null;
+      const rowBorder = getCachedResolverResult(getRowBorder, row, rowId, rowIdx) ?? null;
 
-      // Use in-flow positioning (no absolute top) whenever any sub-grid is
-      // expanded, so expansion rows can push subsequent rows down naturally.
+      // When sub-grids are expanded use in-flow layout so the expansion row
+      // naturally pushes subsequent rows downward. When no sub-grids are
+      // expanded use absolute positioning (the original virtualised layout)
+      // which is faster and avoids the reflow cost of a spacer element.
       const rowStyle = hasExpandedSubGrids
         ? styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0, background: rowBg, border: rowBorder })
         : styles.virtualizedRow({
@@ -769,6 +836,10 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             {!rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
           </div>
           {isExpanded && renderSubGridExpansionRow && (
+            // See companion branch above for rationale: the nested grid is
+            // wrapped in a single role="gridcell" so the parent grid's
+            // row→gridcell hierarchy stays valid under axe-core's
+            // aria-required-children rule.
             <div
               role="row"
               data-testid={`subgrid-expansion-${rowId}`}
@@ -779,7 +850,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
                 depth: subGridDepth,
               })}
             >
-              <div style={styles.subGridExpansionInner}>
+              <div role="gridcell" style={styles.subGridExpansionInner}>
                 {renderSubGridExpansionRow(rowId, row)}
               </div>
             </div>
@@ -787,6 +858,23 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         </React.Fragment>
       );
     });
+
+    if (!hasExpandedSubGrids || topSpacerHeight === 0) {
+      return rowElements;
+    }
+
+    // Return spacer + windowed rows as a flat array that React renders as a
+    // fragment. The spacer reserves vertical space for the rows above the
+    // current viewport window; the flow-layout rows then appear at the correct
+    // scroll position without re-implementing absolute positioning math.
+    return [
+      <div
+        key="__top-spacer__"
+        aria-hidden="true"
+        style={{ height: topSpacerHeight, flexShrink: 0 }}
+      />,
+      ...rowElements,
+    ];
   };
 
   // -------------------------------------------------------------------------
@@ -830,12 +918,16 @@ export function DataGridBody<TData extends Record<string, unknown>>(
       ) : (
         <div
           style={
-            hasExpandedSubGrids
-              ? styles.groupedBodyWrapper(totalWidth)
-              : styles.virtualizedBodyWrapper(
-                  rowRange.totalSize + (showGhostRow ? rowHeight : 0),
-                  totalWidth,
-                )
+            // Always use the virtualised wrapper so the scroll container has
+            // the correct total height and the browser renders an accurate
+            // scrollbar thumb. When sub-grids are expanded we switch to flow
+            // layout inside the window (via a top spacer + in-flow rows) rather
+            // than absolute positioning, but the outer container height is
+            // unchanged so scrolling behaviour remains correct.
+            styles.virtualizedBodyWrapper(
+              rowRange.totalSize + (showGhostRow ? rowHeight : 0),
+              totalWidth,
+            )
           }
         >
           {renderNonGroupedBody()}

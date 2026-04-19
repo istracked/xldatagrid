@@ -32,16 +32,39 @@ export interface ChromeControlsHeaderCellProps {
  * contiguous. Sticky-pinned at `left: 0`, z-index 5 (configured by
  * `styles.controlsHeaderCell`).
  */
+/**
+ * Visually-hidden style shared by header cells that need text for assistive
+ * tech but must render visually blank. Positions the text off-screen without
+ * collapsing it out of the accessibility tree (unlike `display: none` or
+ * `visibility: hidden` which hide from both visual and screen readers).
+ */
+const visuallyHiddenStyle: React.CSSProperties = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+};
+
 export function ChromeControlsHeaderCell(props: ChromeControlsHeaderCellProps) {
-  // Render an empty accessible column header; sticky positioning is baked into
-  // `styles.controlsHeaderCell`.
+  // Render a visually empty column header that still has an accessible name.
+  // axe-core's `empty-table-header` rule requires text content reachable by
+  // screen readers; `aria-label` alone is not always picked up (axe inspects
+  // the element's text subtree for this rule). A visually-hidden span
+  // satisfies the rule and supplies a screen-reader label.
   return (
     <div
       style={styles.controlsHeaderCell(props.width, props.height)}
       role="columnheader"
       data-testid="chrome-controls-header"
       aria-label="Controls"
-    />
+    >
+      <span style={visuallyHiddenStyle}>Controls</span>
+    </div>
   );
 }
 
