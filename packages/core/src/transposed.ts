@@ -15,13 +15,18 @@ import type {
   ColumnDef,
   RowTypeDef,
   ValidationResult,
+  ChromeColumnsConfig,
 } from './types';
 
 /**
  * Creates a {@link GridConfig} from a {@link TransposedGridConfig}.
  *
  * The resulting grid has:
- * - First column: frozen field labels (read-only)
+ * - First column: frozen field labels (read-only) — **or**, when
+ *   {@link TransposedGridConfig.useChromeFieldColumn} is `true`, the labels
+ *   are projected into the row-number chrome gutter via
+ *   {@link ChromeColumnsConfig.getChromeCellContent} and the ordinary
+ *   `__field_label` data column is omitted entirely.
  * - Subsequent columns: one per entity (editable)
  * - Each row maps to a field with its own cellType via rowTypes
  *
@@ -35,31 +40,39 @@ export function createTransposedConfig<TData = Record<string, unknown>>(
   const fieldColumnLabel = config.fieldColumnLabel ?? 'Field';
   const fieldColumnWidth = config.fieldColumnWidth ?? 200;
   const entityColumnWidth = config.entityColumnWidth ?? 200;
+  const useChrome = config.useChromeFieldColumn === true;
 
-  // Build columns: field label column + one per entity
-  const columns: ColumnDef<TData>[] = [
-    {
-      id: '__field_label',
-      field: '__field_label' as keyof TData & string,
-      title: fieldColumnLabel,
-      width: fieldColumnWidth,
-      frozen: 'left',
-      editable: false,
-      sortable: false,
-      filterable: false,
-      resizable: true,
-    },
-    ...config.entityKeys.map(key => ({
-      id: key,
-      field: key as keyof TData & string,
-      title: key,
-      width: entityColumnWidth,
-      editable: true,
-      sortable: false,
-      filterable: false,
-      resizable: true,
-    })),
-  ];
+  // Build columns.
+  //
+  // When the chrome gutter is the authoritative key column (issue #18 sub-
+  // feature 1), we omit the `__field_label` data column entirely: the chrome
+  // column takes its place via `getChromeCellContent`. This keeps the data
+  // column set equal to the entity count, which matches consumers' mental
+  // model of "each column is an entity".
+  const labelColumn: ColumnDef<TData> = {
+    id: '__field_label',
+    field: '__field_label' as keyof TData & string,
+    title: fieldColumnLabel,
+    width: fieldColumnWidth,
+    frozen: 'left',
+    editable: false,
+    sortable: false,
+    filterable: false,
+    resizable: true,
+  };
+  const entityColumns: ColumnDef<TData>[] = config.entityKeys.map(key => ({
+    id: key,
+    field: key as keyof TData & string,
+    title: key,
+    width: entityColumnWidth,
+    editable: true,
+    sortable: false,
+    filterable: false,
+    resizable: true,
+  }));
+  const columns: ColumnDef<TData>[] = useChrome
+    ? entityColumns
+    : [labelColumn, ...entityColumns];
 
   // Build row type defs from field definitions
   const rowTypes: RowTypeDef[] = config.fields.map((field, index) => ({
@@ -83,6 +96,30 @@ export function createTransposedConfig<TData = Record<string, unknown>>(
     return row as unknown as TData;
   });
 
+  // Chrome configuration.
+  //
+  // When `useChromeFieldColumn` is enabled we wire a `getChromeCellContent`
+  // resolver that emits the field's display label as the chrome cell's text.
+  // The resolver reads `__field_label` off the row rather than closing over
+  // `config.fields[rowIndex].label` so that consumers who rearrange rows at
+  // runtime still get correct labels. Row numbers are enabled with a width
+  // matching `fieldColumnWidth` so the gutter looks like a key column.
+  const chrome: ChromeColumnsConfig<TData> | undefined = useChrome
+    ? {
+        rowNumbers: {
+          width: fieldColumnWidth,
+          reorderable: false,
+          position: 'left',
+        },
+        getChromeCellContent: (row: TData) => {
+          const label = (row as unknown as { __field_label?: unknown }).__field_label;
+          return {
+            text: typeof label === 'string' ? label : String(label ?? ''),
+          };
+        },
+      }
+    : undefined;
+
   return {
     data,
     columns,
@@ -92,6 +129,7 @@ export function createTransposedConfig<TData = Record<string, unknown>>(
     readOnly: false,
     selectionMode: 'cell',
     keyboardNavigation: true,
+    ...(chrome ? { chrome } : {}),
   };
 }
 
