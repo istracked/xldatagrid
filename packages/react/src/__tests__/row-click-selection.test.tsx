@@ -74,6 +74,14 @@ function hasSelectionOutline(el: HTMLElement): boolean {
   return el.style.outline.includes('2px solid');
 }
 
+function getRowEl(rowId: string): HTMLElement {
+  const row = document.querySelector(
+    `[role="row"][data-row-id="${rowId}"]`,
+  );
+  if (!row) throw new Error(`Row not found: rowId=${rowId}`);
+  return row as HTMLElement;
+}
+
 // ---------------------------------------------------------------------------
 // In-row data-cell clicks in selectionMode='row'
 // ---------------------------------------------------------------------------
@@ -84,17 +92,21 @@ describe('row-click selection (issue #15)', () => {
 
     fireEvent.click(getCell('2', 'name'));
 
-    // The whole row should be highlighted, not just the clicked cell.
+    // With the row-level outline feature, the row container gets the outline
+    // and per-cell outlines are suppressed. Verify the row is visually selected.
+    const rowEl = getRowEl('2');
+    expect(rowEl.style.outline).toContain('2px solid');
+
+    // Per-cell outlines are suppressed — the row outline replaces them.
     const rowCells = getAllCellsInRow('2');
     expect(rowCells.length).toBeGreaterThan(1);
     rowCells.forEach((cell) => {
-      expect(hasSelectionOutline(cell)).toBe(true);
+      expect(cell.style.outline).toBe('none');
     });
 
     // Other rows are unaffected.
-    getAllCellsInRow('1').forEach((cell) => {
-      expect(hasSelectionOutline(cell)).toBe(false);
-    });
+    const otherRowEl = getRowEl('1');
+    expect(otherRowEl.style.outline ?? '').not.toContain('2px solid');
   });
 
   it('produces the same selection whether the click came from a data cell or the row-number gutter', () => {
@@ -104,7 +116,7 @@ describe('row-click selection (issue #15)', () => {
       chrome: { rowNumbers: true },
     });
     fireEvent.click(getCell('3', 'score'));
-    const afterCellClick = getAllCellsInRow('3').every(hasSelectionOutline);
+    const afterCellClick = getRowEl('3').style.outline.includes('2px solid');
     unmount();
 
     // Row-number gutter click path on a freshly rendered grid.
@@ -112,7 +124,7 @@ describe('row-click selection (issue #15)', () => {
     const rowNumberCells = screen.getAllByTestId('chrome-row-number');
     // Row 3 is at index 2 in the data order.
     fireEvent.click(rowNumberCells[2]!);
-    const afterGutterClick = getAllCellsInRow('3').every(hasSelectionOutline);
+    const afterGutterClick = getRowEl('3').style.outline.includes('2px solid');
 
     expect(afterCellClick).toBe(true);
     expect(afterGutterClick).toBe(true);
@@ -124,17 +136,16 @@ describe('row-click selection (issue #15)', () => {
     // Ctrl+click row 2 — should add row 2 (without clearing row 1) because
     // the chrome click handler interprets `metaKey` as a toggle.
     fireEvent.click(getCell('2', 'age'), { ctrlKey: true });
-    getAllCellsInRow('2').forEach((cell) => {
-      expect(hasSelectionOutline(cell)).toBe(true);
-    });
+    // The row container for row 2 gets the outline (last selected range).
+    expect(getRowEl('2').style.outline).toContain('2px solid');
   });
 
   it('Shift+click on a data cell extends the range from the last anchor', () => {
     renderGrid({ selectionMode: 'row' });
     fireEvent.click(getCell('1', 'name'));
     fireEvent.click(getCell('3', 'score'), { shiftKey: true });
-    // Rows 1, 2 and 3 should all be highlighted because the chrome click
-    // handler extended the selection to the last visible column of row 3.
+    // Shift produces a multi-row range (rows 1-3) with anchor/focus on different
+    // rows, so isRowFullySelected returns false. Per-cell outlines remain visible.
     ['1', '2', '3'].forEach((rowId) => {
       getAllCellsInRow(rowId).forEach((cell) => {
         expect(hasSelectionOutline(cell)).toBe(true);
@@ -224,5 +235,42 @@ describe('row-click selection does not change other selection modes', () => {
     fireEvent.click(getCell('2', 'score'));
     expect(hasSelectionOutline(getCell('2', 'score'))).toBe(true);
     expect(hasSelectionOutline(getCell('2', 'name'))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Row-level outline on rowheader click (CSS-only, path #1)
+// ---------------------------------------------------------------------------
+
+describe('row-level selection outline on rowheader click', () => {
+  it('row element gets outline and per-cell outlines are suppressed after rowheader click', () => {
+    renderGrid({ selectionMode: 'row', chrome: { rowNumbers: true } });
+
+    const rowNumberCells = screen.getAllByTestId('chrome-row-number');
+    // Row 2 is at index 1 in the data order.
+    fireEvent.click(rowNumberCells[1]!);
+
+    const rowEl = getRowEl('2');
+    // The row itself must carry the selection outline (2px solid is the reliable
+    // part; jsdom may strip or truncate CSS variable fallback values).
+    expect(rowEl.style.outline).toContain('2px solid');
+
+    // Every gridcell in that row must have its outline suppressed.
+    getAllCellsInRow('2').forEach((cell) => {
+      expect(cell.style.outline).toBe('none');
+    });
+  });
+
+  it('per-cell outlines remain and no row outline when a single gridcell is clicked (cell mode)', () => {
+    renderGrid({ selectionMode: 'cell' });
+
+    fireEvent.click(getCell('1', 'name'));
+
+    const rowEl = getRowEl('1');
+    // No row-level outline in cell mode.
+    expect(rowEl.style.outline ?? '').not.toContain('2px solid');
+
+    // The clicked cell keeps its own outline.
+    expect(hasSelectionOutline(getCell('1', 'name'))).toBe(true);
   });
 });

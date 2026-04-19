@@ -110,10 +110,11 @@ describe('JSON config — selection mode', () => {
     renderGrid({ selectionMode: 'row' });
     const cells = screen.getAllByRole('gridcell');
     fireEvent.click(cells[0]!);
-    // In row mode, clicking a cell still triggers selection via selectCell
-    expect(cells[0]).toHaveStyle({
-      outline: '2px solid var(--dg-selection-border, #3b82f6)',
-    });
+    // In row mode a full-row selection is created. The row container gets the
+    // outline; per-cell outlines are suppressed.
+    const firstRow = document.querySelector('[role="row"][data-row-id]') as HTMLElement;
+    expect(firstRow.style.outline).toContain('2px solid');
+    expect(cells[0]).toHaveStyle({ outline: 'none' });
   });
 
   it('config sets selection mode to range', () => {

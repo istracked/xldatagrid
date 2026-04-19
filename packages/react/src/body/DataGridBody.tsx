@@ -47,6 +47,7 @@ import {
   GhostRowPosition,
   GridModel,
   SelectionMode,
+  isRowFullySelected,
 } from '@istracked/datagrid-core';
 import type {
   ControlsColumnConfig,
@@ -194,6 +195,12 @@ export interface DataGridBodyProps<TData extends Record<string, unknown>> {
   // State
   isSelected: (rowId: string, field: string) => boolean;
   /**
+   * Returns `true` when the row is fully selected (all columns covered by the
+   * active range). When true, the row container gets the selection outline and
+   * per-cell outlines are suppressed so only one outline is visible.
+   */
+  isRowSelected?: (rowId: string) => boolean;
+  /**
    * Returns `true` when the cell is part of a multi-cell rectangular range.
    * Defaults to always-false if not supplied. Feeds the per-cell background
    * resolver in `renderCell`, which composes it with the chrome-column
@@ -303,6 +310,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     scrollRef,
     handleScroll,
     isSelected,
+    isRowSelected,
     isInRange,
     isEditingCell,
     getCellType,
@@ -575,6 +583,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     row: TData,
     rowId: string,
     rowIdx: number,
+    suppressSelectionOutline?: boolean,
   ) => {
     const width = columnWidths[colIdx]?.width ?? 150;
     const value = row[col.field as keyof TData] as CellValue;
@@ -643,6 +652,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
           frozen,
           frozenLeftOffset: computeFrozenLeftOffset(colIdx),
           editable: col.editable !== false && !isReadOnly,
+          suppressSelectionOutline,
         })}
         role="gridcell"
         aria-colindex={colIdx + 1}
@@ -820,10 +830,11 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         // unrelated re-renders of the grid (e.g. container-prop tweaks).
         const rowBg = getCachedResolverResult(getRowBackground, row, rowId, rowIdx) ?? null;
         const rowBorder = getCachedResolverResult(getRowBorder, row, rowId, rowIdx) ?? null;
+        const rowIsFullySelected = isRowSelected ? isRowSelected(rowId) : false;
         return (
           <React.Fragment key={rowId}>
             <div
-              style={styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0, background: rowBg, border: rowBorder })}
+              style={styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0, background: rowBg, border: rowBorder, rowSelected: rowIsFullySelected })}
               role="row"
               aria-rowindex={rowIdx + 2}
               data-row-id={rowId}
@@ -846,7 +857,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
               )}
               {rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
               {orderedVisibleColumns.map((col, colIdx) =>
-                renderCell(col, colIdx, row, rowId, rowIdx)
+                renderCell(col, colIdx, row, rowId, rowIdx, rowIsFullySelected)
               )}
               {!rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
             </div>
@@ -926,13 +937,14 @@ export function DataGridBody<TData extends Record<string, unknown>>(
       // result; a fresh row reference (data swap) invalidates the cache slot.
       const rowBg = getCachedResolverResult(getRowBackground, row, rowId, rowIdx) ?? null;
       const rowBorder = getCachedResolverResult(getRowBorder, row, rowId, rowIdx) ?? null;
+      const rowIsFullySelected = isRowSelected ? isRowSelected(rowId) : false;
 
       // When sub-grids are expanded use in-flow layout so the expansion row
       // naturally pushes subsequent rows downward. When no sub-grids are
       // expanded use absolute positioning (the original virtualised layout)
       // which is faster and avoids the reflow cost of a spacer element.
       const rowStyle = hasExpandedSubGrids
-        ? styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0, background: rowBg, border: rowBorder })
+        ? styles.dataRow({ height: rowHeight, totalWidth, isEven: rowIdx % 2 === 0, background: rowBg, border: rowBorder, rowSelected: rowIsFullySelected })
         : styles.virtualizedRow({
             height: rowHeight,
             totalWidth,
@@ -940,6 +952,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             isEven: rowIdx % 2 === 0,
             background: rowBg,
             border: rowBorder,
+            rowSelected: rowIsFullySelected,
           });
 
       return (
@@ -968,7 +981,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             )}
             {rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
             {orderedVisibleColumns.map((col, colIdx) =>
-              renderCell(col, colIdx, row, rowId, rowIdx)
+              renderCell(col, colIdx, row, rowId, rowIdx, rowIsFullySelected)
             )}
             {!rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
           </div>
