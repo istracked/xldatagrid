@@ -778,21 +778,28 @@ export interface ChromeColumnsConfig<TData = Record<string, unknown>> {
   /** Excel-style row number column with selection and reorder. Positioned via `RowNumberColumnConfig.position` (default: 'left'). */
   rowNumbers?: RowNumberColumnConfig | boolean;
   /**
-   * Per-row border resolver. Called once per rendered row with the row data,
-   * row id and zero-based row index. Return a {@link RowBorderStyle} object
-   * to paint a border around the row's container element, or `null`/`undefined`
-   * to inherit the default border.
+   * Per-row border resolver. Called once per rendered row.
+   *
+   * Two calling conventions are supported — pick whichever is more
+   * ergonomic for the consumer; the grid honours both:
+   *
+   *   * **Positional** (backward-compatible):
+   *     `(row, rowId, rowIndex) => RowBorderStyle | null | undefined`
+   *   * **Named-object** (self-documenting, extensible):
+   *     `({ row, rowId, rowIndex, column? }) => RowBorderStyle | null | undefined`
+   *
+   * The grid dispatches between the two forms by inspecting the declared
+   * arity (`fn.length`) — a one-argument resolver receives the named-object
+   * context, a three-argument resolver receives the positional args. See
+   * {@link ChromeRowResolver} for the full type and
+   * {@link ChromeRowResolverContext} for the context shape.
    *
    * The returned border is applied to the row container itself (all four
    * sides by default; see {@link RowBorderStyle.sides}). It composes with
    * chrome column styles — the chrome gutter's own left/right borders are
    * preserved.
    */
-  getRowBorder?: (
-    row: TData,
-    rowId: string,
-    rowIndex: number,
-  ) => RowBorderStyle | null | undefined;
+  getRowBorder?: ChromeRowResolver<TData, RowBorderStyle | null | undefined>;
   /**
    * Per-row background colour resolver. Called once per rendered row; the
    * returned string is applied as the row container's `background` CSS
@@ -800,12 +807,10 @@ export interface ChromeColumnsConfig<TData = Record<string, unknown>> {
    * CSS-legal colour value is accepted (HEX is preferred for determinism,
    * but `rgba(…)` / named colours also work). Return `null`/`undefined` to
    * fall back to the default row background token.
+   *
+   * Accepts either calling convention — see {@link ChromeRowResolver}.
    */
-  getRowBackground?: (
-    row: TData,
-    rowId: string,
-    rowIndex: number,
-  ) => string | null | undefined;
+  getRowBackground?: ChromeRowResolver<TData, string | null | undefined>;
   /**
    * Per-row chrome-cell content resolver. When provided and the row-number
    * chrome column is enabled, the returned {@link ChromeCellContent} replaces
@@ -817,13 +822,72 @@ export interface ChromeColumnsConfig<TData = Record<string, unknown>> {
    *
    * Returning `null`/`undefined` preserves the default row-number rendering
    * for that row.
+   *
+   * Accepts either calling convention — see {@link ChromeRowResolver}.
    */
-  getChromeCellContent?: (
-    row: TData,
-    rowId: string,
-    rowIndex: number,
-  ) => ChromeCellContent | null | undefined;
+  getChromeCellContent?: ChromeRowResolver<TData, ChromeCellContent | null | undefined>;
 }
+
+/**
+ * Context object passed to the named-object form of a {@link ChromeRowResolver}.
+ *
+ * Consumers that prefer a self-documenting call shape (and access to the
+ * optional `column` reference the row belongs to) opt in by declaring their
+ * resolver with a single object parameter, e.g.
+ *
+ *     chrome: {
+ *       getRowBackground: ({ row, rowIndex }) =>
+ *         rowIndex % 2 === 0 ? '#fafafa' : null,
+ *     }
+ *
+ * The grid's body renderer inspects the resolver's declared arity
+ * (`fn.length === 1`) to dispatch between the positional and named-object
+ * forms.
+ *
+ * `column` is populated only for cell-level invocations (not currently a
+ * public surface but reserved for the future per-cell chrome hooks).
+ * Row-level callers may leave it `undefined`.
+ *
+ * @typeParam TData - The shape of a data row.
+ */
+export interface ChromeRowResolverContext<TData = Record<string, unknown>> {
+  /** The row data at this index. */
+  row: TData;
+  /** The row's stable id (as derived from {@link GridConfig.rowKey}). */
+  rowId: string;
+  /** Zero-based row index within the current (processed) data array. */
+  rowIndex: number;
+  /**
+   * Optional column reference. Populated when the resolver is invoked at
+   * the cell level; left `undefined` for row-level invocations such as
+   * {@link ChromeColumnsConfig.getRowBorder} and
+   * {@link ChromeColumnsConfig.getRowBackground}.
+   */
+  column?: ColumnDef<TData>;
+}
+
+/**
+ * Row-level chrome resolver with two backward-compatible calling conventions.
+ *
+ * The original signature was positional — `(row, rowId, rowIndex) => TResult`
+ * — and remains the grid's wire-format. A consumer who prefers the
+ * self-documenting named-object form may instead declare their resolver as
+ * `(ctx: ChromeRowResolverContext<TData>) => TResult`; the grid's body
+ * renderer detects the form at call time via `fn.length === 1` (the
+ * resolver's declared arity) and dispatches accordingly.
+ *
+ * Untyped / spread-argument callers (`(...args) => …`, whose `.length`
+ * is `0`) fall back to the positional form so no historical consumer
+ * regresses. This is the documented trade-off of arity-based dispatch.
+ *
+ * @typeParam TData    - The shape of a data row.
+ * @typeParam TResult  - The resolver's return type (e.g.
+ *                       `string | null | undefined` for a background
+ *                       colour resolver).
+ */
+export type ChromeRowResolver<TData, TResult> =
+  | ((row: TData, rowId: string, rowIndex: number) => TResult)
+  | ((ctx: ChromeRowResolverContext<TData>) => TResult);
 
 /**
  * Per-row border style returned by {@link ChromeColumnsConfig.getRowBorder}.

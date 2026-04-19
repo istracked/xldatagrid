@@ -48,7 +48,14 @@ import {
   GridModel,
   SelectionMode,
 } from '@istracked/datagrid-core';
-import type { ControlsColumnConfig, RowNumberColumnConfig, RowBorderStyle, ChromeCellContent } from '@istracked/datagrid-core';
+import type {
+  ControlsColumnConfig,
+  RowNumberColumnConfig,
+  RowBorderStyle,
+  ChromeCellContent,
+  ChromeRowResolver,
+  ChromeRowResolverContext,
+} from '@istracked/datagrid-core';
 import { CellRendererProps } from '../DataGrid';
 import { ChromeControlsCell, ChromeRowNumberCell } from '../chrome';
 import { GhostRow } from '../GhostRow';
@@ -81,6 +88,65 @@ function getValidationKey(rowId: string, field: string): string {
 function resolveGhostPosition<T extends Record<string, unknown> = Record<string, unknown>>(config: boolean | GhostRowConfig<T> | undefined): GhostRowPosition {
   if (typeof config === 'object' && config.position) return config.position;
   return 'bottom';
+}
+
+// ---------------------------------------------------------------------------
+// Chrome-resolver shape detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Detects whether a chrome row resolver was declared with the named-object
+ * calling convention (a single destructured object parameter).
+ *
+ * The detection is a structural prefix match against the resolver's
+ * stringified source — the same `Function.prototype.toString()` mechanism
+ * used by popular introspection libraries (redux-toolkit's
+ * `checkForBraces`, vue's props-resolution). It looks for the first
+ * non-whitespace token after the opening parenthesis (or the `function`
+ * keyword's paren) and returns `true` when that token is `{`.
+ *
+ * False-negative cases all fall through to the positional branch, which
+ * is the safe default — the worst that can happen is that a consumer
+ * writes `(ctx) => ctx.row` without destructuring and the grid invokes
+ * them as `fn(row, rowId, rowIndex)`, so `ctx === row`. Because `TData`
+ * is opaque, the consumer's code breaks loudly at the first property
+ * access — never silently wrong.
+ *
+ * Guarded against arity-0 (`(...args)`, `() => …`) and non-function
+ * inputs for safety, though neither path is reachable from the typed
+ * call sites.
+ */
+function isNamedObjectResolver(fn: unknown): boolean {
+  if (typeof fn !== 'function') return false;
+  // Arity-0 callables are treated as positional — this covers the
+  // documented `(...args) => …` fallback case and any accidental
+  // `() => …` resolver.
+  if (fn.length < 1) return false;
+  // Peek at the source. `toString()` on native / bound functions may
+  // yield `"function X() { [native code] }"` — the regex below does not
+  // match `{` before the closing paren so native callables correctly
+  // fall through to positional.
+  let src: string;
+  try {
+    src = Function.prototype.toString.call(fn);
+  } catch {
+    return false;
+  }
+  // Locate the first opening paren (after an optional leading
+  // `function` / `async function` / identifier / whitespace). Arrow
+  // functions begin with `(`, so the first paren is always the
+  // parameter list.
+  const parenIdx = src.indexOf('(');
+  if (parenIdx < 0) return false;
+  // Skip whitespace after `(`. If the first non-whitespace byte is `{`,
+  // the resolver destructures its first parameter.
+  for (let i = parenIdx + 1; i < src.length; i++) {
+    const c = src.charCodeAt(i);
+    // Fast whitespace check: space (32), tab (9), LF (10), CR (13).
+    if (c === 32 || c === 9 || c === 10 || c === 13) continue;
+    return c === 0x7b /* `{` */;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -180,9 +246,14 @@ export interface DataGridBodyProps<TData extends Record<string, unknown>> {
 
   // Chrome-level row presentation hooks (issue #14). Each is evaluated per
   // rendered row; returning nullish preserves the stock presentation.
-  getRowBorder?: (row: TData, rowId: string, rowIndex: number) => RowBorderStyle | null | undefined;
-  getRowBackground?: (row: TData, rowId: string, rowIndex: number) => string | null | undefined;
-  getChromeCellContent?: (row: TData, rowId: string, rowIndex: number) => ChromeCellContent | null | undefined;
+  //
+  // The resolver types are {@link ChromeRowResolver} — a union of the
+  // positional `(row, rowId, rowIndex) => TResult` form and the named-object
+  // `(ctx: ChromeRowResolverContext<TData>) => TResult` form. The body
+  // dispatches at runtime via `fn.length` (declared arity).
+  getRowBorder?: ChromeRowResolver<TData, RowBorderStyle | null | undefined>;
+  getRowBackground?: ChromeRowResolver<TData, string | null | undefined>;
+  getChromeCellContent?: ChromeRowResolver<TData, ChromeCellContent | null | undefined>;
 
   // Ghost row
   showGhostRow: boolean;
@@ -312,14 +383,68 @@ export function DataGridBody<TData extends Record<string, unknown>>(
   //     the `WeakMap` key constraint (`WeakKey`) without any cast.
   //   * The inner `Map`'s key is a chrome-resolver function. Resolvers have
   //     distinct signatures per slot (`getRowBackground` vs `getRowBorder`
-  //     vs `getChromeCellContent`), but we only use them as map identities —
-  //     the generic `ChromeResolverFn` alias makes that explicit without
-  //     narrowing to any single return shape, and removes the previous
-  //     `as unknown as Function` casts.
-  type ChromeResolverFn = (row: TData, rowId: string, rowIndex: number) => unknown;
-  const resolverCacheRef = useRef<WeakMap<TData, Map<ChromeResolverFn, unknown>>>(new WeakMap());
+  //     vs `getChromeCellContent`), and two calling conventions
+  //     (positional / named-object — see {@link ChromeRowResolver}). We
+  //     only use them as map identities so a plain `Function` alias is
+  //     sufficient for cache storage.
+  type ChromeResolverKey = Function;
+  const resolverCacheRef = useRef<WeakMap<TData, Map<ChromeResolverKey, unknown>>>(new WeakMap());
+
+  // -------------------------------------------------------------------------
+  // Chrome-resolver dispatch (positional vs named-object)
+  // -------------------------------------------------------------------------
+  //
+  // Per PR5, chrome resolvers accept either of two backward-compatible call
+  // shapes — see {@link ChromeRowResolver}:
+  //
+  //   (row, rowId, rowIndex)        → positional (historical; unchanged)
+  //   ({ row, rowId, rowIndex, … }) → named-object (self-documenting, new)
+  //
+  // We pick the shape by inspecting the resolver's declared first parameter:
+  // the named-object form is triggered only when the resolver destructures
+  // its first parameter as an object literal (`{…}` or `{…} = default`).
+  //
+  // The arity alone is not a reliable discriminator — historical consumers
+  // routinely write `(row) => …` (a length-1 positional resolver that
+  // simply ignores `rowId` and `rowIndex`), and a blind `fn.length === 1`
+  // dispatch would silently pass them a context object and break. Looking
+  // at the stringified function prefix tells positional `(row) => …`
+  // apart from destructured `({ row }) => …` without false positives in
+  // practice:
+  //
+  //   * `(row) => …`                  → positional
+  //   * `function (row) { … }`        → positional
+  //   * `({ row }) => …`              → named-object
+  //   * `function ({ row }) { … }`    → named-object
+  //   * `({ row } = {}) => …`         → named-object
+  //   * `(...args) => …`              → positional (arity 0)
+  //
+  // For runtime-untyped callers (`(...args) => …`, whose `.length` is `0`)
+  // we fall back to positional. This matches the compat matrix in the PR
+  // description.
+  //
+  // The context object is constructed lazily (only for the named-object
+  // branch) to keep the hot-path allocation count identical to the pre-PR5
+  // shape for positional resolvers.
+  const invokeChromeResolver = <TReturn,>(
+    fn: ChromeRowResolver<TData, TReturn>,
+    row: TData,
+    rowId: string,
+    rowIndex: number,
+  ): TReturn => {
+    if (isNamedObjectResolver(fn)) {
+      const ctx: ChromeRowResolverContext<TData> = { row, rowId, rowIndex };
+      return (fn as (ctx: ChromeRowResolverContext<TData>) => TReturn)(ctx);
+    }
+    return (fn as (row: TData, rowId: string, rowIndex: number) => TReturn)(
+      row,
+      rowId,
+      rowIndex,
+    );
+  };
+
   const getCachedResolverResult = <TReturn,>(
-    resolver: ((row: TData, rowId: string, rowIndex: number) => TReturn) | undefined,
+    resolver: ChromeRowResolver<TData, TReturn> | undefined,
     row: TData,
     rowId: string,
     rowIndex: number,
@@ -330,16 +455,12 @@ export function DataGridBody<TData extends Record<string, unknown>>(
       byResolver = new Map();
       resolverCacheRef.current.set(row, byResolver);
     }
-    // The cache is keyed by resolver identity. Every `ChromeResolverFn`
-    // candidate (`getRowBackground`, `getRowBorder`, `getChromeCellContent`)
-    // shares the `(row, rowId, rowIndex) => T` shape and narrows to the
-    // caller's `TReturn` on retrieval.
-    const key: ChromeResolverFn = resolver;
-    if (byResolver.has(key)) {
-      return byResolver.get(key) as TReturn;
+    // The cache is keyed by resolver identity (the function object itself).
+    if (byResolver.has(resolver)) {
+      return byResolver.get(resolver) as TReturn;
     }
-    const value = resolver(row, rowId, rowIndex);
-    byResolver.set(key, value);
+    const value = invokeChromeResolver(resolver, row, rowId, rowIndex);
+    byResolver.set(resolver, value);
     return value;
   };
 
