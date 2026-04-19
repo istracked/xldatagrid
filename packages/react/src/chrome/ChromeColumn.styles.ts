@@ -134,14 +134,24 @@ export const rowNumberCell = (width: number, height: number): CSSProperties => (
   alignItems: 'center',
   justifyContent: 'center',
   borderLeft: '1px solid var(--dg-border-color, #e2e8f0)',
+  // Thin separator between the gutter and the first content column — matches
+  // the Google-Sheets / Excel-Web look where the gutter reads as part of the
+  // body rather than an extension of the header.
+  borderRight: '1px solid var(--dg-border-color, #e2e8f0)',
   boxSizing: 'border-box',
   // Clickable for row selection; disable text selection so drag works cleanly.
   cursor: 'pointer',
   userSelect: 'none',
   fontSize: 12,
-  color: 'var(--dg-text-color, #64748b)',
-  // Excel-gutter tint via token with fallback to the header background.
-  background: 'var(--dg-row-number-bg, var(--dg-header-bg))',
+  // Body-cell digit weight — regular, not bold. The selection overlay
+  // (`rowNumberSelected`) bumps this back to 600 for the active row.
+  fontWeight: 400,
+  // Muted medium-grey number. Falls back to a Sheets-style `#9ca3af`.
+  color: 'var(--dg-row-number-text, #9ca3af)',
+  // Gutter background reads as the body (near-white in light theme) rather
+  // than the header tint. Fallback chain lets consumers override via the
+  // dedicated token, the body-bg token, or finally a hard-coded white.
+  background: 'var(--dg-row-number-bg, var(--dg-bg-color, transparent))',
 });
 
 /**
@@ -160,12 +170,18 @@ export const rowNumberHeaderCell = (width: number, height: number): CSSPropertie
   alignItems: 'center',
   justifyContent: 'center',
   borderLeft: '1px solid var(--dg-border-color, #e2e8f0)',
+  borderRight: '1px solid var(--dg-border-color, #e2e8f0)',
   boxSizing: 'border-box',
-  // Same token chain as the body cell for a seamless gutter.
-  background: 'var(--dg-row-number-bg, var(--dg-header-bg))',
+  // Same token chain as the body cell so the gutter reads as a single column
+  // top-to-bottom — the `#` tile should not visually stand apart from the
+  // numbered body cells below it.
+  background: 'var(--dg-row-number-bg, var(--dg-bg-color, transparent))',
   fontSize: 12,
+  // Header glyph stays bold — this is the visual affordance that distinguishes
+  // the header tile from the body row-number cells.
   fontWeight: 600,
-  color: 'var(--dg-text-color, #64748b)',
+  // Muted number-column text token, matching the body cells.
+  color: 'var(--dg-row-number-text, #9ca3af)',
 });
 
 /**

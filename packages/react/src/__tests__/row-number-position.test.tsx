@@ -161,12 +161,13 @@ describe('Row number column — background styling', () => {
     const rowNumberCell = screen.getAllByTestId('chrome-row-number')[0]! as HTMLElement;
 
     // jsdom does not resolve CSS custom properties to their fallback value, so
-    // assert on the inline style string that it references our new token and
-    // falls back to the existing header-bg token (Excel-gutter grey is provided
-    // by the `.dg-theme-excel365` stylesheet, not inline).
+    // assert on the inline style string. The redesigned gutter falls back to
+    // body bg (`--dg-bg-color`) rather than the darker header tint so it reads
+    // as a clean Sheets-style rail; the Excel 365 theme still supplies its own
+    // `--dg-row-number-bg` override.
     const bg = rowNumberCell.style.background || rowNumberCell.style.backgroundColor;
     expect(bg).toContain('--dg-row-number-bg');
-    expect(bg).toContain('--dg-header-bg');
+    expect(bg).toContain('--dg-bg-color');
   });
 
   // Header row-number tile must use the same token chain as the body cell so
@@ -184,6 +185,6 @@ describe('Row number column — background styling', () => {
     const header = screen.getByTestId('chrome-row-number-header') as HTMLElement;
     const bg = header.style.background || header.style.backgroundColor;
     expect(bg).toContain('--dg-row-number-bg');
-    expect(bg).toContain('--dg-header-bg');
+    expect(bg).toContain('--dg-bg-color');
   });
 });

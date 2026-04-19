@@ -241,6 +241,8 @@ export function useKeyboard<TData extends Record<string, unknown>>(
           if (isEditorTarget(e.target)) return;
           model.commitEdit();
         } else if (current) {
+          const col = columns.find(c => c.field === current.field);
+          if (col?.readOnly === true) break;
           model.beginEdit(current);
         }
         break;
@@ -409,6 +411,8 @@ export function useKeyboard<TData extends Record<string, unknown>>(
       // --- F2: enter edit mode on the selected cell ---
       case 'F2': {
         if (current && !editing.cell) {
+          const col = columns.find(c => c.field === current.field);
+          if (col?.readOnly === true) break;
           model.beginEdit(current);
         }
         break;

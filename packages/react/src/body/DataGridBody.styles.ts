@@ -13,7 +13,7 @@
  * rows, aggregate rows, data rows, row-number overrides, empty state).
  */
 import type { CSSProperties } from 'react';
-import type { RowOutlineSides } from '@istracked/datagrid-core';
+import type { RowOutlineSides, ColumnDef } from '@istracked/datagrid-core';
 
 // ---------------------------------------------------------------------------
 // Scrollable body
@@ -79,12 +79,32 @@ export const cell = (opts: {
   frozenLeftOffset: number;
   editable: boolean;
   suppressSelectionOutline?: boolean;
+  column?: ColumnDef<any>;
+  columnHighlight?: string;
 }): CSSProperties => {
   const frozenBg = opts.frozen ? 'var(--dg-header-bg, #f8fafc)' : undefined;
   const outlineValue = opts.suppressSelectionOutline
     ? 'none'
     : opts.selected ? '2px solid var(--dg-selection-border, #3b82f6)' : 'none';
-  return {
+  // Per-column right-border override. When `borderRight === false`, drop the
+  // separator; when an object, honour its color/style/width with sane defaults;
+  // otherwise fall back to the stock 1px token border.
+  let borderRight: string | undefined = '1px solid var(--dg-border-color, #e2e8f0)';
+  const cbr = opts.column?.borderRight;
+  if (cbr === false) {
+    borderRight = 'none';
+  } else if (cbr && typeof cbr === 'object') {
+    const w = cbr.width ?? 1;
+    const s = cbr.style ?? 'solid';
+    const c = cbr.color ?? 'var(--dg-border-color, #e2e8f0)';
+    borderRight = `${w}px ${s} ${c}`;
+  }
+  // Layering: the column highlight sits above the stock row background but
+  // below range/selection overlays (`opts.background` carries the range tint
+  // when active). The frozen-column background still wins over everything so
+  // pinned columns stay legible.
+  const baseBg = opts.background ?? opts.columnHighlight ?? undefined;
+  const base: CSSProperties = {
     width: opts.width,
     minWidth: opts.width,
     maxWidth: opts.width,
@@ -92,21 +112,22 @@ export const cell = (opts: {
     display: 'flex',
     alignItems: 'center',
     padding: 'var(--dg-cell-padding, 0 12px)',
-    borderRight: '1px solid var(--dg-border-color, #e2e8f0)',
+    borderRight,
     boxSizing: 'border-box',
     outline: outlineValue,
     outlineOffset: -2,
     overflow: 'hidden',
     cursor: opts.editable ? 'text' : 'default',
-    border: opts.hasError ? '2px solid var(--dg-error-color, #ef4444)' : undefined,
     position: opts.frozen ? 'sticky' : 'relative',
     left: opts.frozen === 'left' ? opts.frozenLeftOffset : undefined,
     zIndex: opts.frozen ? 2 : undefined,
-    // Frozen background wins over any per-cell chrome background so pinned
-    // columns stay legible even when a range or consumer hook would otherwise
-    // tint the cell.
-    background: frozenBg ?? opts.background ?? undefined,
+    background: frozenBg ?? baseBg,
   };
+  // React 19 treats `border: undefined` as `border: ''`, which wipes all
+  // per-side border sub-properties including our `borderRight`. Only attach
+  // the error border shorthand when actually needed.
+  if (opts.hasError) base.border = '2px solid var(--dg-error-color, #ef4444)';
+  return base;
 };
 
 /** Style for the fallback `<input>` editor used when no custom cell renderer

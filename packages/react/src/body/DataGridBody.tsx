@@ -639,6 +639,9 @@ export function DataGridBody<TData extends Record<string, unknown>>(
       // If a child element already handled the click (e.g. a custom renderer
       // that opens a popup), respect that and skip row/cell selection.
       if (e.defaultPrevented) return;
+      // Columns opted out of navigation must swallow clicks — the user sees
+      // the cell but it is not part of the keyboard/click navigation set.
+      if (col.skipNavigation === true) return;
       if (selectionMode === 'row' && onRowNumberClick) {
         onRowNumberClick(rowId, e.shiftKey, e.metaKey || e.ctrlKey);
         return;
@@ -657,8 +660,10 @@ export function DataGridBody<TData extends Record<string, unknown>>(
           hasError,
           frozen,
           frozenLeftOffset: computeFrozenLeftOffset(colIdx),
-          editable: col.editable !== false && !isReadOnly,
+          editable: col.editable !== false && !isReadOnly && col.readOnly !== true,
           suppressSelectionOutline,
+          column: col,
+          columnHighlight: col.highlightColor,
         })}
         role="gridcell"
         aria-colindex={colIdx + 1}
@@ -671,7 +676,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         onClick={handleCellClick}
         onContextMenu={(e) => onContextMenu(e, rowId, col.field)}
         onDoubleClick={() => {
-          if (col.editable !== false && !readOnly) {
+          if (col.editable !== false && !readOnly && col.readOnly !== true) {
             model.beginEdit(cellAddr);
           }
         }}

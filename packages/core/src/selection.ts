@@ -307,13 +307,24 @@ export function toggleRowSelection(state: SelectionState, rowId: string, columns
 /**
  * Computes the adjacent cell in the given direction, respecting visibility and grid bounds.
  *
- * Hidden columns are skipped. Returns `null` when movement would exceed the grid boundary.
+ * Hidden columns are skipped. For horizontal moves, columns marked with
+ * `skipNavigation: true` are also excluded from the candidate set — arrow-key
+ * navigation jumps over them. If the grid boundary is reached with no further
+ * columns at all, the function returns `null` (preserving the historical edge
+ * semantics). If candidate columns exist beyond `current` but every one of
+ * them is `skipNavigation`, the function returns `current` unchanged so the
+ * caller treats the key press as a no-op rather than a fall-off-the-edge.
+ *
+ * Vertical moves are unaffected by `skipNavigation` — a column being opted
+ * out of horizontal navigation does not stop the user from moving through
+ * it vertically.
  *
  * @param current - The starting cell address.
  * @param direction - The direction to move (`'up'`, `'down'`, `'left'`, `'right'`).
  * @param columns - Full list of column definitions (hidden columns are excluded).
  * @param rowIds - Ordered list of all row identifiers.
- * @returns The adjacent {@link CellAddress}, or `null` if at the boundary.
+ * @returns The adjacent {@link CellAddress}, `null` at an actual grid edge, or
+ *   `current` when every candidate in the direction is `skipNavigation: true`.
  */
 export function getNextCell(
   current: CellAddress,
@@ -330,12 +341,30 @@ export function getNextCell(
   // Move one step in the requested direction, clamping at boundaries
   switch (direction) {
     case 'left': {
-      const col = colIdx > 0 ? visibleCols[colIdx - 1] : undefined;
-      return col ? { rowId: current.rowId, field: col.field } : null;
+      // No candidates at all → actual grid edge, return null.
+      if (colIdx === 0) return null;
+      // Walk leftwards skipping any column opted out of navigation.
+      for (let i = colIdx - 1; i >= 0; i--) {
+        const col = visibleCols[i]!;
+        if (col.skipNavigation === true) continue;
+        return { rowId: current.rowId, field: col.field };
+      }
+      // Candidates existed but every one of them is skipNavigation — treat
+      // the move as a no-op so the caller leaves the selection untouched.
+      return current;
     }
     case 'right': {
-      const col = colIdx < visibleCols.length - 1 ? visibleCols[colIdx + 1] : undefined;
-      return col ? { rowId: current.rowId, field: col.field } : null;
+      // No candidates at all → actual grid edge, return null.
+      if (colIdx >= visibleCols.length - 1) return null;
+      // Walk rightwards skipping any column opted out of navigation.
+      for (let i = colIdx + 1; i < visibleCols.length; i++) {
+        const col = visibleCols[i]!;
+        if (col.skipNavigation === true) continue;
+        return { rowId: current.rowId, field: col.field };
+      }
+      // Candidates existed but every one of them is skipNavigation — treat
+      // the move as a no-op so the caller leaves the selection untouched.
+      return current;
     }
     case 'up': {
       const rowId = rowIdx > 0 ? rowIds[rowIdx - 1] : undefined;

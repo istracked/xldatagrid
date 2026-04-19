@@ -46,12 +46,30 @@ export function createEditingState(): EditingState {
  * Captures the cell address and its current value so the edit can be committed
  * or rolled back later.
  *
- * @param state - Current editing state (ignored; a new state is produced).
+ * When a `column` definition is supplied and its `readOnly` flag is `true`,
+ * the edit is refused: the current `state` is returned unchanged (same
+ * rejection pattern used by other non-editable paths). This column-level
+ * opt-out wins over `column.editable === true` and is independent of the
+ * grid-level `readOnly` flag enforced by higher layers.
+ *
+ * @param state - Current editing state (returned unchanged on readOnly rejection).
  * @param cell - The address of the cell to edit.
  * @param value - The cell's current value, which becomes both `originalValue` and `currentValue`.
- * @returns A new {@link EditingState} representing an active edit on `cell`.
+ * @param column - Optional column definition; when `readOnly: true`, the edit is rejected.
+ * @returns A new {@link EditingState} representing an active edit on `cell`, or
+ *   the incoming `state` unchanged when the column is read-only.
  */
-export function beginEdit(state: EditingState, cell: CellAddress, value: CellValue): EditingState {
+export function beginEdit(
+  state: EditingState,
+  cell: CellAddress,
+  value: CellValue,
+  column?: ColumnDef,
+): EditingState {
+  // Column-level readOnly wins over both `editable: true` on the same column
+  // and the grid-level readOnly flag — callers rely on it for per-column
+  // immutability. When the guard fires, leave state untouched so any in-flight
+  // edit (unlikely, but defined behaviour) is preserved.
+  if (column?.readOnly === true) return state;
   return { cell, originalValue: value, currentValue: value, isValid: true, validationError: null };
 }
 

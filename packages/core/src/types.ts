@@ -291,6 +291,36 @@ export interface ColumnDef<TData = Record<string, unknown>> {
   subGridColumns?: ColumnDef[];
   /** The row-key field used to identify rows inside the sub-grid. */
   subGridRowKey?: string;
+
+  // Per-column visual and behavioural overrides
+  // --------------------------------------------
+
+  /**
+   * Per-column right border. `false` disables it; object overrides color/style/width.
+   *
+   * When undefined, the column uses the default theme separator.
+   */
+  borderRight?: false | { color?: string; style?: 'solid' | 'dashed' | 'dotted'; width?: number };
+
+  /**
+   * Static column-background highlight (Excel-style). Any CSS-legal color.
+   *
+   * Selection and range tints render on top of this.
+   */
+  highlightColor?: string;
+
+  /**
+   * Column-level read-only. Blocks `beginEdit` for any cell in the column
+   * regardless of grid-level readOnly or this column's `editable: true`.
+   */
+  readOnly?: boolean;
+
+  /**
+   * Excludes the column from keyboard arrow/tab navigation and click-to-select.
+   *
+   * Programmatic `select()` on the address is NOT affected.
+   */
+  skipNavigation?: boolean;
 }
 
 // ---------------------------------------------------------------------------

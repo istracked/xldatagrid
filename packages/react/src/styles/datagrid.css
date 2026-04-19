@@ -12,6 +12,11 @@
   --dg-selection-color: #3b82f6;
   --dg-error-color: #ef4444;
   --dg-hover-bg: #f1f5f9;
+  /* Row-number gutter defaults — transparent so the gutter blends with the
+     body bg painted by the grid container. Themed overrides (Excel 365) paint
+     a distinct grey; the muted text token supplies the Sheets-style digit. */
+  --dg-row-number-bg: transparent;
+  --dg-row-number-text: #9ca3af;
 
   font-family: var(--dg-font-family);
   font-size: var(--dg-font-size);
