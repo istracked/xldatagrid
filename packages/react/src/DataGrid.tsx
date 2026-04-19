@@ -256,7 +256,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
 
   useEffect(() => () => { model.destroy(); }, [model]);
 
-  useKeyboard(model, containerRef, config.keyboardNavigation !== false);
+  useKeyboard(model, containerRef, config.keyboardNavigation !== false, scrollRef);
 
   // Apply initial filter once on mount
   const initialFilterApplied = useRef(false);
@@ -439,6 +439,25 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     if (rowIdx === -1 || colIdx === -1) return false;
     return selectionChecker(rowIdx, colIdx);
   }, [selectionChecker, rowIds, orderedVisibleColumns]);
+
+  // Determine whether the active selection spans more than one cell so the
+  // body can apply a range-tint background (in addition to the per-cell
+  // outline) to the non-anchor cells. A single-cell selection keeps the
+  // plain outline-only appearance.
+  const hasMultiCellRange = useMemo(() => {
+    for (const r of state.selection.ranges) {
+      if (r.anchor.rowId !== r.focus.rowId || r.anchor.field !== r.focus.field) return true;
+    }
+    return false;
+  }, [state.selection.ranges]);
+
+  const isInRange = useCallback((rowId: string, field: string): boolean => {
+    if (!hasMultiCellRange) return false;
+    const rowIdx = rowIds.indexOf(rowId);
+    const colIdx = orderedVisibleColumns.findIndex(c => c.field === field);
+    if (rowIdx === -1 || colIdx === -1) return false;
+    return selectionChecker(rowIdx, colIdx);
+  }, [hasMultiCellRange, selectionChecker, rowIds, orderedVisibleColumns]);
 
   const isEditingCell = useCallback((rowId: string, field: string): boolean => {
     const cell = state.editing.cell;
@@ -1295,6 +1314,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           scrollRef={scrollRef}
           handleScroll={handleScroll}
           isSelected={isSelected}
+          isInRange={isInRange}
           isEditingCell={isEditingCell}
           getCellType={getCellType}
           getColumnFrozen={getColumnFrozen}

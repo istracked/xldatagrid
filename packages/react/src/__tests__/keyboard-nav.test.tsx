@@ -316,36 +316,42 @@ describe('Keyboard navigation', () => {
     expect(isSelected('1', 'name')).toBe(true);
   });
 
-  // -- Shift+Arrow (extend selection) ---------------------------------------
+  // -- Shift+Arrow (scroll branch, default) ---------------------------------
+  //
+  // With the default `shiftArrowBehavior: 'scroll'`, Shift+Arrow pans the
+  // viewport and must NOT alter the selection anchor or focus.
 
-  it('Shift+ArrowRight extends selection right', () => {
+  it('Shift+ArrowRight does not change selection (default scroll branch)', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'name'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowRight', shiftKey: true });
-    // Selection anchor stays at (1, name), focus moves to (1, age).
-    // The anchor cell keeps outline.
     expect(isSelected('1', 'name')).toBe(true);
+    // Neighbouring cell should not have been pulled into the range.
+    expect(isSelected('1', 'age')).toBe(false);
   });
 
-  it('Shift+ArrowLeft extends selection left', () => {
+  it('Shift+ArrowLeft does not change selection (default scroll branch)', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'age'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowLeft', shiftKey: true });
     expect(isSelected('1', 'age')).toBe(true);
+    expect(isSelected('1', 'name')).toBe(false);
   });
 
-  it('Shift+ArrowDown extends selection down', () => {
+  it('Shift+ArrowDown does not change selection (default scroll branch)', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'name'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowDown', shiftKey: true });
     expect(isSelected('1', 'name')).toBe(true);
+    expect(isSelected('2', 'name')).toBe(false);
   });
 
-  it('Shift+ArrowUp extends selection up', () => {
+  it('Shift+ArrowUp does not change selection (default scroll branch)', () => {
     renderGrid();
     fireEvent.click(getCell('2', 'name'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowUp', shiftKey: true });
     expect(isSelected('2', 'name')).toBe(true);
+    expect(isSelected('1', 'name')).toBe(false);
   });
 
   // -- Ctrl+Arrow (Excel "End" jump) ---------------------------------------
