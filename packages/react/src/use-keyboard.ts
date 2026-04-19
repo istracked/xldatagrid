@@ -339,10 +339,19 @@ export function useKeyboard<TData extends Record<string, unknown>>(
             scrollViewportHalfScreen(scrollRef?.current ?? null, dir);
           }
         } else {
-          // Plain arrow key moves selection by one cell.
+          // Plain arrow key: in row mode, ArrowUp/Down moves the whole-row
+          // selection to the adjacent row rather than stepping cell-by-cell.
           if (!current) return;
-          const next = getNextCell(current, dir, columns, rowIds);
-          if (next) model.select(next);
+          const isRowMode = state.selection.mode === 'row';
+          if (isRowMode && (dir === 'down' || dir === 'up')) {
+            const currentRowIdx = rowIds.indexOf(current.rowId);
+            const nextRowIdx = dir === 'down' ? currentRowIdx + 1 : currentRowIdx - 1;
+            const nextRowId = rowIds[nextRowIdx];
+            if (nextRowId) model.selectRowByKey(nextRowId);
+          } else {
+            const next = getNextCell(current, dir, columns, rowIds);
+            if (next) model.select(next);
+          }
         }
         break;
       }
