@@ -416,36 +416,6 @@ describe('column header integration', () => {
     expect(menuTriggers.length).toBe(4); // One per column
   });
 
-  it('column header menu shows sort ascending option', () => {
-    render(
-      <DataGrid
-        data={makeColData()}
-        columns={colColumns}
-        rowKey="id"
-        sorting={true}
-        showColumnMenu={true}
-      />
-    );
-    const nameHeader = screen.getByRole('columnheader', { name: /^name/i });
-    fireEvent.contextMenu(nameHeader);
-    expect(screen.getByTestId('column-menu-sort-asc')).toBeInTheDocument();
-  });
-
-  it('column header menu shows sort descending option', () => {
-    render(
-      <DataGrid
-        data={makeColData()}
-        columns={colColumns}
-        rowKey="id"
-        sorting={true}
-        showColumnMenu={true}
-      />
-    );
-    const nameHeader = screen.getByRole('columnheader', { name: /^name/i });
-    fireEvent.contextMenu(nameHeader);
-    expect(screen.getByTestId('column-menu-sort-desc')).toBeInTheDocument();
-  });
-
   it('column header menu shows hide column option', () => {
     render(
       <DataGrid

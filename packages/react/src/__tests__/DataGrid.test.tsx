@@ -212,6 +212,68 @@ describe('DataGrid editing', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
+  // Issue #11: Esc reverts the draft, exits edit mode, and keeps selection.
+  it('Escape reverts typed value and keeps cell selected (issue #11)', () => {
+    const onCellEdit = vi.fn();
+    renderGrid({ onCellEdit });
+    const cells = screen.getAllByRole('gridcell');
+    const aliceNameCell = cells[0]!;
+
+    // Select via click, then enter edit mode and type a new value.
+    fireEvent.click(aliceNameCell);
+    expect(aliceNameCell).toHaveStyle({
+      outline: '2px solid var(--dg-selection-border, #3b82f6)',
+    });
+    fireEvent.dblClick(aliceNameCell);
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Mallory' } });
+    expect(input.value).toBe('Mallory');
+
+    // Escape must cancel (no commit), exit edit mode, and keep selection.
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    // The blur that fires when React unmounts the input must not commit.
+    fireEvent.blur(input);
+
+    // Value in the row data reverted: onCellEdit never fired, display shows
+    // the original text.
+    expect(onCellEdit).not.toHaveBeenCalled();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    const refreshedCell = screen.getAllByRole('gridcell')[0]!;
+    expect(refreshedCell.textContent).toContain('Alice');
+
+    // Selection still on the same cell.
+    expect(refreshedCell).toHaveStyle({
+      outline: '2px solid var(--dg-selection-border, #3b82f6)',
+    });
+  });
+
+  it('Escape bubbling from input to grid-level handler keeps selection (issue #11)', () => {
+    const onCellEdit = vi.fn();
+    renderGrid({ onCellEdit });
+    const cells = screen.getAllByRole('gridcell');
+    const aliceNameCell = cells[0]!;
+
+    fireEvent.click(aliceNameCell);
+    fireEvent.dblClick(aliceNameCell);
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Mallory' } });
+
+    // fireEvent.keyDown on the input bubbles through React delegation to the
+    // grid container's native keydown listener. The cell-level React handler
+    // cancels the edit first; when the bubble reaches the grid, `editing`
+    // is already null — the grid handler must detect `e.target` is still the
+    // input and NOT clear the selection.
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    expect(onCellEdit).not.toHaveBeenCalled();
+    const refreshedCell = screen.getAllByRole('gridcell')[0]!;
+    expect(refreshedCell.textContent).toContain('Alice');
+    expect(refreshedCell).toHaveStyle({
+      outline: '2px solid var(--dg-selection-border, #3b82f6)',
+    });
+  });
+
   it('read-only mode prevents editing on double click', () => {
     renderGrid({ readOnly: true });
     const cells = screen.getAllByRole('gridcell');

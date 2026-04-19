@@ -1,12 +1,13 @@
 import type { CSSProperties } from 'react';
 
-export const htmlTextarea: CSSProperties = {
+/** Markdown editor textarea shared between edit and preview flows. */
+export const editorTextarea: CSSProperties = {
+  flex: 1,
   width: '100%',
-  height: '100%',
   border: 0,
   outline: 'none',
-  resize: 'vertical',
-  fontFamily: 'monospace',
+  resize: 'none',
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
   fontSize: 12,
   padding: 4,
   boxSizing: 'border-box',
