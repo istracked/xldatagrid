@@ -10,6 +10,7 @@
  */
 import React, { useState, useRef, useEffect } from 'react';
 import type { CellValue, ColumnDef } from '@istracked/datagrid-core';
+import { usePasswordInput } from '../hooks/usePasswordInput';
 import * as styles from './PasswordCell.styles';
 
 /**
@@ -74,7 +75,9 @@ export const PasswordCell = React.memo(function PasswordCell<TData = Record<stri
 }: PasswordCellProps<TData>) {
   // Coerce null/undefined to an empty string for safe length calculations
   const strValue = value == null ? '' : String(value);
-  const [revealed, setRevealed] = useState(false);
+  // Shared show/hide toggle + stable ids; `visible` replaces the old local
+  // `revealed` flag without changing any observable behaviour.
+  const { visible: revealed, toggle: toggleRevealed } = usePasswordInput();
   const [draft, setDraft] = useState(strValue);
   const inputRef = useRef<HTMLInputElement>(null);
   // Prevents the unmount-blur from committing a cancelled draft (issue #11).
@@ -102,7 +105,7 @@ export const PasswordCell = React.memo(function PasswordCell<TData = Record<stri
         <button
           type="button"
           aria-label={revealed ? 'Hide password' : 'Reveal password'}
-          onClick={() => setRevealed((v) => !v)}
+          onClick={toggleRevealed}
           style={styles.toggleButton}
         >
           {revealed ? 'Hide' : 'Show'}
