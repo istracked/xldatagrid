@@ -51,6 +51,14 @@ export type { ChromeControlsHeaderCellProps, ChromeRowNumberHeaderCellProps } fr
 // Shared cell editor hooks
 export * from './cells/hooks';
 
+// Issue #18 — transposed-grid-friendly cell renderers
+export {
+  BooleanSelectedCell,
+  SELECTED_LABEL,
+  UNSELECTED_LABEL,
+} from './cells/BooleanSelectedCell';
+export { PasswordConfirmCell, MISMATCH_MESSAGE } from './cells/PasswordConfirmCell';
+
 // Migration helper for consumers upgrading from the HTML-backed RichTextCell.
 export { htmlToMarkdown } from './cells/RichTextCell';
 

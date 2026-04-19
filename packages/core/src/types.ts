@@ -174,8 +174,17 @@ export type SelectionMode = 'cell' | 'row' | 'range' | 'none';
  * Each type maps to a specialised editor/renderer pair in the rendering layer,
  * covering plain text, calendars, status badges, tag chips, booleans, currency
  * formatting, rich-text editing, file uploads, nested sub-grids, and more.
+ *
+ * Two variants extend the base boolean/password renderers with richer display
+ * semantics intended primarily for form-style (transposed) grids:
+ *   - `'booleanSelected'` — displays the literal word "Selected" when the
+ *     value is `true`, an em-dash ("—") for `false`, and nothing for
+ *     nullish values. Click-to-toggle remains available.
+ *   - `'passwordConfirm'` — renders two password inputs (value + confirm)
+ *     plus a show/hide eye toggle. The commit is gated on both inputs
+ *     matching; mismatch is surfaced inline.
  */
-export type CellType = 'text' | 'calendar' | 'status' | 'tags' | 'compoundChipList' | 'boolean' | 'password' | 'chipSelect' | 'currency' | 'richText' | 'numeric' | 'upload' | 'subGrid' | 'list' | 'actions';
+export type CellType = 'text' | 'calendar' | 'status' | 'tags' | 'compoundChipList' | 'boolean' | 'booleanSelected' | 'password' | 'passwordConfirm' | 'chipSelect' | 'currency' | 'richText' | 'numeric' | 'upload' | 'subGrid' | 'list' | 'actions';
 
 /**
  * Represents a selectable option in status, chip-select, or list columns.
@@ -1332,4 +1341,14 @@ export interface TransposedGridConfig {
   fieldColumnWidth?: number;
   /** Width of each entity column in pixels. */
   entityColumnWidth?: number;
+  /**
+   * When `true`, the field labels are rendered inside the row-number chrome
+   * gutter via `chrome.getChromeCellContent` instead of an ordinary data
+   * column. This removes the frozen `__field_label` data column entirely —
+   * the chrome column becomes the authoritative "key" column, matching the
+   * extension point added for issue #14.
+   *
+   * Defaults to `false` for backward compatibility.
+   */
+  useChromeFieldColumn?: boolean;
 }

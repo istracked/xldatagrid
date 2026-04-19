@@ -131,6 +131,80 @@ describe('createTransposedConfig', () => {
     const config = createTransposedConfig({ fields, entityKeys: [] });
     expect(config.columns.length).toBe(1); // only the field label column
   });
+
+  // Chrome field column (issue #18 sub-feature 1) — when enabled, the field
+  // labels are rendered in the row-number chrome gutter instead of a data
+  // column, and the `__field_label` column is omitted entirely.
+  describe('useChromeFieldColumn', () => {
+    test('omits the __field_label data column when enabled', () => {
+      const config = createTransposedConfig({
+        fields,
+        entityKeys: ['entity1', 'entity2'],
+        useChromeFieldColumn: true,
+      });
+      expect(config.columns.length).toBe(2); // 2 entity columns, no label column
+      expect(config.columns.find(c => c.field === '__field_label')).toBeUndefined();
+    });
+
+    test('attaches chrome config with getChromeCellContent when enabled', () => {
+      const config = createTransposedConfig({
+        fields,
+        entityKeys: ['entity1'],
+        useChromeFieldColumn: true,
+      });
+      expect(config.chrome).toBeDefined();
+      expect(config.chrome?.getChromeCellContent).toBeDefined();
+      expect(config.chrome?.rowNumbers).toBeDefined();
+    });
+
+    test('getChromeCellContent returns field label for the row', () => {
+      const config = createTransposedConfig({
+        fields,
+        entityKeys: ['entity1'],
+        useChromeFieldColumn: true,
+      });
+      const row = config.data[0] as Record<string, unknown>;
+      const content = config.chrome?.getChromeCellContent?.(row as never, 'name', 0);
+      expect(content?.text).toBe('Name');
+    });
+
+    test('chrome row number gutter width tracks fieldColumnWidth', () => {
+      const config = createTransposedConfig({
+        fields,
+        entityKeys: ['entity1'],
+        useChromeFieldColumn: true,
+        fieldColumnWidth: 275,
+      });
+      const rowNumbers = config.chrome?.rowNumbers;
+      // rowNumbers may be `true` or a config object — assert the object form.
+      expect(typeof rowNumbers).toBe('object');
+      if (rowNumbers && typeof rowNumbers === 'object') {
+        expect(rowNumbers.width).toBe(275);
+        expect(rowNumbers.position).toBe('left');
+      }
+    });
+
+    test('chrome config is absent when flag is not set', () => {
+      const config = createTransposedConfig({ fields, entityKeys: ['entity1'] });
+      expect(config.chrome).toBeUndefined();
+    });
+
+    test('per-row cellType is preserved when using chrome field column', () => {
+      const mixedFields: TransposedField[] = [
+        { id: 'name', label: 'Name', cellType: 'text' },
+        { id: 'active', label: 'Active', cellType: 'booleanSelected' },
+        { id: 'pw', label: 'Password', cellType: 'passwordConfirm' },
+      ];
+      const config = createTransposedConfig({
+        fields: mixedFields,
+        entityKeys: ['entity1'],
+        useChromeFieldColumn: true,
+      });
+      expect(config.rowTypes?.[0]?.cellType).toBe('text');
+      expect(config.rowTypes?.[1]?.cellType).toBe('booleanSelected');
+      expect(config.rowTypes?.[2]?.cellType).toBe('passwordConfirm');
+    });
+  });
 });
 
 describe('validatePasswordConfirmation', () => {
