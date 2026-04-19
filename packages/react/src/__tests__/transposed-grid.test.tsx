@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { TransposedGrid } from '../TransposedGrid';
 import type { TransposedField } from '@istracked/datagrid-core';
@@ -69,5 +69,62 @@ describe('TransposedGrid', () => {
       <TransposedGrid fields={[]} entityKeys={['entity1']} />,
     );
     expect(container.querySelector('[role="grid"]')).toBeInTheDocument();
+  });
+
+  // Issue #18 sub-feature 1: when `useChromeFieldColumn` is enabled the field
+  // name column is rendered via the chrome API rather than as a data column.
+  describe('useChromeFieldColumn (issue #18)', () => {
+    test('renders field labels inside the chrome gutter, not a data column', () => {
+      const { container } = render(
+        <TransposedGrid
+          fields={fields}
+          entityKeys={['entity1']}
+          useChromeFieldColumn
+        />,
+      );
+      // The chrome row-number cells should contain the field labels.
+      const chromeCells = container.querySelectorAll(
+        '[data-testid="chrome-row-number"]',
+      );
+      expect(chromeCells.length).toBe(3);
+      expect(
+        within(chromeCells[0] as HTMLElement).getByTestId(
+          'chrome-row-content-text',
+        ).textContent,
+      ).toBe('Name');
+      expect(
+        within(chromeCells[1] as HTMLElement).getByTestId(
+          'chrome-row-content-text',
+        ).textContent,
+      ).toBe('Email');
+    });
+
+    test('omits the __field_label data column when enabled', () => {
+      const { container } = render(
+        <TransposedGrid
+          fields={fields}
+          entityKeys={['entity1']}
+          useChromeFieldColumn
+        />,
+      );
+      // The header should NOT contain a "Field" label (default) since that
+      // column is absent in chrome mode.
+      const headers = container.querySelectorAll('[role="columnheader"]');
+      const titles = Array.from(headers).map(h => h.textContent);
+      expect(titles).not.toContain('Field');
+    });
+  });
+
+  // Issue #18 sub-feature 2: per-row variance — each row picks its own editor.
+  describe('per-row cellType variance (issue #18)', () => {
+    test('applies the booleanSelected renderer for boolean-Selected fields', () => {
+      const mixed: TransposedField[] = [
+        { id: 'name', label: 'Name', cellType: 'text' },
+        { id: 'active', label: 'Active', cellType: 'booleanSelected', defaultValue: true },
+      ];
+      render(<TransposedGrid fields={mixed} entityKeys={['entity1']} />);
+      // The "Selected" label comes from the BooleanSelectedCell display mode.
+      expect(screen.getByText('Selected')).toBeInTheDocument();
+    });
   });
 });

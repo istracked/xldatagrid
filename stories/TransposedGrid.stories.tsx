@@ -192,3 +192,79 @@ export const ManyEntities: StoryObj = {
     );
   },
 };
+
+// ---------------------------------------------------------------------------
+// ChromeFieldColumnWithMixedEditors (issue #18 — all four sub-features)
+// ---------------------------------------------------------------------------
+
+const credentialFields: TransposedField[] = [
+  { id: 'name', label: 'Full Name', cellType: 'text' },
+  { id: 'salary', label: 'Salary', cellType: 'numeric' },
+  { id: 'active', label: 'Active', cellType: 'booleanSelected', defaultValue: true },
+  { id: 'password', label: 'Password', cellType: 'passwordConfirm' },
+];
+
+export const ChromeFieldColumnWithMixedEditors: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Demonstrates all four issue #18 upgrades on a single transposed grid: ' +
+          '(1) the field-name column is rendered as chrome via `useChromeFieldColumn`; ' +
+          '(2) each row chooses its own editor (text / numeric / booleanSelected / passwordConfirm); ' +
+          '(3) the "Active" row uses the `booleanSelected` cell which shows "Selected" / em-dash; ' +
+          '(4) the "Password" row uses the `passwordConfirm` cell which requires a re-entry and a shared eye toggle before committing.',
+      },
+    },
+  },
+  render: () => {
+    const [values, setValues] = useState<Record<string, Record<string, CellValue>>>(() => ({
+      name: { u1: 'Alice Admin', u2: 'Bob Builder' },
+      salary: { u1: 120000, u2: 85000 },
+      active: { u1: true, u2: false },
+      password: { u1: '', u2: '' },
+    }));
+    const entityKeys = ['u1', 'u2'];
+    const [log, setLog] = useState<string[]>([]);
+
+    const handleChange = useCallback(
+      (fieldId: string, entityKey: string, value: CellValue) => {
+        setValues((prev) => ({
+          ...prev,
+          [fieldId]: { ...prev[fieldId], [entityKey]: value },
+        }));
+        setLog((p) => [
+          ...p.slice(-6),
+          `${fieldId}[${entityKey}] = ${fieldId === 'password' ? '***' : String(value)}`,
+        ]);
+      },
+      [],
+    );
+
+    return (
+      <div style={storyContainer}>
+        <h2 style={styles.heading}>Chrome Field Column + Per-Row Editors (issue #18)</h2>
+        <p style={styles.subtitle}>
+          The left gutter is now the row-number chrome column (not a data column), rendering
+          the field labels via <code>chrome.getChromeCellContent</code>. Each row picks its own
+          editor: <em>numeric</em>, <em>booleanSelected</em> (shows the word "Selected" or an
+          em-dash), and <em>passwordConfirm</em> (two inputs plus shared eye toggle; commit is
+          gated on match).
+        </p>
+        <div style={gridContainer}>
+          <TransposedGrid
+            fields={credentialFields}
+            entityKeys={entityKeys}
+            values={values}
+            onValueChange={handleChange}
+            useChromeFieldColumn
+            fieldColumnWidth={180}
+          />
+        </div>
+        <pre style={styles.logPre}>
+          {log.length ? log.join('\n') : '(edit any cell to see value changes)'}
+        </pre>
+      </div>
+    );
+  },
+};
