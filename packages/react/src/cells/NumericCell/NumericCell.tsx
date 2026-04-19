@@ -94,11 +94,15 @@ export const NumericCell = React.memo(function NumericCell<TData = Record<string
   const rawValue = value === null || value === undefined ? '' : String(value);
   const [draft, setDraft] = useState(rawValue);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Tracks an Escape-triggered cancel so the trailing blur (on unmount)
+  // does not commit the in-progress draft (issue #11).
+  const cancelledRef = useRef(false);
 
   // Reset the draft and focus the input whenever the cell enters edit mode
   useEffect(() => {
     if (isEditing) {
       setDraft(rawValue);
+      cancelledRef.current = false;
       inputRef.current?.focus();
       inputRef.current?.select();
     }
@@ -154,6 +158,7 @@ export const NumericCell = React.memo(function NumericCell<TData = Record<string
     if (e.key === 'Enter') {
       commit(draft);
     } else if (e.key === 'Escape') {
+      cancelledRef.current = true;
       onCancel();
     } else if (e.key === 'ArrowUp') {
       // Increment the current value by 1, clamping to bounds
@@ -195,7 +200,10 @@ export const NumericCell = React.memo(function NumericCell<TData = Record<string
       max={column.max}
       onChange={handleChange}
       onKeyDown={handleKeyDown}
-      onBlur={() => commit(draft)}
+      onBlur={() => {
+        if (cancelledRef.current) return;
+        commit(draft);
+      }}
       style={styles.editInput}
     />
   );

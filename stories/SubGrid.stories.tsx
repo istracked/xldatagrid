@@ -77,7 +77,10 @@ export const BasicSubGrid: StoryObj = {
     <div style={storyContainer}>
       <h2 style={styles.heading}>Basic Sub-Grid</h2>
       <p style={styles.subtitle}>
-        Click the expand toggle on any row to reveal nested task data inside a sub-grid.
+        Click the badge+icon toggle on any row to expand an inline sub-grid beneath the
+        parent row. The sub-grid renders its OWN column headers (Task Name, Hours, Status)
+        separate from the parent grid's headers (Employee, Email, Department, Tasks).
+        While expanded the toggle shows an "x" affordance to close the sub-grid.
       </p>
       <div style={gridContainer}>
         <MuiDataGrid
@@ -165,9 +168,13 @@ function makeDepartments(): Department[] {
 export const DeepNesting: StoryObj = {
   render: () => (
     <div style={storyContainer}>
-      <h2 style={styles.heading}>Deep Nesting (2 Levels)</h2>
+      <h2 style={styles.heading}>Deep Nesting (2 Levels of Recursion)</h2>
       <p style={styles.subtitle}>
-        Departments contain teams, and teams contain members. Expand each level to drill down.
+        Departments contain teams, and teams contain members. Each level has its own
+        independent sub-grid with its own headers, sort state, and expansion state.
+        Expand a department to see its teams; expand a team to see its members. Each
+        nested grid is a fully independent `GridModel` instance — events (click, keydown,
+        DnD) are scoped to the currently focused level.
       </p>
       <div style={gridContainer}>
         <MuiDataGrid
@@ -408,6 +415,49 @@ export const LargeSubGrid: StoryObj = {
           rowKey="id"
           selectionMode="cell"
           keyboardNavigation
+        />
+      </div>
+    </div>
+  ),
+};
+
+// ---------------------------------------------------------------------------
+// 6. RecursiveWithDnD — demonstrate scoped DnD and keyboard navigation
+// ---------------------------------------------------------------------------
+//
+// This story highlights the recursive composition and the event-scoping
+// guarantees that the sub-grid architecture makes:
+//   - Each level's drag-and-drop sessions act only on its own rows/columns.
+//     Dragging a team row inside the nested grid does not reorder the
+//     parent departments.
+//   - Keyboard navigation boundaries are scoped per level: Tab cycles
+//     within the current grid, Enter enters a sub-grid, Escape returns
+//     focus to the parent grid.
+//   - Column headers, sort state, and widths are independent at every
+//     level — sorting by "Team Name" in a sub-grid has no effect on the
+//     parent department list.
+
+export const RecursiveWithDnD: StoryObj = {
+  render: () => (
+    <div style={storyContainer}>
+      <h2 style={styles.heading}>Recursive Sub-Grids with Scoped DnD + Keyboard</h2>
+      <p style={styles.subtitle}>
+        Expand a department to see its teams; expand a team to see its members.
+        Each sub-grid is a fully-independent DataGrid with its own row chrome,
+        own column headers, own DnD session, and own keyboard focus.
+        Keyboard: <kbd>Enter</kbd> on a sub-grid cell expands + focuses the
+        nested grid. <kbd>Esc</kbd> inside a sub-grid returns focus to the
+        parent. <kbd>Tab</kbd> never crosses a level boundary.
+      </p>
+      <div style={gridContainer}>
+        <MuiDataGrid
+          data={makeDepartments()}
+          columns={deptColumns as any}
+          rowKey="id"
+          subGrid={{ maxDepth: 3 }}
+          selectionMode="cell"
+          keyboardNavigation
+          chrome={{ rowNumbers: { position: 'left', reorderable: true } }}
         />
       </div>
     </div>
