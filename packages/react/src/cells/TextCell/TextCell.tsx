@@ -123,6 +123,9 @@ export const TextCell = React.memo(function TextCell<TData = Record<string, unkn
    * selection to the adjacent cell (Tab).
    */
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Guard: ignore Enter/Tab while an IME candidate window is open.
+    // isComposing is not in React's synthetic type but is present on the native event.
+    if ((e.nativeEvent as KeyboardEvent).isComposing || e.keyCode === 229) return;
     if (e.key === 'Enter' && !column.format?.includes('multiline')) {
       e.preventDefault();
       e.stopPropagation();

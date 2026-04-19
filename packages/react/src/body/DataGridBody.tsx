@@ -428,6 +428,9 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     // single cell and `onRowNumberClick`, when present, still runs
     // independently from chrome gutter clicks.
     const handleCellClick = (e: React.MouseEvent) => {
+      // If a child element already handled the click (e.g. a custom renderer
+      // that opens a popup), respect that and skip row/cell selection.
+      if (e.defaultPrevented) return;
       if (selectionMode === 'row' && onRowNumberClick) {
         onRowNumberClick(rowId, e.shiftKey, e.metaKey || e.ctrlKey);
         return;
