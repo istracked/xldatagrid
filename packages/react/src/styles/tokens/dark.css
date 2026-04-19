@@ -1,0 +1,507 @@
+/**
+ * Do not edit directly, this file was auto-generated.
+ */
+
+[data-theme="dark"] {
+  --color-global-bg-app-default: #0b1120; /** Top-level app chrome background; the main canvas behind shell UI. */
+  --color-global-bg-app-subtle-default: #0f172a; /** Slightly elevated variant of the app background for subtle zoning. */
+  --color-global-bg-canvas-default: #0f172a; /** Primary content canvas where documents and panels are rendered. */
+  --color-global-bg-canvas-inset-default: #020617; /** Recessed area within a canvas, e.g. inset toolbars or wells. */
+  --color-global-bg-page-default: #0b1120; /** Page-level background framing the canvas; the lowest layer behind app content. */
+  --color-global-bg-scrim-default: #000000; /** Dimming overlay placed behind modals and sheets to focus attention. */
+  --color-global-bg-backdrop-tint-default: #000000; /** Tinted backdrop layer applied beneath floating surfaces. */
+  --color-global-bg-inverse-default: #f8fafc; /** Inverted background used for high-contrast surfaces like tooltips. */
+  --color-global-surface-base-default: #0f172a; /** Default surface tier for cards, panels and content blocks. */
+  --color-global-surface-subtle-default: #1e293b; /** Slightly elevated surface used to differentiate adjacent regions. */
+  --color-global-surface-sunken-default: #020617; /** Recessed surface tier suggesting depth below the base layer. */
+  --color-global-surface-raised-default: #1e293b; /** Elevated surface tier for cards lifted above the base layer. */
+  --color-global-surface-floating-default: #1e293b; /** Surface tier for floating UI such as menus and dropdowns. */
+  --color-global-surface-modal-default: #1e293b; /** Surface tier for modal dialogs and full overlays. */
+  --color-global-surface-popover-default: #1e293b; /** Surface tier for popovers and richer detached panels. */
+  --color-global-surface-tooltip-default: #f8fafc; /** Inverted surface tier for tooltips to ensure strong contrast. */
+  --color-global-surface-inverse-default: #f8fafc; /** High-contrast inverted surface for emphasis blocks. */
+  --color-global-surface-brand-subtle-default: #172554; /** Tinted surface in the brand hue for soft brand context. */
+  --color-global-surface-brand-strong-default: #3584e4; /** Saturated surface in the brand hue for prominent brand context. */
+  --color-global-surface-disabled-default: #1e293b; /** Surface tier indicating a disabled or inactive region. */
+  --color-global-surface-selected-default: #1e3a8a; /** Surface tier indicating a selected or active region. */
+  --color-global-text-primary-default: #f8fafc; /** Primary body text; the highest-contrast text role. */
+  --color-global-text-secondary-default: #cbd5e1; /** Secondary text for supporting copy and labels. */
+  --color-global-text-tertiary-default: #94a3b8; /** Tertiary text for de-emphasized helper content. */
+  --color-global-text-muted-default: #64748b; /** Muted text for the lowest-priority readable text. */
+  --color-global-text-disabled-default: #475569; /** Text color used on disabled controls and content. */
+  --color-global-text-inverse-default: #0f172a; /** Inverted text used on light or saturated surfaces. */
+  --color-global-text-on-brand-default: #ffffff; /** Text used directly on top of brand-strong surfaces. */
+  --color-global-text-link-default: #62a0ea; /** Default link color in body text. */
+  --color-global-text-link-hover: #a4c5ee; /** Link color on hover; one tonal step lighter than default. */
+  --color-global-text-link-visited: #a5b4fc; /** Visited link color in a complementary purple-blue. */
+  --color-global-text-success-default: #4ade80; /** Text color conveying a successful or positive state. */
+  --color-global-text-warning-default: #fcd34d; /** Text color conveying caution or pending attention. */
+  --color-global-text-danger-default: #f87171; /** Text color conveying an error or destructive state. */
+  --color-global-text-info-default: #60a5fa; /** Text color conveying informational context. */
+  --color-global-icon-primary-default: #e2e8f0; /** Primary icon color matching primary text emphasis. */
+  --color-global-icon-secondary-default: #94a3b8; /** Secondary icon color for supporting glyphs. */
+  --color-global-icon-tertiary-default: #64748b; /** Tertiary icon color for low-emphasis glyphs. */
+  --color-global-icon-disabled-default: #475569; /** Icon color for disabled or inactive controls. */
+  --color-global-icon-inverse-default: #0f172a; /** Inverted icon color for light or brand-strong surfaces. */
+  --color-global-icon-on-brand-default: #ffffff; /** Icon color used directly on brand-strong surfaces. */
+  --color-global-icon-success-default: #4ade80; /** Icon color conveying success or completion. */
+  --color-global-icon-warning-default: #fbbf24; /** Icon color conveying caution or pending state. */
+  --color-global-icon-danger-default: #f87171; /** Icon color conveying error or destructive intent. */
+  --color-global-icon-info-default: #60a5fa; /** Icon color conveying informational context. */
+  --color-global-border-subtle-default: #1e293b; /** Subtle border for low-emphasis separation. */
+  --color-global-border-default-default: #334155; /** Default border for inputs, cards and containers. */
+  --color-global-border-strong-default: #64748b; /** Strong border for emphasis or active outlines. */
+  --color-global-border-inverse-default: #cbd5e1; /** Inverted border for use on light surfaces. */
+  --color-global-border-focus-default: #62a0ea; /** Border indicating keyboard focus on a control. */
+  --color-global-border-brand-default: #62a0ea; /** Border in the brand hue used for primary emphasis. */
+  --color-global-border-success-default: #22c55e; /** Border conveying a successful state. */
+  --color-global-border-warning-default: #fbbf24; /** Border conveying a warning state. */
+  --color-global-border-danger-default: #ef4444; /** Border conveying an error or destructive state. */
+  --color-global-border-info-default: #3b82f6; /** Border conveying an informational state. */
+  --color-global-border-disabled-default: #334155; /** Border color for disabled or inactive controls. */
+  --color-global-divider-subtle-default: #1e293b; /** Subtle horizontal or vertical divider line. */
+  --color-global-divider-default-default: #334155; /** Default divider line for sectioning content. */
+  --color-global-divider-strong-default: #64748b; /** Strong divider line for high-emphasis separation. */
+  --color-global-focus-ring-default: #62a0ea; /** Focus ring color used around focused controls. */
+  --color-global-focus-ring-inset-default: #62a0ea; /** Inset focus ring applied inside the control bounds. */
+  --color-global-focus-outline-default: #62a0ea; /** Focus outline drawn outside the control bounds. */
+  --color-global-selection-bg-default: #1e3a8a; /** Background color for selected text or items. */
+  --color-global-selection-border-default: #62a0ea; /** Border color framing a selected item. */
+  --color-global-selection-text-default: #d1e2f7; /** Text color used inside selected regions. */
+  --color-global-selection-handle-default: #62a0ea; /** Drag handle color shown on selected ranges. */
+  --color-global-shadow-ambient-default: #000000; /** Ambient shadow color used for soft surrounding lift. */
+  --color-global-shadow-key-default: #000000; /** Key directional shadow giving primary depth cue. */
+  --color-global-shadow-overlay-default: #000000; /** Stronger shadow used beneath floating overlays. */
+  --color-global-brand-primary-default: #62a0ea; /** Primary iAsBuilt brand blue tuned to read on dark surfaces. */
+  --color-global-brand-primary-hover: #a4c5ee; /** Primary brand color on hover; one tonal step lighter. */
+  --color-global-brand-primary-active: #d1e2f7; /** Primary brand color on active/pressed; two tonal steps lighter. */
+  --color-global-brand-secondary-default: #94a3b8; /** Secondary brand color in desaturated slate for supporting accents. */
+  --color-global-brand-secondary-hover: #cbd5e1; /** Secondary brand color on hover. */
+  --color-global-brand-secondary-active: #e2e8f0; /** Secondary brand color on active/pressed. */
+  --color-global-brand-accent-default: #a4c5ee; /** Brand accent in light Blue tuned for dark surfaces. */
+  --color-global-brand-accent-subtle-default: #172554; /** Subtle brand accent for tinted backgrounds and chips. */
+  --color-feedback-neutral-bg-subtle: #1e293b; /** Subtle background tint for neutral status messaging. */
+  --color-feedback-neutral-bg-strong: #94a3b8; /** Strong saturated background for neutral status emphasis. */
+  --color-feedback-neutral-text-default: #cbd5e1; /** Text color paired with neutral feedback surfaces. */
+  --color-feedback-neutral-icon-default: #94a3b8; /** Icon color paired with neutral feedback surfaces. */
+  --color-feedback-neutral-border-default: #334155; /** Border color paired with neutral feedback surfaces. */
+  --color-feedback-info-bg-subtle: #172554; /** Subtle background tint for info status messaging. */
+  --color-feedback-info-bg-strong: #3b82f6; /** Strong saturated background for info status emphasis. */
+  --color-feedback-info-text-default: #60a5fa; /** Text color paired with info feedback surfaces. */
+  --color-feedback-info-icon-default: #60a5fa; /** Icon color paired with info feedback surfaces. */
+  --color-feedback-info-border-default: #3b82f6; /** Border color paired with info feedback surfaces. */
+  --color-feedback-success-bg-subtle: #052214; /** Subtle background tint for success status messaging. */
+  --color-feedback-success-bg-strong: #22c55e; /** Strong saturated background for success status emphasis. */
+  --color-feedback-success-text-default: #4ade80; /** Text color paired with success feedback surfaces. */
+  --color-feedback-success-icon-default: #4ade80; /** Icon color paired with success feedback surfaces. */
+  --color-feedback-success-border-default: #22c55e; /** Border color paired with success feedback surfaces. */
+  --color-feedback-warning-bg-subtle: #251805; /** Subtle background tint for warning status messaging. */
+  --color-feedback-warning-bg-strong: #fbbf24; /** Strong saturated background for warning status emphasis. */
+  --color-feedback-warning-text-default: #fcd34d; /** Text color paired with warning feedback surfaces. */
+  --color-feedback-warning-icon-default: #fbbf24; /** Icon color paired with warning feedback surfaces. */
+  --color-feedback-warning-border-default: #fbbf24; /** Border color paired with warning feedback surfaces. */
+  --color-feedback-danger-bg-subtle: #2d0606; /** Subtle background tint for danger status messaging. */
+  --color-feedback-danger-bg-strong: #ef4444; /** Strong saturated background for danger status emphasis. */
+  --color-feedback-danger-text-default: #f87171; /** Text color paired with danger feedback surfaces. */
+  --color-feedback-danger-icon-default: #f87171; /** Icon color paired with danger feedback surfaces. */
+  --color-feedback-danger-border-default: #ef4444; /** Border color paired with danger feedback surfaces. */
+  --color-feedback-critical-bg-subtle: #3f0707; /** Subtle background tint for critical status messaging. */
+  --color-feedback-critical-bg-strong: #f87171; /** Strong saturated background for critical status emphasis. */
+  --color-feedback-critical-text-default: #fca5a5; /** Text color paired with critical feedback surfaces. */
+  --color-feedback-critical-icon-default: #fca5a5; /** Icon color paired with critical feedback surfaces. */
+  --color-feedback-critical-border-default: #f87171; /** Border color paired with critical feedback surfaces. */
+  --color-actions-link-text-default: #62a0ea; /** Default link text color. */
+  --color-actions-link-text-hover: #a4c5ee; /** Link text on hover; one tonal step lighter. */
+  --color-actions-link-text-active: #d1e2f7; /** Link text on active press; two tonal steps lighter. */
+  --color-actions-link-text-visited: #a5b4fc; /** Visited link text in complementary purple-blue. */
+  --color-actions-link-icon-default: #62a0ea; /** Default icon color paired with link text. */
+  --color-actions-link-icon-hover: #a4c5ee; /** Icon color paired with hovered link text. */
+  --color-actions-link-underline-default: #62a0ea; /** Default link underline color. */
+  --color-actions-link-underline-hover: #a4c5ee; /** Link underline color on hover. */
+  --color-actions-link-disabled-default: #475569; /** Disabled state for link text, icon and underline. */
+  --color-actions-toggle-track-off: #334155; /** Toggle track in the off state. */
+  --color-actions-toggle-track-on: #3584e4; /** Toggle track in the on state, in brand color. */
+  --color-actions-toggle-track-disabled: #1e293b; /** Toggle track when the control is disabled. */
+  --color-actions-toggle-thumb-off: #e2e8f0; /** Toggle thumb in the off state. */
+  --color-actions-toggle-thumb-on: #ffffff; /** Toggle thumb in the on state. */
+  --color-actions-toggle-thumb-disabled: #475569; /** Toggle thumb when the control is disabled. */
+  --color-actions-toggle-border-default: #334155; /** Border around the toggle track. */
+  --color-actions-toggle-focus-default: #62a0ea; /** Focus ring color for the toggle. */
+  --color-actions-checkbox-bg-unchecked: #0f172a; /** Checkbox background when unchecked. */
+  --color-actions-checkbox-bg-checked: #3584e4; /** Checkbox background when checked. */
+  --color-actions-checkbox-bg-indeterminate: #3584e4; /** Checkbox background in the indeterminate state. */
+  --color-actions-checkbox-bg-disabled: #1e293b; /** Checkbox background when disabled. */
+  --color-actions-checkbox-icon-checked: #ffffff; /** Checkmark glyph color shown when checked. */
+  --color-actions-checkbox-border-default: #475569; /** Default checkbox border. */
+  --color-actions-checkbox-border-hover: #62a0ea; /** Checkbox border on hover. */
+  --color-actions-checkbox-border-focus: #62a0ea; /** Checkbox border when focused. */
+  --color-actions-radio-bg-unchecked: #0f172a; /** Radio background when unchecked. */
+  --color-actions-radio-bg-checked: #0f172a; /** Radio background when checked. */
+  --color-actions-radio-bg-disabled: #1e293b; /** Radio background when disabled. */
+  --color-actions-radio-dot-checked: #62a0ea; /** Inner dot color when the radio is checked. */
+  --color-actions-radio-border-default: #475569; /** Default radio border. */
+  --color-actions-radio-border-hover: #62a0ea; /** Radio border on hover. */
+  --color-actions-radio-border-focus: #62a0ea; /** Radio border when focused. */
+  --color-actions-button-primary-bg-default: #3584e4; /** Background of the primary button at rest. */
+  --color-actions-button-primary-bg-hover: #62a0ea; /** Background of the primary button on hover. */
+  --color-actions-button-primary-bg-active: #a4c5ee; /** Background of the primary button when active or pressed. */
+  --color-actions-button-primary-bg-disabled: #1e293b; /** Background of the primary button when disabled. */
+  --color-actions-button-primary-bg-focus: #3584e4; /** Background of the primary button when focused. */
+  --color-actions-button-primary-text-default: #ffffff; /** Text color of the primary button at rest. */
+  --color-actions-button-primary-text-hover: #0f172a; /** Text color of the primary button on hover. */
+  --color-actions-button-primary-text-active: #0f172a; /** Text color of the primary button when active or pressed. */
+  --color-actions-button-primary-text-disabled: #475569; /** Text color of the primary button when disabled. */
+  --color-actions-button-primary-text-focus: #ffffff; /** Text color of the primary button when focused. */
+  --color-actions-button-primary-icon-default: #ffffff; /** Icon color of the primary button at rest. */
+  --color-actions-button-primary-icon-hover: #0f172a; /** Icon color of the primary button on hover. */
+  --color-actions-button-primary-icon-active: #0f172a; /** Icon color of the primary button when active or pressed. */
+  --color-actions-button-primary-icon-disabled: #475569; /** Icon color of the primary button when disabled. */
+  --color-actions-button-primary-icon-focus: #ffffff; /** Icon color of the primary button when focused. */
+  --color-actions-button-primary-border-default: #3584e4; /** Border color of the primary button at rest. */
+  --color-actions-button-primary-border-hover: #62a0ea; /** Border color of the primary button on hover. */
+  --color-actions-button-primary-border-active: #a4c5ee; /** Border color of the primary button when active or pressed. */
+  --color-actions-button-primary-border-disabled: #1e293b; /** Border color of the primary button when disabled. */
+  --color-actions-button-primary-border-focus: #62a0ea; /** Border color of the primary button when focused. */
+  --color-actions-button-secondary-bg-default: #1e293b; /** Background of the secondary button at rest. */
+  --color-actions-button-secondary-bg-hover: #334155; /** Background of the secondary button on hover. */
+  --color-actions-button-secondary-bg-active: #475569; /** Background of the secondary button when active or pressed. */
+  --color-actions-button-secondary-bg-disabled: #1e293b; /** Background of the secondary button when disabled. */
+  --color-actions-button-secondary-bg-focus: #1e293b; /** Background of the secondary button when focused. */
+  --color-actions-button-secondary-text-default: #f1f5f9; /** Text color of the secondary button at rest. */
+  --color-actions-button-secondary-text-hover: #ffffff; /** Text color of the secondary button on hover. */
+  --color-actions-button-secondary-text-active: #ffffff; /** Text color of the secondary button when active or pressed. */
+  --color-actions-button-secondary-text-disabled: #475569; /** Text color of the secondary button when disabled. */
+  --color-actions-button-secondary-text-focus: #f1f5f9; /** Text color of the secondary button when focused. */
+  --color-actions-button-secondary-icon-default: #f1f5f9; /** Icon color of the secondary button at rest. */
+  --color-actions-button-secondary-icon-hover: #ffffff; /** Icon color of the secondary button on hover. */
+  --color-actions-button-secondary-icon-active: #ffffff; /** Icon color of the secondary button when active or pressed. */
+  --color-actions-button-secondary-icon-disabled: #475569; /** Icon color of the secondary button when disabled. */
+  --color-actions-button-secondary-icon-focus: #f1f5f9; /** Icon color of the secondary button when focused. */
+  --color-actions-button-secondary-border-default: #334155; /** Border color of the secondary button at rest. */
+  --color-actions-button-secondary-border-hover: #475569; /** Border color of the secondary button on hover. */
+  --color-actions-button-secondary-border-active: #64748b; /** Border color of the secondary button when active or pressed. */
+  --color-actions-button-secondary-border-disabled: #1e293b; /** Border color of the secondary button when disabled. */
+  --color-actions-button-secondary-border-focus: #62a0ea; /** Border color of the secondary button when focused. */
+  --color-actions-button-tertiary-bg-default: #334155; /** Background of the tertiary button at rest. */
+  --color-actions-button-tertiary-bg-hover: #475569; /** Background of the tertiary button on hover. */
+  --color-actions-button-tertiary-bg-active: #64748b; /** Background of the tertiary button when active or pressed. */
+  --color-actions-button-tertiary-bg-disabled: #1e293b; /** Background of the tertiary button when disabled. */
+  --color-actions-button-tertiary-bg-focus: #334155; /** Background of the tertiary button when focused. */
+  --color-actions-button-tertiary-text-default: #f1f5f9; /** Text color of the tertiary button at rest. */
+  --color-actions-button-tertiary-text-hover: #ffffff; /** Text color of the tertiary button on hover. */
+  --color-actions-button-tertiary-text-active: #ffffff; /** Text color of the tertiary button when active or pressed. */
+  --color-actions-button-tertiary-text-disabled: #475569; /** Text color of the tertiary button when disabled. */
+  --color-actions-button-tertiary-text-focus: #f1f5f9; /** Text color of the tertiary button when focused. */
+  --color-actions-button-tertiary-icon-default: #f1f5f9; /** Icon color of the tertiary button at rest. */
+  --color-actions-button-tertiary-icon-hover: #ffffff; /** Icon color of the tertiary button on hover. */
+  --color-actions-button-tertiary-icon-active: #ffffff; /** Icon color of the tertiary button when active or pressed. */
+  --color-actions-button-tertiary-icon-disabled: #475569; /** Icon color of the tertiary button when disabled. */
+  --color-actions-button-tertiary-icon-focus: #f1f5f9; /** Icon color of the tertiary button when focused. */
+  --color-actions-button-tertiary-border-default: #334155; /** Border color of the tertiary button at rest. */
+  --color-actions-button-tertiary-border-hover: #475569; /** Border color of the tertiary button on hover. */
+  --color-actions-button-tertiary-border-active: #64748b; /** Border color of the tertiary button when active or pressed. */
+  --color-actions-button-tertiary-border-disabled: #1e293b; /** Border color of the tertiary button when disabled. */
+  --color-actions-button-tertiary-border-focus: #62a0ea; /** Border color of the tertiary button when focused. */
+  --color-actions-button-ghost-bg-default: rgba(0, 0, 0, 0); /** Background of the ghost button at rest. */
+  --color-actions-button-ghost-bg-hover: #1e293b; /** Background of the ghost button on hover. */
+  --color-actions-button-ghost-bg-active: #334155; /** Background of the ghost button when active or pressed. */
+  --color-actions-button-ghost-bg-disabled: rgba(0, 0, 0, 0); /** Background of the ghost button when disabled. */
+  --color-actions-button-ghost-bg-focus: rgba(0, 0, 0, 0); /** Background of the ghost button when focused. */
+  --color-actions-button-ghost-text-default: #f1f5f9; /** Text color of the ghost button at rest. */
+  --color-actions-button-ghost-text-hover: #ffffff; /** Text color of the ghost button on hover. */
+  --color-actions-button-ghost-text-active: #ffffff; /** Text color of the ghost button when active or pressed. */
+  --color-actions-button-ghost-text-disabled: #475569; /** Text color of the ghost button when disabled. */
+  --color-actions-button-ghost-text-focus: #f1f5f9; /** Text color of the ghost button when focused. */
+  --color-actions-button-ghost-icon-default: #f1f5f9; /** Icon color of the ghost button at rest. */
+  --color-actions-button-ghost-icon-hover: #ffffff; /** Icon color of the ghost button on hover. */
+  --color-actions-button-ghost-icon-active: #ffffff; /** Icon color of the ghost button when active or pressed. */
+  --color-actions-button-ghost-icon-disabled: #475569; /** Icon color of the ghost button when disabled. */
+  --color-actions-button-ghost-icon-focus: #f1f5f9; /** Icon color of the ghost button when focused. */
+  --color-actions-button-ghost-border-default: rgba(0, 0, 0, 0); /** Border color of the ghost button at rest. */
+  --color-actions-button-ghost-border-hover: rgba(0, 0, 0, 0); /** Border color of the ghost button on hover. */
+  --color-actions-button-ghost-border-active: rgba(0, 0, 0, 0); /** Border color of the ghost button when active or pressed. */
+  --color-actions-button-ghost-border-disabled: rgba(0, 0, 0, 0); /** Border color of the ghost button when disabled. */
+  --color-actions-button-ghost-border-focus: #62a0ea; /** Border color of the ghost button when focused. */
+  --color-actions-button-danger-bg-default: #ef4444; /** Background of the danger button at rest. */
+  --color-actions-button-danger-bg-hover: #f87171; /** Background of the danger button on hover. */
+  --color-actions-button-danger-bg-active: #fca5a5; /** Background of the danger button when active or pressed. */
+  --color-actions-button-danger-bg-disabled: #1e293b; /** Background of the danger button when disabled. */
+  --color-actions-button-danger-bg-focus: #ef4444; /** Background of the danger button when focused. */
+  --color-actions-button-danger-text-default: #ffffff; /** Text color of the danger button at rest. */
+  --color-actions-button-danger-text-hover: #0f172a; /** Text color of the danger button on hover. */
+  --color-actions-button-danger-text-active: #0f172a; /** Text color of the danger button when active or pressed. */
+  --color-actions-button-danger-text-disabled: #475569; /** Text color of the danger button when disabled. */
+  --color-actions-button-danger-text-focus: #ffffff; /** Text color of the danger button when focused. */
+  --color-actions-button-danger-icon-default: #ffffff; /** Icon color of the danger button at rest. */
+  --color-actions-button-danger-icon-hover: #0f172a; /** Icon color of the danger button on hover. */
+  --color-actions-button-danger-icon-active: #0f172a; /** Icon color of the danger button when active or pressed. */
+  --color-actions-button-danger-icon-disabled: #475569; /** Icon color of the danger button when disabled. */
+  --color-actions-button-danger-icon-focus: #ffffff; /** Icon color of the danger button when focused. */
+  --color-actions-button-danger-border-default: #ef4444; /** Border color of the danger button at rest. */
+  --color-actions-button-danger-border-hover: #f87171; /** Border color of the danger button on hover. */
+  --color-actions-button-danger-border-active: #fca5a5; /** Border color of the danger button when active or pressed. */
+  --color-actions-button-danger-border-disabled: #1e293b; /** Border color of the danger button when disabled. */
+  --color-actions-button-danger-border-focus: #62a0ea; /** Border color of the danger button when focused. */
+  --color-actions-button-success-bg-default: #22c55e; /** Background of the success button at rest. */
+  --color-actions-button-success-bg-hover: #4ade80; /** Background of the success button on hover. */
+  --color-actions-button-success-bg-active: #86efac; /** Background of the success button when active or pressed. */
+  --color-actions-button-success-bg-disabled: #1e293b; /** Background of the success button when disabled. */
+  --color-actions-button-success-bg-focus: #22c55e; /** Background of the success button when focused. */
+  --color-actions-button-success-text-default: #ffffff; /** Text color of the success button at rest. */
+  --color-actions-button-success-text-hover: #0f172a; /** Text color of the success button on hover. */
+  --color-actions-button-success-text-active: #0f172a; /** Text color of the success button when active or pressed. */
+  --color-actions-button-success-text-disabled: #475569; /** Text color of the success button when disabled. */
+  --color-actions-button-success-text-focus: #ffffff; /** Text color of the success button when focused. */
+  --color-actions-button-success-icon-default: #ffffff; /** Icon color of the success button at rest. */
+  --color-actions-button-success-icon-hover: #0f172a; /** Icon color of the success button on hover. */
+  --color-actions-button-success-icon-active: #0f172a; /** Icon color of the success button when active or pressed. */
+  --color-actions-button-success-icon-disabled: #475569; /** Icon color of the success button when disabled. */
+  --color-actions-button-success-icon-focus: #ffffff; /** Icon color of the success button when focused. */
+  --color-actions-button-success-border-default: #22c55e; /** Border color of the success button at rest. */
+  --color-actions-button-success-border-hover: #4ade80; /** Border color of the success button on hover. */
+  --color-actions-button-success-border-active: #86efac; /** Border color of the success button when active or pressed. */
+  --color-actions-button-success-border-disabled: #1e293b; /** Border color of the success button when disabled. */
+  --color-actions-button-success-border-focus: #62a0ea; /** Border color of the success button when focused. */
+  --color-datagrid-bg-default: #0f172a; /** Default datagrid container background. */
+  --color-datagrid-border-default: #334155; /** Outer border around the datagrid container. */
+  --color-datagrid-shadow-sticky-edge: #000000; /** Shadow cast by sticky edges of the grid. */
+  --color-datagrid-header-bg-default: #1e293b; /** Header row background at rest. */
+  --color-datagrid-header-bg-hover: #334155; /** Header cell background on hover. */
+  --color-datagrid-header-bg-sorted: #1e3a8a; /** Header cell background when its column is sorted. */
+  --color-datagrid-header-text-default: #e2e8f0; /** Header text color at rest. */
+  --color-datagrid-header-text-sorted: #a4c5ee; /** Header text color when its column is sorted. */
+  --color-datagrid-header-icon-default: #94a3b8; /** Header icon color at rest. */
+  --color-datagrid-header-icon-sorted: #62a0ea; /** Header icon color when its column is sorted. */
+  --color-datagrid-header-border-default: #334155; /** Border between the header and body of the grid. */
+  --color-datagrid-header-divider-default: #334155; /** Vertical divider between header cells. */
+  --color-datagrid-header-resize-handle-default: #475569; /** Column resize handle at rest. */
+  --color-datagrid-header-resize-handle-hover: #62a0ea; /** Column resize handle on hover. */
+  --color-datagrid-header-drag-preview-default: #1e3a8a; /** Preview shown while dragging a column header. */
+  --color-datagrid-header-drop-indicator-default: #62a0ea; /** Indicator marking where a dragged column will land. */
+  --color-datagrid-row-bg-default: #0f172a; /** Default row background. */
+  --color-datagrid-row-bg-alt: #1e293b; /** Alternating row background for zebra striping. */
+  --color-datagrid-row-bg-hover: #1e293b; /** Row background on hover. */
+  --color-datagrid-row-bg-selected: #1e3a8a; /** Row background when selected. */
+  --color-datagrid-row-bg-active: #1e3a8a; /** Row background when active or focused. */
+  --color-datagrid-row-bg-disabled: #1e293b; /** Row background when disabled. */
+  --color-datagrid-row-bg-group: #1e293b; /** Row background for group header rows. */
+  --color-datagrid-row-bg-summary: #334155; /** Row background for summary or aggregate rows. */
+  --color-datagrid-row-bg-pinned: #172554; /** Row background for pinned rows. */
+  --color-datagrid-row-border-default: #1e293b; /** Default row border. */
+  --color-datagrid-row-border-selected: #62a0ea; /** Border on selected rows. */
+  --color-datagrid-cell-bg-default: #0f172a; /** Default cell background; transparent against the row. */
+  --color-datagrid-cell-bg-hover: #1e293b; /** Cell background on hover. */
+  --color-datagrid-cell-bg-selected: #1e3a8a; /** Cell background when selected. */
+  --color-datagrid-cell-bg-editing: #0f172a; /** Cell background while editing. */
+  --color-datagrid-cell-bg-readonly: #1e293b; /** Cell background when read-only. */
+  --color-datagrid-cell-bg-invalid: #2d0606; /** Cell background when validation fails. */
+  --color-datagrid-cell-bg-warning: #251805; /** Cell background carrying a warning state. */
+  --color-datagrid-cell-bg-formula-reference: #172554; /** Cell background highlighted as a formula reference. */
+  --color-datagrid-cell-text-default: #f1f5f9; /** Default cell text color. */
+  --color-datagrid-cell-text-muted: #94a3b8; /** Muted cell text for secondary information. */
+  --color-datagrid-cell-text-selected: #d1e2f7; /** Cell text color when selected. */
+  --color-datagrid-cell-text-readonly: #94a3b8; /** Cell text color when read-only. */
+  --color-datagrid-cell-text-invalid: #f87171; /** Cell text color when validation fails. */
+  --color-datagrid-cell-text-link: #62a0ea; /** Cell text color rendered as a hyperlink. */
+  --color-datagrid-cell-border-default: #1e293b; /** Default cell border. */
+  --color-datagrid-cell-border-focus: #62a0ea; /** Cell border when focused. */
+  --color-datagrid-cell-border-selected: #62a0ea; /** Cell border when selected. */
+  --color-datagrid-cell-border-editing: #62a0ea; /** Cell border while editing. */
+  --color-datagrid-cell-border-invalid: #ef4444; /** Cell border when validation fails. */
+  --color-datagrid-cell-caret-default: #62a0ea; /** Text caret color inside an editing cell. */
+  --color-datagrid-cell-selection-fill-default: #1e3a8a; /** Translucent fill for a multi-cell selection. */
+  --color-datagrid-cell-drag-fill-handle-default: #62a0ea; /** Drag-fill handle shown at the corner of selections. */
+  --color-datagrid-frozen-shadow-default: #000000; /** Shadow cast by frozen rows or columns. */
+  --color-datagrid-frozen-border-default: #475569; /** Border between frozen and scrollable regions. */
+  --color-datagrid-frozen-bg-default: #1e293b; /** Background tint for frozen rows or columns. */
+  --color-datagrid-gridline-horizontal-default: #1e293b; /** Horizontal gridline between cells. */
+  --color-datagrid-gridline-vertical-default: #1e293b; /** Vertical gridline between cells. */
+  --color-datagrid-gridline-strong-default: #475569; /** Strong gridline used for emphasis or section breaks. */
+  --color-datagrid-editor-bg-default: #0f172a; /** Background of an inline cell editor. */
+  --color-datagrid-editor-text-default: #f1f5f9; /** Text color inside an inline cell editor. */
+  --color-datagrid-editor-placeholder-default: #64748b; /** Placeholder text inside an inline cell editor. */
+  --color-datagrid-editor-border-default: #475569; /** Default border around an inline cell editor. */
+  --color-datagrid-editor-border-focus: #62a0ea; /** Border around the editor when focused. */
+  --color-datagrid-editor-border-invalid: #ef4444; /** Border around the editor when validation fails. */
+  --color-datagrid-formula-bg-default: #1e293b; /** Background of the formula bar. */
+  --color-datagrid-formula-text-default: #f1f5f9; /** Text color of formula content. */
+  --color-datagrid-formula-placeholder-default: #64748b; /** Placeholder text in the formula bar. */
+  --color-datagrid-formula-border-default: #334155; /** Border around the formula bar. */
+  --color-datagrid-formula-reference-1: #62a0ea; /** Color for the first formula reference highlight. */
+  --color-datagrid-formula-reference-2: #4ade80; /** Color for the second formula reference highlight. */
+  --color-datagrid-formula-reference-3: #fbbf24; /** Color for the third formula reference highlight. */
+  --color-datagrid-formula-reference-4: #f87171; /** Color for the fourth formula reference highlight. */
+  --color-datagrid-formula-reference-5: #c084fc; /** Color for the fifth formula reference highlight. */
+  --color-datagrid-formula-reference-6: #38bdf8; /** Color for the sixth formula reference highlight. */
+  --color-datagrid-filter-chip-bg-default: #1e3a8a; /** Filter chip background. */
+  --color-datagrid-filter-chip-text-default: #a4c5ee; /** Filter chip text color. */
+  --color-datagrid-filter-chip-icon-default: #62a0ea; /** Filter chip icon color. */
+  --color-datagrid-filter-chip-border-default: #1a5fb4; /** Filter chip border color. */
+  --color-datagrid-sort-indicator-default: #62a0ea; /** Indicator showing the active sort direction. */
+  --color-datagrid-group-indicator-default: #94a3b8; /** Indicator marking grouped rows or sections. */
+  --color-datagrid-validation-marker-error: #f87171; /** Marker shown for validation errors. */
+  --color-datagrid-validation-marker-warning: #fbbf24; /** Marker shown for validation warnings. */
+  --color-datagrid-comment-marker-default: #fbbf24; /** Marker indicating a comment attached to a cell. */
+  --color-datagrid-attachment-marker-default: #62a0ea; /** Marker indicating an attachment on a cell. */
+  --color-cad-viewport-bg-default: #0b1120; /** CAD viewport background at rest. */
+  --color-cad-viewport-bg-loading: #1e293b; /** CAD viewport background while loading. */
+  --color-cad-viewport-border-default: #334155; /** Border around the CAD viewport. */
+  --color-cad-viewport-crosshair-default: #94a3b8; /** Crosshair cursor color inside the viewport. */
+  --color-cad-viewport-snap-hint-default: #62a0ea; /** Hint marker shown while snapping to geometry. */
+  --color-cad-viewport-selection-box-fill: rgba(98, 160, 234, 0.2); /** Fill color of the rubber-band selection box. */
+  --color-cad-viewport-selection-box-border: #62a0ea; /** Border color of the rubber-band selection box. */
+  --color-cad-viewport-marquee-border: #62a0ea; /** Border color of the marquee selection. */
+  --color-cad-viewport-marquee-fill: rgba(98, 160, 234, 0.1); /** Fill color of the marquee selection. */
+  --color-cad-sheet-paper-default: #1e293b; /** Drawing sheet paper color. */
+  --color-cad-sheet-paper-shadow-default: #000000; /** Shadow cast by the drawing sheet. */
+  --color-cad-sheet-border-default: #475569; /** Border around the drawing sheet. */
+  --color-cad-sheet-margin-default: #475569; /** Sheet margin guide color. */
+  --color-cad-sheet-title-block-default: #cbd5e1; /** Title block accent color on the sheet. */
+  --color-cad-sheet-crop-mark-default: #94a3b8; /** Crop mark color at sheet corners. */
+  --color-cad-sheet-out-of-bounds-default: #020617; /** Region outside the sheet boundaries. */
+  --color-cad-grid-major-default: #334155; /** Major gridline color in the CAD viewport. */
+  --color-cad-grid-minor-default: #1e293b; /** Minor gridline color in the CAD viewport. */
+  --color-cad-ruler-bg-default: #1e293b; /** Background of the CAD ruler bars. */
+  --color-cad-ruler-text-default: #cbd5e1; /** Tick label text color on the rulers. */
+  --color-cad-ruler-tick-default: #64748b; /** Tick mark color on the rulers. */
+  --color-cad-guide-default: #62a0ea; /** User-placed guide line color. */
+  --color-cad-guide-locked: #64748b; /** Guide line color when locked. */
+  --color-cad-origin-default: #f87171; /** Origin marker color in the CAD viewport. */
+  --color-cad-layer-row-bg-default: #0f172a; /** Layer panel row background at rest. */
+  --color-cad-layer-row-bg-selected: #1e3a8a; /** Layer panel row background when selected. */
+  --color-cad-layer-row-text-default: #f1f5f9; /** Layer panel row text color. */
+  --color-cad-layer-row-icon-visible: #cbd5e1; /** Icon shown when a layer is visible. */
+  --color-cad-layer-row-icon-hidden: #475569; /** Icon shown when a layer is hidden. */
+  --color-cad-layer-row-icon-locked: #fbbf24; /** Icon shown when a layer is locked. */
+  --color-cad-layer-color-swatch-default: #475569; /** Default color swatch shown next to a layer. */
+  --color-cad-geometry-default-line: #f1f5f9; /** Default geometry line color. */
+  --color-cad-geometry-default-fill: #334155; /** Default geometry fill color. */
+  --color-cad-geometry-muted-line: #64748b; /** Muted geometry line color. */
+  --color-cad-geometry-hidden-line: #475569; /** Hidden geometry line color (dashed strokes). */
+  --color-cad-geometry-locked-line: #fbbf24; /** Locked geometry line color. */
+  --color-cad-geometry-hover-line: #62a0ea; /** Geometry line color on hover. */
+  --color-cad-geometry-selected-line: #a4c5ee; /** Geometry line color when selected. */
+  --color-cad-geometry-selected-fill: rgba(98, 160, 234, 0.2); /** Geometry fill color when selected. */
+  --color-cad-geometry-reference-line: #a5b4fc; /** Reference geometry line color. */
+  --color-cad-geometry-reference-fill: rgba(165, 180, 252, 0.2); /** Reference geometry fill color. */
+  --color-cad-geometry-conflict-line: #f87171; /** Geometry line color when in conflict. */
+  --color-cad-geometry-conflict-fill: rgba(127, 29, 29, 0.4); /** Geometry fill color when in conflict. */
+  --color-cad-geometry-dimmed-line: #334155; /** Dimmed geometry line color. */
+  --color-cad-handle-default: #f1f5f9; /** Default transform handle fill. */
+  --color-cad-handle-hover: #a4c5ee; /** Transform handle fill on hover. */
+  --color-cad-handle-active: #3584e4; /** Transform handle fill when active. */
+  --color-cad-handle-disabled: #334155; /** Transform handle fill when disabled. */
+  --color-cad-grip-default: #62a0ea; /** Grip point color on selected geometry. */
+  --color-cad-rotation-handle-default: #4ade80; /** Rotation handle color on selected geometry. */
+  --color-cad-transform-box-border: #62a0ea; /** Transform bounding box border. */
+  --color-cad-transform-box-fill: rgba(98, 160, 234, 0.1); /** Transform bounding box fill. */
+  --color-cad-measure-line-default: #62a0ea; /** Measurement line color. */
+  --color-cad-measure-arrow-default: #62a0ea; /** Measurement arrow color. */
+  --color-cad-measure-text-default: #f1f5f9; /** Measurement value text color. */
+  --color-cad-measure-text-bg-default: #1e293b; /** Background behind measurement text. */
+  --color-cad-measure-guide-default: #a4c5ee; /** Measurement extension guide color. */
+  --color-cad-measure-highlight-default: #fcd34d; /** Highlight applied while measuring. */
+  --color-cad-annotation-text-default: #f1f5f9; /** Annotation text color. */
+  --color-cad-annotation-text-bg-default: rgba(15, 23, 42, 0.8); /** Background behind annotation text. */
+  --color-cad-annotation-leader-default: #cbd5e1; /** Annotation leader line color. */
+  --color-cad-annotation-dimension-default: #cbd5e1; /** Dimension line and text color. */
+  --color-cad-annotation-room-tag-default: #62a0ea; /** Room tag annotation color. */
+  --color-cad-annotation-equipment-tag-default: #fbbf24; /** Equipment tag annotation color. */
+  --color-cad-annotation-callout-default: #a5b4fc; /** Callout annotation color. */
+  --color-cad-annotation-section-marker-default: #4ade80; /** Section marker annotation color. */
+  --color-cad-annotation-detail-marker-default: #38bdf8; /** Detail marker annotation color. */
+  --color-cad-annotation-revision-cloud-default: #f87171; /** Revision cloud annotation color. */
+  --color-cad-markup-freehand-default: #f87171; /** Freehand markup stroke color. */
+  --color-cad-markup-rectangle-default: #62a0ea; /** Rectangle markup stroke color. */
+  --color-cad-markup-ellipse-default: #4ade80; /** Ellipse markup stroke color. */
+  --color-cad-markup-arrow-default: #fbbf24; /** Arrow markup stroke color. */
+  --color-cad-markup-highlight-fill: rgba(251, 191, 36, 0.5); /** Highlight markup fill color. */
+  --color-cad-markup-highlight-border: #fbbf24; /** Highlight markup border color. */
+  --color-cad-markup-text-default: #f1f5f9; /** Text markup color. */
+  --color-cad-markup-text-bg-default: rgba(15, 23, 42, 0.8); /** Background behind text markup. */
+  --color-cad-markup-stamp-approved: #4ade80; /** Approved stamp color. */
+  --color-cad-markup-stamp-rejected: #f87171; /** Rejected stamp color. */
+  --color-cad-markup-stamp-review: #fbbf24; /** In-review stamp color. */
+  --color-cad-markup-stamp-void: #94a3b8; /** Void stamp color. */
+  --color-cad-pin-default: #62a0ea; /** Default pin marker color. */
+  --color-cad-pin-hover: #a4c5ee; /** Pin marker on hover. */
+  --color-cad-pin-selected: #d1e2f7; /** Pin marker when selected. */
+  --color-cad-pin-info: #60a5fa; /** Info-priority pin marker. */
+  --color-cad-pin-low: #4ade80; /** Low-priority pin marker. */
+  --color-cad-pin-medium: #fbbf24; /** Medium-priority pin marker. */
+  --color-cad-pin-high: #fb923c; /** High-priority pin marker. */
+  --color-cad-pin-critical: #ef4444; /** Critical-priority pin marker. */
+  --color-cad-issue-open: #60a5fa; /** Issue marker color when open. */
+  --color-cad-issue-in-progress: #fbbf24; /** Issue marker color when in progress. */
+  --color-cad-issue-blocked: #f87171; /** Issue marker color when blocked. */
+  --color-cad-issue-resolved: #4ade80; /** Issue marker color when resolved. */
+  --color-cad-issue-closed: #94a3b8; /** Issue marker color when closed. */
+  --color-cad-minimap-bg-default: #1e293b; /** Minimap background. */
+  --color-cad-minimap-border-default: #475569; /** Minimap outer border. */
+  --color-cad-minimap-viewport-fill: rgba(98, 160, 234, 0.2); /** Minimap viewport fill showing visible area. */
+  --color-cad-minimap-viewport-border: #62a0ea; /** Minimap viewport border showing visible area. */
+  --color-cad-minimap-sheet-default: #334155; /** Minimap representation of the sheet bounds. */
+  --color-cad-system-architecture-default: #62a0ea; /** Discipline color for architecture. */
+  --color-cad-system-structure-default: #94a3b8; /** Discipline color for structure. */
+  --color-cad-system-mechanical-default: #22d3ee; /** Discipline color for mechanical systems. */
+  --color-cad-system-electrical-default: #fbbf24; /** Discipline color for electrical systems. */
+  --color-cad-system-plumbing-default: #34d399; /** Discipline color for plumbing systems. */
+  --color-cad-system-fire-protection-default: #f87171; /** Discipline color for fire protection systems. */
+  --color-cad-system-low-voltage-default: #a855f7; /** Discipline color for low-voltage systems. */
+  --color-cad-system-furniture-default: #c4b5fd; /** Discipline color for furniture and FF&E. */
+  --color-cad-system-site-default: #a3e635; /** Discipline color for site and civil work. */
+  --color-comments-bubble-own-bg-default: #1a5fb4; /** Background of message bubbles you authored; uses brand primary so your messages read as 'mine'. */
+  --color-comments-bubble-own-bg-hover: #134e94; /** Hover background for your own message bubbles. */
+  --color-comments-bubble-own-text-default: #ffffff; /** Text color inside your own message bubbles; white reads cleanly against the brand bubble. */
+  --color-comments-bubble-others-bg-default: #1e293b; /** Background of message bubbles from other participants; neutral so authored messages stand out. */
+  --color-comments-bubble-others-bg-hover: #334155; /** Hover background for other participants' message bubbles. */
+  --color-comments-bubble-others-text-default: #f8fafc; /** Text color inside other participants' message bubbles. */
+  --color-comments-bubble-system-bg-default: #0f172a; /** Background of system messages (joins, channel changes, automated events); recedes into the canvas. */
+  --color-comments-bubble-system-text-default: #94a3b8; /** Text color for system messages; muted to signal informational, not authored, content. */
+  --color-comments-bubble-pinned-bg-default: #251805; /** Background tint for pinned messages; warm tone signals importance without alarming. */
+  --color-comments-bubble-pinned-border-default: #fbbf24; /** Left-border accent applied to pinned messages. */
+  --color-comments-bubble-quoted-bg-default: #172554; /** Background of quoted/replied-to message blocks shown above a reply. */
+  --color-comments-bubble-quoted-text-default: #cbd5e1; /** Text color used in quoted message previews. */
+  --color-comments-bubble-deleted-bg-default: #2d0606; /** Background of deleted-message placeholders. */
+  --color-comments-bubble-deleted-text-default: #64748b; /** Italic placeholder text for deleted messages (e.g. 'Message deleted'). */
+  --color-comments-bubble-editing-bg-default: #172554; /** Background applied to a message currently being edited inline. */
+  --color-comments-bubble-editing-border-default: #3b82f6; /** Border applied to a message being edited; matches info accent. */
+  --color-comments-author-text-default: #62a0ea; /** Sender display-name color shown above a message bubble. */
+  --color-comments-author-text-self: #a4c5ee; /** Sender display-name color when the author is the current user. */
+  --color-comments-timestamp-text-default: #64748b; /** Timestamp text shown beside or beneath messages. */
+  --color-comments-timestamp-text-unread: #62a0ea; /** Timestamp text on unread messages; promotes the row's urgency. */
+  --color-comments-mention-others-bg-default: #172554; /** Background tint for an @mention of another participant inline in message text. */
+  --color-comments-mention-others-text-default: #a4c5ee; /** Text color for an @mention of another participant. */
+  --color-comments-mention-self-bg-default: #251805; /** Background tint when the current user is @mentioned; warmer to draw attention. */
+  --color-comments-mention-self-text-default: #fbbf24; /** Text color when the current user is @mentioned. */
+  --color-comments-mention-self-border-default: #f59e0b; /** Border accent on bubbles where the current user is @mentioned. */
+  --color-comments-reaction-bg-default: #1e293b; /** Background of an emoji-reaction chip beneath a message. */
+  --color-comments-reaction-bg-hover: #334155; /** Hover background of an emoji-reaction chip. */
+  --color-comments-reaction-bg-active: #172554; /** Background of a reaction chip the current user has added. */
+  --color-comments-reaction-text-default: #cbd5e1; /** Reaction-chip count text and label color. */
+  --color-comments-reaction-text-active: #a4c5ee; /** Reaction-chip text color for reactions added by the current user. */
+  --color-comments-reaction-border-default: #334155; /** Reaction-chip border color. */
+  --color-comments-reaction-border-active: #62a0ea; /** Reaction-chip border color when added by the current user. */
+  --color-comments-status-sending-icon-default: #64748b; /** Icon color for the in-flight 'sending' indicator on outgoing messages. */
+  --color-comments-status-sent-icon-default: #94a3b8; /** Icon color for the 'sent to server' single-check indicator. */
+  --color-comments-status-delivered-icon-default: #cbd5e1; /** Icon color for the 'delivered to recipient' double-check indicator. */
+  --color-comments-status-read-icon-default: #62a0ea; /** Icon color for the 'read by recipient' indicator; uses brand for positive confirmation. */
+  --color-comments-status-failed-icon-default: #ef4444; /** Icon color for the 'send failed' indicator on outgoing messages. */
+  --color-comments-thread-connector-default: #334155; /** Vertical line color connecting threaded replies to a parent message. */
+  --color-comments-thread-indicator-unread: #62a0ea; /** Dot/indicator color showing a thread has unread replies. */
+  --color-comments-thread-bg-active: #172554; /** Row background for the currently focused conversation in the channel list. */
+  --color-comments-thread-bg-unread: #251805; /** Row background for conversations with unread messages. */
+  --color-comments-avatar-fallback-bg-default: #3584e4; /** Fallback avatar background color when no profile image is available. */
+  --color-comments-avatar-fallback-text-default: #ffffff; /** Fallback avatar initials text color. */
+  --color-comments-avatar-status-online: #22c55e; /** Presence dot color indicating the user is online. */
+  --color-comments-avatar-status-away: #fbbf24; /** Presence dot color indicating the user is away/idle. */
+  --color-comments-avatar-status-offline: #64748b; /** Presence dot color indicating the user is offline. */
+  --color-comments-avatar-status-busy: #ef4444; /** Presence dot color indicating the user is busy/do-not-disturb. */
+  --color-comments-typing-dot-default: #62a0ea; /** Animated dot color for the 'someone is typing' indicator. */
+  --color-comments-typing-bg-default: #1e293b; /** Background of the 'someone is typing' indicator pill. */
+  --color-comments-notification-dot-default: #ef4444; /** Unread-badge dot color shown on conversation list items. */
+  --color-comments-notification-dot-border: #0f172a; /** Border around the unread badge so it remains legible against avatars. */
+  --color-comments-code-bg-default: #020617; /** Background of inline code spans and code blocks inside messages. */
+  --color-comments-code-text-default: #f8fafc; /** Text color for code inside messages. */
+  --color-comments-code-border-default: #334155; /** Border color for code blocks inside messages. */
+}
