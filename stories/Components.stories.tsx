@@ -19,7 +19,7 @@ const cellRenderers: [string, string, string][] = [
   ['MuiCompoundChipListCell', 'Chip, Box, Button, TextField', 'compoundChipList'],
   ['MuiListCell', 'Select, MenuItem, Typography', 'list'],
   ['MuiPasswordCell', 'TextField, IconButton, InputAdornment, Box', 'password'],
-  ['MuiRichTextCell', 'Box', 'richText'],
+  ['MuiRichTextCell', 'Box, Button, Tooltip, ToggleButton', 'richText'],
   ['MuiUploadCell', 'Button, LinearProgress, Box, Typography', 'upload'],
   ['MuiSubGridCell', 'Accordion, AccordionSummary, AccordionDetails, Chip, Box', 'subGrid'],
   ['MuiActionsCell', 'IconButton, Tooltip, Box, Button', 'actions'],

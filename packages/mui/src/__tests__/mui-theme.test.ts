@@ -95,9 +95,30 @@ describe('bridgeMuiTheme', () => {
     expect(vars['--dg-selected-bg']).toBe('rgba(0,0,0,0.08)');
   });
 
-  test('returns exactly 14 CSS variables', () => {
+  test('returns exactly 16 CSS variables', () => {
+    // The bridge now forwards row-level tokens from the ingested iAsBuilt
+    // palette so dark-mode grids pick up matching row and alt backgrounds
+    // instead of falling back to the light defaults baked into the body
+    // styles. The count grew from 14 to 16 when `--dg-row-bg` and
+    // `--dg-row-bg-alt` were added.
     const vars = bridgeMuiTheme(lightTheme);
-    expect(Object.keys(vars).length).toBe(14);
+    expect(Object.keys(vars).length).toBe(16);
+  });
+
+  test('maps row background from ingested light tokens', () => {
+    const vars = bridgeMuiTheme(lightTheme);
+    expect(vars['--dg-row-bg']).toBe('#ffffff');
+    expect(vars['--dg-row-bg-alt']).toBe('#f8fafc');
+  });
+
+  test('maps row background from ingested dark tokens in dark mode', () => {
+    const darkTheme: MuiThemeShape = {
+      ...lightTheme,
+      palette: { ...lightTheme.palette, mode: 'dark' },
+    };
+    const vars = bridgeMuiTheme(darkTheme);
+    expect(vars['--dg-row-bg']).toBe('#0f172a');
+    expect(vars['--dg-row-bg-alt']).toBe('#1e293b');
   });
 
   test('defaults header bg to light when mode is undefined', () => {
