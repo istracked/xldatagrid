@@ -11,7 +11,8 @@ const dirname = process.env.PWD ?? (typeof __dirname !== 'undefined' ? __dirname
 export default defineConfig({
   root: dirname,
   resolve: {
-    symlinks: false,
+    // Note: Vite does not expose a `symlinks` toggle here; rely on `root`
+    // being the PWD (symlink) path to keep the workaround for spaces-in-path.
     alias: {
       '@istracked/datagrid-core': path.resolve(dirname, 'packages/core/src'),
       '@istracked/datagrid-react': path.resolve(dirname, 'packages/react/src'),

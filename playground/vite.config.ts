@@ -9,7 +9,9 @@ const pkgDir = (pkg: string) => resolve(rootDir, 'packages', pkg, 'src');
 
 export default defineConfig({
   resolve: {
-    symlinks: false,
+    // Note: Vite does not expose a `symlinks` toggle in UserConfig.resolve.
+    // The spaces-in-path workaround is handled by pointing `rootDir` at the
+    // PWD (symlink) path above, so path aliases below stay on that path.
     alias: {
       '@istracked/datagrid-core': pkgDir('core'),
       '@istracked/datagrid-react': pkgDir('react'),
