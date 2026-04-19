@@ -305,7 +305,19 @@ export function DataGridBody<TData extends Record<string, unknown>>(
   //
   // `useRef` ensures the cache survives across renders; `.current` is never
   // reassigned, only mutated.
-  const resolverCacheRef = useRef<WeakMap<object, Map<Function, unknown>>>(new WeakMap());
+  //
+  // Typing notes:
+  //   * `TData extends Record<string, unknown>` at the component level, so
+  //     a row reference is already a non-primitive object — it satisfies
+  //     the `WeakMap` key constraint (`WeakKey`) without any cast.
+  //   * The inner `Map`'s key is a chrome-resolver function. Resolvers have
+  //     distinct signatures per slot (`getRowBackground` vs `getRowBorder`
+  //     vs `getChromeCellContent`), but we only use them as map identities —
+  //     the generic `ChromeResolverFn` alias makes that explicit without
+  //     narrowing to any single return shape, and removes the previous
+  //     `as unknown as Function` casts.
+  type ChromeResolverFn = (row: TData, rowId: string, rowIndex: number) => unknown;
+  const resolverCacheRef = useRef<WeakMap<TData, Map<ChromeResolverFn, unknown>>>(new WeakMap());
   const getCachedResolverResult = <TReturn,>(
     resolver: ((row: TData, rowId: string, rowIndex: number) => TReturn) | undefined,
     row: TData,
@@ -313,17 +325,21 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     rowIndex: number,
   ): TReturn | undefined => {
     if (!resolver) return undefined;
-    const rowKey = row as unknown as object;
-    let byResolver = resolverCacheRef.current.get(rowKey);
+    let byResolver = resolverCacheRef.current.get(row);
     if (!byResolver) {
       byResolver = new Map();
-      resolverCacheRef.current.set(rowKey, byResolver);
+      resolverCacheRef.current.set(row, byResolver);
     }
-    if (byResolver.has(resolver as unknown as Function)) {
-      return byResolver.get(resolver as unknown as Function) as TReturn;
+    // The cache is keyed by resolver identity. Every `ChromeResolverFn`
+    // candidate (`getRowBackground`, `getRowBorder`, `getChromeCellContent`)
+    // shares the `(row, rowId, rowIndex) => T` shape and narrows to the
+    // caller's `TReturn` on retrieval.
+    const key: ChromeResolverFn = resolver;
+    if (byResolver.has(key)) {
+      return byResolver.get(key) as TReturn;
     }
     const value = resolver(row, rowId, rowIndex);
-    byResolver.set(resolver as unknown as Function, value);
+    byResolver.set(key, value);
     return value;
   };
 

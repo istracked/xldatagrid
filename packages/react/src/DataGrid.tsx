@@ -182,16 +182,23 @@ export interface CellRendererProps<TData = Record<string, unknown>> {
 // snapshot under `src/styles/tokens/`.
 // ---------------------------------------------------------------------------
 
-const LIGHT_THEME: Record<string, string> = lightThemeTokens;
+// Theme token maps are keyed by CSS custom-property names (`--dg-*`). The
+// ambient augmentation in `./styles/css-vars.d.ts` opens `csstype.Properties`
+// (and therefore `React.CSSProperties`) to accept this key shape, which
+// lets us drop the previous `as unknown as React.CSSProperties` double
+// assertions — the structural assignment is now honest.
+type CSSVariableMap = Record<`--${string}`, string>;
 
-const DARK_THEME: Record<string, string> = darkThemeTokens;
+const LIGHT_THEME: CSSVariableMap = lightThemeTokens as CSSVariableMap;
+
+const DARK_THEME: CSSVariableMap = darkThemeTokens as CSSVariableMap;
 
 export function resolveThemeStyle(
   theme: 'light' | 'dark' | Record<string, string> | undefined,
 ): React.CSSProperties {
   if (!theme) return {};
-  if (theme === 'light') return { ...LIGHT_THEME } as unknown as React.CSSProperties;
-  if (theme === 'dark') return { ...DARK_THEME } as unknown as React.CSSProperties;
+  if (theme === 'light') return { ...LIGHT_THEME };
+  if (theme === 'dark') return { ...DARK_THEME };
   // A string preset we do not recognise (e.g. `"excel365"`) is handled
   // entirely via CSS — the grid root receives `data-theme="…"` and the
   // matching stylesheet provides the tokens. Returning the string itself
@@ -202,7 +209,12 @@ export function resolveThemeStyle(
   // for the same reason — callers treat the result as a writable
   // `React.CSSProperties` bag and must not receive a frozen/exotic object.
   if (typeof theme === 'string') return {};
-  return { ...theme } as unknown as React.CSSProperties;
+  // Consumer-supplied token maps come in as `Record<string, string>` for the
+  // public API surface; we narrow to the CSS-variable keyspace at this
+  // boundary. Keys not matching `--*` are simply treated as unknown CSS
+  // properties by React DOM and emit the usual dev-time warning — no
+  // runtime fallout.
+  return { ...(theme as CSSVariableMap) };
 }
 
 export { LIGHT_THEME, DARK_THEME };
