@@ -13,6 +13,7 @@
  * rows, aggregate rows, data rows, row-number overrides, empty state).
  */
 import type { CSSProperties } from 'react';
+import type { RowOutlineSides } from '@istracked/datagrid-core';
 
 // ---------------------------------------------------------------------------
 // Scrollable body
@@ -251,33 +252,39 @@ function rowBorderOverrideStyle(border: RowBorderOverride | null | undefined): C
  *  `isEven` selects the zebra-striping background token. `background` and
  *  `border`, when provided, win over the default zebra stripe and the row
  *  separator respectively — see `chrome.getRowBackground` and
- *  `chrome.getRowBorder`. */
+ *  `chrome.getRowBorder`. `borders` drives a per-side inset box-shadow that
+ *  replaces the old all-or-nothing `outline` so contiguous multi-row ranges
+ *  can suppress internal horizontal borders. */
 export const dataRow = (opts: {
   height: number;
   totalWidth: number;
   isEven: boolean;
   background?: string | null;
   border?: RowBorderOverride | null;
-  rowSelected?: boolean;
-}): CSSProperties => ({
-  display: 'flex',
-  height: opts.height,
-  width: opts.totalWidth,
-  borderBottom: '1px solid var(--dg-border-color, #e2e8f0)',
-  background: opts.background ?? (opts.isEven
-    ? 'var(--dg-row-bg, #ffffff)'
-    : 'var(--dg-row-bg-alt, #f8fafc)'),
-  // Border override last so it replaces any default edge styling above.
-  ...rowBorderOverrideStyle(opts.border),
-  ...(opts.rowSelected ? {
-    outline: '2px solid var(--dg-selection-border, #3b82f6)',
-    outlineOffset: -2,
-  } : {}),
-});
+  borders?: RowOutlineSides | null;
+}): CSSProperties => {
+  const shadowParts = opts.borders ? [
+    opts.borders.top    ? 'inset 0 2px 0 0 var(--dg-selection-border, #3b82f6)' : null,
+    opts.borders.right  ? 'inset -2px 0 0 0 var(--dg-selection-border, #3b82f6)' : null,
+    opts.borders.bottom ? 'inset 0 -2px 0 0 var(--dg-selection-border, #3b82f6)' : null,
+    opts.borders.left   ? 'inset 2px 0 0 0 var(--dg-selection-border, #3b82f6)' : null,
+  ].filter(Boolean).join(', ') : '';
+  return {
+    display: 'flex',
+    height: opts.height,
+    width: opts.totalWidth,
+    borderBottom: '1px solid var(--dg-border-color, #e2e8f0)',
+    background: opts.background ?? (opts.isEven
+      ? 'var(--dg-row-bg, #ffffff)'
+      : 'var(--dg-row-bg-alt, #f8fafc)'),
+    ...rowBorderOverrideStyle(opts.border),
+    ...(shadowParts ? { boxShadow: shadowParts } : {}),
+  };
+};
 
 /** Style for a data row on the virtualised (non-grouped) render path.
  *  Absolutely positioned at `top` inside the virtualised wrapper so rows
- *  outside `rowRange` can be skipped entirely. `background`/`border`
+ *  outside `rowRange` can be skipped entirely. `background`/`border`/`borders`
  *  semantics match {@link dataRow}. */
 export const virtualizedRow = (opts: {
   height: number;
@@ -286,23 +293,28 @@ export const virtualizedRow = (opts: {
   isEven: boolean;
   background?: string | null;
   border?: RowBorderOverride | null;
-  rowSelected?: boolean;
-}): CSSProperties => ({
-  display: 'flex',
-  position: 'absolute',
-  top: opts.top,
-  height: opts.height,
-  width: opts.totalWidth,
-  borderBottom: '1px solid var(--dg-border-color, #e2e8f0)',
-  background: opts.background ?? (opts.isEven
-    ? 'var(--dg-row-bg, #ffffff)'
-    : 'var(--dg-row-bg-alt, #f8fafc)'),
-  ...rowBorderOverrideStyle(opts.border),
-  ...(opts.rowSelected ? {
-    outline: '2px solid var(--dg-selection-border, #3b82f6)',
-    outlineOffset: -2,
-  } : {}),
-});
+  borders?: RowOutlineSides | null;
+}): CSSProperties => {
+  const shadowParts = opts.borders ? [
+    opts.borders.top    ? 'inset 0 2px 0 0 var(--dg-selection-border, #3b82f6)' : null,
+    opts.borders.right  ? 'inset -2px 0 0 0 var(--dg-selection-border, #3b82f6)' : null,
+    opts.borders.bottom ? 'inset 0 -2px 0 0 var(--dg-selection-border, #3b82f6)' : null,
+    opts.borders.left   ? 'inset 2px 0 0 0 var(--dg-selection-border, #3b82f6)' : null,
+  ].filter(Boolean).join(', ') : '';
+  return {
+    display: 'flex',
+    position: 'absolute',
+    top: opts.top,
+    height: opts.height,
+    width: opts.totalWidth,
+    borderBottom: '1px solid var(--dg-border-color, #e2e8f0)',
+    background: opts.background ?? (opts.isEven
+      ? 'var(--dg-row-bg, #ffffff)'
+      : 'var(--dg-row-bg-alt, #f8fafc)'),
+    ...rowBorderOverrideStyle(opts.border),
+    ...(shadowParts ? { boxShadow: shadowParts } : {}),
+  };
+};
 
 // ---------------------------------------------------------------------------
 // Row number chrome overrides for left (sticky) positioning

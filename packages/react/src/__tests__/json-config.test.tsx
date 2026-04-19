@@ -111,9 +111,9 @@ describe('JSON config — selection mode', () => {
     const cells = screen.getAllByRole('gridcell');
     fireEvent.click(cells[0]!);
     // In row mode a full-row selection is created. The row container gets the
-    // outline; per-cell outlines are suppressed.
+    // box-shadow; per-cell outlines are suppressed.
     const firstRow = document.querySelector('[role="row"][data-row-id]') as HTMLElement;
-    expect(firstRow.style.outline).toContain('2px solid');
+    expect(firstRow.style.boxShadow).toContain('--dg-selection-border');
     expect(cells[0]).toHaveStyle({ outline: 'none' });
   });
 

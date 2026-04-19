@@ -71,9 +71,10 @@ export function selectRow(state: SelectionState, rowId: string, columns: ColumnD
   // Determine the first and last column fields
   const firstCol = columns[0]?.field ?? '';
   const lastCol = columns[columns.length - 1]?.field ?? '';
-  const newRange = {
+  const newRange: CellRange = {
     anchor: { rowId, field: firstCol },
     focus: { rowId, field: lastCol },
+    kind: 'row',
   };
   return {
     ...state,
@@ -121,7 +122,46 @@ export function selectColumn(state: SelectionState, field: string, rowIds: strin
  */
 export function extendSelection(state: SelectionState, cell: CellAddress): SelectionState {
   if (state.mode === 'none' || !state.range) return state;
-  const newRange = { anchor: state.range.anchor, focus: cell };
+  // Preserve the current range's `kind` so extending a row-kind selection
+  // (e.g. rowheader Shift+Arrow) yields another row-kind range rather than
+  // silently degrading to a generic cell range.
+  const newRange: CellRange = state.range.kind
+    ? { anchor: state.range.anchor, focus: cell, kind: state.range.kind }
+    : { anchor: state.range.anchor, focus: cell };
+  const updatedRanges = state.ranges.length > 0
+    ? [...state.ranges.slice(0, -1), newRange]
+    : [newRange];
+  return { ...state, range: newRange, ranges: updatedRanges };
+}
+
+/**
+ * Extends the current row selection down/up to `rowId`, snapping the anchor
+ * to the first column and the focus to the last column so the resulting
+ * range covers every cell in the spanned rows. Tags the new range with
+ * `kind: 'row'` so the renderer treats it as a row-level outline regardless
+ * of the grid's `selectionMode`.
+ *
+ * When no prior range exists, falls back to selecting the single target row.
+ */
+export function extendRowSelection(
+  state: SelectionState,
+  rowId: string,
+  columns: ColumnDef<any>[],
+): SelectionState {
+  if (state.mode === 'none') return state;
+  const firstCol = columns[0]?.field ?? '';
+  const lastCol = columns[columns.length - 1]?.field ?? '';
+  if (!state.range) {
+    return selectRow(state, rowId, columns);
+  }
+  // Anchor stays on whatever the prior selection's anchor row was, pinned to
+  // the first column. Focus snaps to the target row's last column.
+  const anchorRowId = state.range.anchor.rowId;
+  const newRange: CellRange = {
+    anchor: { rowId: anchorRowId, field: firstCol },
+    focus: { rowId, field: lastCol },
+    kind: 'row',
+  };
   const updatedRanges = state.ranges.length > 0
     ? [...state.ranges.slice(0, -1), newRange]
     : [newRange];
@@ -251,10 +291,12 @@ export function toggleRowSelection(state: SelectionState, rowId: string, columns
     // Remove the existing range for this row
     newRanges = [...state.ranges.slice(0, existingIdx), ...state.ranges.slice(existingIdx + 1)];
   } else {
-    // Add a new full-row range
+    // Add a new full-row range. Tag it as a row-kind selection so the
+    // renderer paints a row-level outline even when the grid's
+    // `selectionMode` is `'cell'` or `'range'`.
     newRanges = [
       ...state.ranges,
-      { anchor: { rowId, field: firstCol }, focus: { rowId, field: lastCol } },
+      { anchor: { rowId, field: firstCol }, focus: { rowId, field: lastCol }, kind: 'row' as const },
     ];
   }
 
@@ -432,32 +474,135 @@ export function getPrevCellInRow(current: CellAddress, columns: ColumnDef<any>[]
 }
 
 /**
+ * Per-side border flags for a row-selection outline.
+ */
+export interface RowOutlineSides {
+  top: boolean;
+  right: boolean;
+  bottom: boolean;
+  left: boolean;
+}
+
+/**
  * Returns `true` when the current selection range covers every column in the
  * given row — i.e. the anchor and focus are both on `rowId` and span from the
  * first to the last column field (in either order).
  *
- * This is the predicate used to decide whether to paint the row-level outline
- * instead of per-cell outlines (CSS-only row-selection outline, path #1).
+ * When `rowIds` is supplied the function walks every range in `state.ranges`
+ * so disjoint multi-row selections (Ctrl+click) are handled correctly.
+ * When `rowIds` is omitted the fast path checks only `state.range` — backward
+ * compatible with all existing callers.
  *
  * @param state - Current selection state.
  * @param rowId - The row to test.
  * @param columns - Full list of column definitions.
- * @returns `true` when the active range is a full-row selection for `rowId`.
+ * @param rowIds - Optional ordered list of all row identifiers; enables multi-range walk.
+ * @returns `true` when any range in the selection is a full-row selection for `rowId`.
  */
 export function isRowFullySelected(
   state: SelectionState,
   rowId: string,
   columns: ColumnDef<any>[],
+  rowIds?: string[],
 ): boolean {
-  if (!state.range || columns.length === 0) return false;
-  const { anchor, focus } = state.range;
-  if (anchor.rowId !== rowId || focus.rowId !== rowId) return false;
+  if (columns.length === 0) return false;
   const firstField = columns[0]!.field;
   const lastField = columns[columns.length - 1]!.field;
+
+  function isFullRowRange(range: CellRange): boolean {
+    const rowIdx = rowIds ? rowIds.indexOf(rowId) : -1;
+    const anchorRowIdx = rowIds ? rowIds.indexOf(range.anchor.rowId) : -1;
+    const focusRowIdx = rowIds ? rowIds.indexOf(range.focus.rowId) : -1;
+    const minRow = Math.min(anchorRowIdx, focusRowIdx);
+    const maxRow = Math.max(anchorRowIdx, focusRowIdx);
+    const rowInRange = rowIds
+      ? rowIdx >= minRow && rowIdx <= maxRow
+      : range.anchor.rowId === rowId && range.focus.rowId === rowId;
+    if (!rowInRange) return false;
+    return (
+      (range.anchor.field === firstField && range.focus.field === lastField) ||
+      (range.anchor.field === lastField && range.focus.field === firstField)
+    );
+  }
+
+  if (rowIds !== undefined) {
+    return state.ranges.some(isFullRowRange);
+  }
+
+  // Legacy 3-arg fast path: only check state.range.
+  if (!state.range) return false;
+  const { anchor, focus } = state.range;
+  if (anchor.rowId !== rowId || focus.rowId !== rowId) return false;
   return (
     (anchor.field === firstField && focus.field === lastField) ||
     (anchor.field === lastField && focus.field === firstField)
   );
+}
+
+/**
+ * Returns the per-side border flags for the row-selection outline for `rowId`,
+ * or `null` when the row is not covered by any full-row range.
+ *
+ * Contiguous multi-row ranges suppress internal horizontal borders (top on all
+ * rows except the first, bottom on all rows except the last).  Disjoint
+ * single-row ranges each get all four sides.
+ */
+export function getRowSelectionBorders(
+  state: SelectionState,
+  rowId: string,
+  columns: ColumnDef<any>[],
+  rowIds: string[],
+): RowOutlineSides | null {
+  if (columns.length === 0 || rowIds.length === 0) return null;
+  const firstField = columns[0]!.field;
+  const lastField = columns[columns.length - 1]!.field;
+  const rowIdx = rowIds.indexOf(rowId);
+  if (rowIdx === -1) return null;
+
+  // A range is treated as row-covering when it was created with the row
+  // intent (chrome row-number click / Shift+rowheader / Cmd+rowheader) or
+  // when the grid itself is in explicit row-selection mode. Crucially, a
+  // Ctrl+A select-all in cell/range mode produces a range *without*
+  // `kind: 'row'` so per-cell outlines still apply there.
+  const isRowMode = state.mode === 'row';
+
+  function isFullRowCovering(range: CellRange): boolean {
+    const anchorRowIdx = rowIds.indexOf(range.anchor.rowId);
+    const focusRowIdx = rowIds.indexOf(range.focus.rowId);
+    const minRow = Math.min(anchorRowIdx, focusRowIdx);
+    const maxRow = Math.max(anchorRowIdx, focusRowIdx);
+    const isRowIntent = range.kind === 'row' || isRowMode;
+    // Row-intent ranges are always candidates; cell/range-intent multi-row
+    // ranges are not row-covering so Ctrl+A keeps its cell-level visual.
+    if (minRow !== maxRow && !isRowIntent) return false;
+    if (!isRowIntent && minRow === maxRow) {
+      // Singleton in cell/range mode is row-covering only when the range
+      // structurally spans every column (preserves the PR #58 contract).
+    }
+    if (rowIdx < minRow || rowIdx > maxRow) return false;
+    return (
+      (range.anchor.field === firstField && range.focus.field === lastField) ||
+      (range.anchor.field === lastField && range.focus.field === firstField)
+    );
+  }
+
+  const covering = state.ranges.filter(isFullRowCovering);
+  if (covering.length === 0) return null;
+
+  let top = false;
+  let bottom = false;
+
+  for (const range of covering) {
+    const anchorRowIdx = rowIds.indexOf(range.anchor.rowId);
+    const focusRowIdx = rowIds.indexOf(range.focus.rowId);
+    const minRow = Math.min(anchorRowIdx, focusRowIdx);
+    const maxRow = Math.max(anchorRowIdx, focusRowIdx);
+    const isSingleton = minRow === maxRow;
+    if (isSingleton || rowIdx === minRow) top = true;
+    if (isSingleton || rowIdx === maxRow) bottom = true;
+  }
+
+  return { top, right: true, bottom, left: true };
 }
 
 /**

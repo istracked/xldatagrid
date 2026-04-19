@@ -146,12 +146,21 @@ export interface CellAddress {
 /**
  * A contiguous rectangular selection described by an anchor (the cell where the
  * selection started) and a focus (the cell where it currently ends).
+ *
+ * `kind` records the user's selection *intent* at the time the range was
+ * created. A range carrying `kind: 'row'` was produced by a chrome row-number
+ * gutter interaction (plain / Shift / Cmd click or the row-aware keyboard
+ * helpers) and is rendered as a row-level outline regardless of the grid's
+ * `selectionMode`. Ranges without `kind` are plain cell/range selections and
+ * keep the pre-existing per-cell outline / range-tint visual.
  */
 export interface CellRange {
   /** The originating cell of the selection. */
   anchor: CellAddress;
   /** The terminal cell of the selection. */
   focus: CellAddress;
+  /** Selection intent; only `'row'` is used today. */
+  kind?: 'row';
 }
 
 /**

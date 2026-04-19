@@ -133,10 +133,10 @@ describe('Row Number Column', () => {
     const rowNumberCells = screen.getAllByTestId('chrome-row-number');
     fireEvent.click(rowNumberCells[0]!);
 
-    // With row-level outline: the row container gets the outline and per-cell
-    // outlines are suppressed.
+    // With row-level outline: the row container gets the box-shadow and
+    // per-cell outlines are suppressed.
     const row = document.querySelector('[data-row-id="1"][role="row"]') as HTMLElement;
-    expect(row.style.outline).toContain('2px solid');
+    expect(row.style.boxShadow).toContain('--dg-selection-border');
     const cells = row.querySelectorAll('[role="gridcell"]');
     cells.forEach((cell) => {
       expect((cell as HTMLElement).style.outline).toBe('none');
@@ -144,7 +144,7 @@ describe('Row Number Column', () => {
   });
 
   it('shift+click extends selection to clicked row', () => {
-    renderGrid({ chrome: { rowNumbers: true } });
+    renderGrid({ chrome: { rowNumbers: true }, selectionMode: 'row' });
     const rowNumberCells = screen.getAllByTestId('chrome-row-number');
 
     // Click row 1
@@ -152,12 +152,14 @@ describe('Row Number Column', () => {
     // Shift+click row 3
     fireEvent.click(rowNumberCells[2]!, { shiftKey: true });
 
-    // All three rows should be selected — check cells in each row
+    // All three rows should be selected — row-level box-shadow is present and
+    // per-cell outlines are suppressed.
     ['1', '2', '3'].forEach((rowId) => {
       const row = document.querySelector(`[data-row-id="${rowId}"][role="row"]`) as HTMLElement;
+      expect(row.style.boxShadow).toContain('--dg-selection-border');
       const cells = row.querySelectorAll('[role="gridcell"]');
       cells.forEach((cell) => {
-        expect((cell as HTMLElement).style.outline).toContain('2px solid');
+        expect((cell as HTMLElement).style.outline).toBe('none');
       });
     });
   });
@@ -172,23 +174,24 @@ describe('Row Number Column', () => {
     fireEvent.click(rowNumberCells[2]!, { metaKey: true });
 
     // Row 3 is the last-selected (primary) range: it gets the row-level
-    // outline and its cells are suppressed.
+    // box-shadow and its cells are suppressed.
     const row3 = document.querySelector('[data-row-id="3"][role="row"]') as HTMLElement;
-    expect(row3.style.outline).toContain('2px solid');
+    expect(row3.style.boxShadow).toContain('--dg-selection-border');
     row3.querySelectorAll('[role="gridcell"]').forEach((cell) => {
       expect((cell as HTMLElement).style.outline).toBe('none');
     });
 
-    // Row 1 is in the selection via ranges but is not the primary range, so
-    // cells retain their per-cell outlines.
+    // Row 1 is also selected (disjoint singleton) — row-level box-shadow is
+    // present and per-cell outlines are suppressed.
     const row1 = document.querySelector('[data-row-id="1"][role="row"]') as HTMLElement;
+    expect(row1.style.boxShadow).toContain('--dg-selection-border');
     row1.querySelectorAll('[role="gridcell"]').forEach((cell) => {
-      expect((cell as HTMLElement).style.outline).toContain('2px solid');
+      expect((cell as HTMLElement).style.outline).toBe('none');
     });
 
-    // Row 2 should NOT be selected — no outline on row or cells.
+    // Row 2 should NOT be selected — no box-shadow or cell outlines.
     const row2 = document.querySelector('[data-row-id="2"][role="row"]') as HTMLElement;
-    expect(row2.style.outline ?? '').not.toContain('2px solid');
+    expect(row2.style.boxShadow ?? '').not.toContain('--dg-selection-border');
     row2.querySelectorAll('[role="gridcell"]').forEach((cell) => {
       expect((cell as HTMLElement).style.outline).not.toContain('2px solid');
     });

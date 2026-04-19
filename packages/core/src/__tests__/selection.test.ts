@@ -17,6 +17,7 @@ import {
   getEndJumpCell,
   isCellValueEmpty,
   isRowFullySelected,
+  getRowSelectionBorders,
 } from '../selection';
 import { CellAddress, ColumnDef } from '../types';
 
@@ -534,5 +535,125 @@ describe('isRowFullySelected', () => {
   it('returns false when columns list is empty', () => {
     const s = selectRow(createSelection('row'), 'r1', cols);
     expect(isRowFullySelected(s, 'r1', [])).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isRowFullySelected — 4-arg form walks state.ranges
+// ---------------------------------------------------------------------------
+
+const rows4 = ['r1', 'r2', 'r3', 'r4'];
+
+function makeFullRowRange(rowId: string) {
+  return {
+    anchor: { rowId, field: 'name' },
+    focus: { rowId, field: 'city' },
+  };
+}
+
+function makeContiguousRangeState(fromRowId: string, toRowId: string) {
+  const range = {
+    anchor: { rowId: fromRowId, field: 'name' },
+    focus: { rowId: toRowId, field: 'city' },
+  };
+  return { range, mode: 'row' as const, ranges: [range] };
+}
+
+describe('isRowFullySelected — legacy 3-arg form unchanged', () => {
+  it('returns true for a single row range on the tested row', () => {
+    const s = selectRow(createSelection('row'), 'r2', cols);
+    expect(isRowFullySelected(s, 'r2', cols)).toBe(true);
+  });
+
+  it('returns false for a different row', () => {
+    const s = selectRow(createSelection('row'), 'r1', cols);
+    expect(isRowFullySelected(s, 'r2', cols)).toBe(false);
+  });
+
+  it('returns false when range is null', () => {
+    const s = createSelection('row');
+    expect(isRowFullySelected(s, 'r1', cols)).toBe(false);
+  });
+});
+
+describe('isRowFullySelected — 4-arg walks ranges — contiguous multi-row', () => {
+  it('rows inside the range are true, outside is false', () => {
+    const state = makeContiguousRangeState('r1', 'r3');
+    expect(isRowFullySelected(state, 'r1', cols, rows4)).toBe(true);
+    expect(isRowFullySelected(state, 'r2', cols, rows4)).toBe(true);
+    expect(isRowFullySelected(state, 'r3', cols, rows4)).toBe(true);
+    expect(isRowFullySelected(state, 'r4', cols, rows4)).toBe(false);
+  });
+});
+
+describe('isRowFullySelected — 4-arg walks ranges — disjoint rows', () => {
+  it('only the rows with their own range are true', () => {
+    const state = {
+      range: makeFullRowRange('r4'),
+      mode: 'row' as const,
+      ranges: [makeFullRowRange('r1'), makeFullRowRange('r4')],
+    };
+    expect(isRowFullySelected(state, 'r1', cols, rows4)).toBe(true);
+    expect(isRowFullySelected(state, 'r2', cols, rows4)).toBe(false);
+    expect(isRowFullySelected(state, 'r3', cols, rows4)).toBe(false);
+    expect(isRowFullySelected(state, 'r4', cols, rows4)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getRowSelectionBorders
+// ---------------------------------------------------------------------------
+
+describe('getRowSelectionBorders', () => {
+  it('returns null when the row is not in any covering range', () => {
+    const state = makeContiguousRangeState('r1', 'r2');
+    expect(getRowSelectionBorders(state, 'r3', cols, rows4)).toBeNull();
+    expect(getRowSelectionBorders(state, 'r4', cols, rows4)).toBeNull();
+  });
+
+  it('single-row range → all four sides true', () => {
+    const state = { range: makeFullRowRange('r2'), mode: 'row' as const, ranges: [makeFullRowRange('r2')] };
+    const borders = getRowSelectionBorders(state, 'r2', cols, rows4);
+    expect(borders).toEqual({ top: true, right: true, bottom: true, left: true });
+  });
+
+  it('contiguous 3-row range → correct side flags per position', () => {
+    const state = makeContiguousRangeState('r1', 'r3');
+    // top row: top + sides, no bottom
+    expect(getRowSelectionBorders(state, 'r1', cols, rows4)).toEqual({ top: true, right: true, bottom: false, left: true });
+    // middle row: sides only
+    expect(getRowSelectionBorders(state, 'r2', cols, rows4)).toEqual({ top: false, right: true, bottom: false, left: true });
+    // bottom row: bottom + sides, no top
+    expect(getRowSelectionBorders(state, 'r3', cols, rows4)).toEqual({ top: false, right: true, bottom: true, left: true });
+  });
+
+  it('disjoint singleton rows → all-true on each', () => {
+    const state = {
+      range: makeFullRowRange('r4'),
+      mode: 'row' as const,
+      ranges: [makeFullRowRange('r1'), makeFullRowRange('r4')],
+    };
+    expect(getRowSelectionBorders(state, 'r1', cols, rows4)).toEqual({ top: true, right: true, bottom: true, left: true });
+    expect(getRowSelectionBorders(state, 'r4', cols, rows4)).toEqual({ top: true, right: true, bottom: true, left: true });
+    expect(getRowSelectionBorders(state, 'r2', cols, rows4)).toBeNull();
+    expect(getRowSelectionBorders(state, 'r3', cols, rows4)).toBeNull();
+  });
+
+  it('mixed: contiguous range r1..r2 plus disjoint r4', () => {
+    const contiguous = { anchor: { rowId: 'r1', field: 'name' }, focus: { rowId: 'r2', field: 'city' } };
+    const singleton4 = makeFullRowRange('r4');
+    const state = {
+      range: singleton4,
+      mode: 'row' as const,
+      ranges: [contiguous, singleton4],
+    };
+    // r1: top of contiguous range
+    expect(getRowSelectionBorders(state, 'r1', cols, rows4)).toEqual({ top: true, right: true, bottom: false, left: true });
+    // r2: bottom of contiguous range
+    expect(getRowSelectionBorders(state, 'r2', cols, rows4)).toEqual({ top: false, right: true, bottom: true, left: true });
+    // r3: not in any range
+    expect(getRowSelectionBorders(state, 'r3', cols, rows4)).toBeNull();
+    // r4: singleton
+    expect(getRowSelectionBorders(state, 'r4', cols, rows4)).toEqual({ top: true, right: true, bottom: true, left: true });
   });
 });

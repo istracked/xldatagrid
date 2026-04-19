@@ -54,7 +54,7 @@ import {
   getVisibleRowsWithGroups,
   isCellInRange,
   createSelectionChecker,
-  isRowFullySelected,
+  getRowSelectionBorders as coreGetRowSelectionBorders,
   stripField,
 } from '@istracked/datagrid-core';
 import { useGridWithAtoms } from './use-grid';
@@ -498,9 +498,10 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     return selectionChecker(rowIdx, colIdx);
   }, [hasMultiCellRange, selectionChecker, rowIds, orderedVisibleColumns]);
 
-  const isRowSelected = useCallback((rowId: string): boolean => {
-    return isRowFullySelected(state.selection, rowId, orderedVisibleColumns);
-  }, [state.selection, orderedVisibleColumns]);
+  const getRowSelectionBorders = useCallback(
+    (rowId: string) => coreGetRowSelectionBorders(state.selection, rowId, orderedVisibleColumns, rowIds),
+    [state.selection, orderedVisibleColumns, rowIds],
+  );
 
   const isEditingCell = useCallback((rowId: string, field: string): boolean => {
     const cell = state.editing.cell;
@@ -788,15 +789,18 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
 
   const handleRowNumberClick = useCallback((rowId: string, shiftKey: boolean, metaKey: boolean) => {
     if (metaKey) {
+      // Cmd/Ctrl+click toggles a disjoint row selection.
       model.toggleRowSelect(rowId);
     } else if (shiftKey) {
-      const cols = orderedVisibleColumns;
-      const lastCol = cols[cols.length - 1];
-      if (lastCol) model.extendTo({ rowId, field: lastCol.field });
+      // Shift+click extends the selection to a contiguous row range. Route
+      // through `extendRowSelection` (rather than generic `extendTo`) so the
+      // resulting range is tagged `kind: 'row'` and renders as a single
+      // row-level outline regardless of the grid's `selectionMode`.
+      model.extendRowSelection(rowId);
     } else {
       model.selectRowByKey(rowId);
     }
-  }, [model, orderedVisibleColumns]);
+  }, [model]);
 
   const [rowDragState, setRowDragState] = useState<{ sourceRowId: string; sourceIndex: number } | null>(null);
 
@@ -1354,7 +1358,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           scrollRef={scrollRef}
           handleScroll={handleScroll}
           isSelected={isSelected}
-          isRowSelected={isRowSelected}
+          getRowSelectionBorders={getRowSelectionBorders}
           isInRange={isInRange}
           isEditingCell={isEditingCell}
           getCellType={getCellType}

@@ -32,6 +32,7 @@ import {
   selectRow,
   selectColumn,
   extendSelection,
+  extendRowSelection,
   clearSelection,
   selectAll,
   beginEdit as beginEditState,
@@ -98,6 +99,8 @@ export interface ActionAtoms<TData = Record<string, unknown>> {
   selectColumnAtom: WriteOnlyAtom<[field: string]>;
   /** Extend the current selection range to include a target cell (shift-click). */
   extendSelectionAtom: WriteOnlyAtom<[cell: CellAddress]>;
+  /** Extend the current selection to cover every row between the anchor and the target (Shift+click on a row-number cell). */
+  extendRowSelectionAtom: WriteOnlyAtom<[rowId: string]>;
   /** Select all cells across every visible column and row. */
   selectAllAtom: WriteOnlyAtom<[]>;
   /** Clear the current selection entirely. */
@@ -458,6 +461,22 @@ export function createActionAtoms<TData extends Record<string, unknown>>(
   );
 
   /**
+   * Extend the current selection to a full-row range anchored on whichever
+   * row was last selected. Triggered by Shift+click on a chrome row-number
+   * cell; snaps the anchor/focus to the first/last visible columns and tags
+   * the range with `kind: 'row'` so the renderer paints it as a row-level
+   * outline irrespective of `selectionMode`.
+   */
+  const extendRowSelectionAtom = atom(
+    null,
+    (get, set, rowId: string) => {
+      const selection = get(baseAtoms.selectionAtom);
+      const cols = getVisibleColumns(get(baseAtoms.columnsAtom)) as ColumnDef[];
+      set(baseAtoms.selectionAtom, extendRowSelection(selection, rowId, cols));
+    },
+  );
+
+  /**
    * Select every cell in the grid by spanning all visible columns and all
    * rows.
    */
@@ -667,6 +686,7 @@ export function createActionAtoms<TData extends Record<string, unknown>>(
     selectRowAtom,
     selectColumnAtom,
     extendSelectionAtom,
+    extendRowSelectionAtom,
     selectAllAtom,
     clearSelectionAtom,
     setColumnWidthAtom,
