@@ -924,12 +924,38 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
   // result collapses back to `null` so the grid reports "no filter". Logic
   // (`and`/`or`) is preserved from the existing tree or defaults to `and` for
   // a fresh tree.
+  //
+  // Pruning walks the tree recursively so nested composites emitted by the
+  // "Custom Filter…" dialog (shape: { logic, filters: [...leaves on field] })
+  // are removed along with plain leaves. A composite whose entire subtree
+  // only targeted `field` collapses to an empty list and is dropped; a mixed
+  // composite loses its `field`-matching branches but stays in the tree.
   const replaceFieldFilter = useCallback(
     (field: string, replacement: FilterDescriptor | CompositeFilterDescriptor | null) => {
       const prev = state.filter;
-      const otherFilters = prev
-        ? prev.filters.filter((child) => !('field' in child) || child.field !== field)
-        : [];
+
+      const stripField = (
+        node: FilterDescriptor | CompositeFilterDescriptor,
+      ): FilterDescriptor | CompositeFilterDescriptor | null => {
+        if ('filters' in node) {
+          const kept: Array<FilterDescriptor | CompositeFilterDescriptor> = [];
+          for (const child of node.filters) {
+            const pruned = stripField(child);
+            if (pruned !== null) kept.push(pruned);
+          }
+          if (kept.length === 0) return null;
+          return { ...node, filters: kept };
+        }
+        return node.field === field ? null : node;
+      };
+
+      const otherFilters: Array<FilterDescriptor | CompositeFilterDescriptor> = [];
+      if (prev) {
+        for (const child of prev.filters) {
+          const pruned = stripField(child);
+          if (pruned !== null) otherFilters.push(pruned);
+        }
+      }
       const nextChildren = replacement ? [...otherFilters, replacement] : otherFilters;
       const next: CompositeFilterDescriptor | null =
         nextChildren.length > 0 ? { logic: prev?.logic ?? 'and', filters: nextChildren } : null;
