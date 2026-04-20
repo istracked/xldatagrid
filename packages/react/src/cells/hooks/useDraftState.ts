@@ -14,8 +14,12 @@ export interface UseDraftStateOptions {
   initialValue: string;
   /** Whether the cell is currently editing. */
   isEditing: boolean;
-  /** Callback fired with the transformed value when the edit is confirmed. */
-  onCommit: (value: unknown) => void;
+  /**
+   * Callback fired with the transformed value when the edit is confirmed.
+   * Optional `advance` hints the grid to move selection DOWN (Enter) or
+   * RIGHT (Tab) after committing — blur commits pass `undefined`.
+   */
+  onCommit: (value: unknown, advance?: 'down' | 'right') => void;
   /** Callback fired when the edit is discarded (Escape). */
   onCancel: () => void;
   /** Optional transform applied to the draft string before committing (e.g. `parseFloat`). */
@@ -38,8 +42,12 @@ export interface UseDraftStateReturn {
   handleKeyDown: (e: React.KeyboardEvent) => void;
   /** Blur handler: commits the current draft. */
   handleBlur: () => void;
-  /** Imperative commit: pass a raw string override or falls back to current draft. */
-  commit: (raw?: string) => void;
+  /**
+   * Imperative commit: pass a raw string override or falls back to current
+   * draft. Optional `advance` forwards the Excel-365 commit-and-move intent
+   * to the grid (Enter → 'down', Tab → 'right').
+   */
+  commit: (raw?: string, advance?: 'down' | 'right') => void;
 }
 
 /**
@@ -89,11 +97,11 @@ export function useDraftState({
 
   /** Transforms and commits a value, defaulting to the current draft. */
   const commit = useCallback(
-    (raw?: string) => {
+    (raw?: string, advance?: 'down' | 'right') => {
       if (cancelledRef.current) return;
       const source = raw !== undefined ? raw : draft;
       const committed = transformCommit ? transformCommit(source) : source;
-      onCommit(committed);
+      onCommit(committed, advance);
     },
     [draft, transformCommit, onCommit],
   );
@@ -101,18 +109,23 @@ export function useDraftState({
   /**
    * Commits on Enter or Tab, cancels on Escape.
    *
-   * Issue #10: Enter and Tab both commit-and-stay. `preventDefault` prevents
-   * the browser's native Tab-focus-advance and any form submission, while
-   * `stopPropagation` stops the grid-level keyboard handler from re-opening
-   * edit mode (Enter) or advancing the selection (Tab) after the cell editor
-   * has already committed.
+   * Excel-365 commit-and-advance: Enter commits and moves selection DOWN
+   * one row; Tab commits and moves RIGHT one column. `preventDefault`
+   * suppresses the browser's native Tab-focus-advance and any form
+   * submission, and `stopPropagation` keeps the grid-level keyboard
+   * handler from observing a second Enter/Tab for the same event (the
+   * advance has already been applied via `onCommit`).
    */
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' || e.key === 'Tab') {
+      if (e.key === 'Enter') {
         e.preventDefault();
         e.stopPropagation();
-        commit();
+        commit(undefined, 'down');
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        e.stopPropagation();
+        commit(undefined, 'right');
       } else if (e.key === 'Escape') {
         cancelledRef.current = true;
         onCancel();

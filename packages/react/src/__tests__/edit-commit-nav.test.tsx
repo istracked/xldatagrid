@@ -300,3 +300,28 @@ describe('edit-commit-nav — arrow keys work AFTER a commit / cancel', () => {
     expect(isSelected('2', 'age')).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Editor focus vs grid shortcuts: Ctrl+A in edit mode must stay local to
+// the input (native "select all text") and NOT be hijacked by the grid's
+// "select all cells" handler. Pairs with the `Ctrl+A selects all cells`
+// test in keyboard-nav — the gate is in use-keyboard.ts.
+// ---------------------------------------------------------------------------
+
+describe('edit-commit-nav — Ctrl+A stays local to the editor input', () => {
+  it('Ctrl+A does NOT trigger selectAllCells while a cell is in edit mode', () => {
+    renderGrid();
+    const input = enterEditAndType('1', 'name', 'Alice-draft');
+
+    // Fire Ctrl+A on the grid root — simulates the real event bubble path.
+    // fireEvent returns `false` if defaultPrevented was called.
+    const notPrevented = fireEvent.keyDown(getGrid(), {
+      key: 'a',
+      ctrlKey: true,
+    });
+
+    expect(notPrevented).toBe(true);
+    // Editor is still mounted — the grid-level handler didn't yank focus.
+    expect(input).toBeInTheDocument();
+  });
+});

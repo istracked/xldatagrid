@@ -32,19 +32,28 @@ describe('useDraftState', () => {
     expect(result.current.draft).toBe('initial');
   });
 
-  it('commit() calls onCommit with current draft', () => {
+  it('commit() calls onCommit with current draft and no advance', () => {
     const onCommit = vi.fn();
     const { result } = renderHook(() => useDraftState({ ...defaultOpts, onCommit, isEditing: true }));
     act(() => result.current.setDraft('world'));
     act(() => result.current.commit());
-    expect(onCommit).toHaveBeenCalledWith('world');
+    expect(onCommit).toHaveBeenCalledWith('world', undefined);
   });
 
-  it('commit(raw) calls onCommit with provided value', () => {
+  it('commit(raw) calls onCommit with provided value and no advance', () => {
     const onCommit = vi.fn();
     const { result } = renderHook(() => useDraftState({ ...defaultOpts, onCommit }));
     act(() => result.current.commit('override'));
-    expect(onCommit).toHaveBeenCalledWith('override');
+    expect(onCommit).toHaveBeenCalledWith('override', undefined);
+  });
+
+  it('commit(raw, advance) forwards the Excel-365 advance hint', () => {
+    const onCommit = vi.fn();
+    const { result } = renderHook(() => useDraftState({ ...defaultOpts, onCommit }));
+    act(() => result.current.commit('x', 'down'));
+    act(() => result.current.commit('y', 'right'));
+    expect(onCommit).toHaveBeenNthCalledWith(1, 'x', 'down');
+    expect(onCommit).toHaveBeenNthCalledWith(2, 'y', 'right');
   });
 
   it('transformCommit is applied before onCommit', () => {
@@ -54,25 +63,25 @@ describe('useDraftState', () => {
     );
     act(() => result.current.setDraft('42'));
     act(() => result.current.commit());
-    expect(onCommit).toHaveBeenCalledWith(42);
+    expect(onCommit).toHaveBeenCalledWith(42, undefined);
   });
 
-  it('handleKeyDown Enter commits', () => {
+  it('handleKeyDown Enter commits with DOWN advance hint', () => {
     const onCommit = vi.fn();
     const { result } = renderHook(() => useDraftState({ ...defaultOpts, onCommit, isEditing: true }));
     act(() => {
       result.current.handleKeyDown({ key: 'Enter', preventDefault: vi.fn(), stopPropagation: vi.fn() } as any);
     });
-    expect(onCommit).toHaveBeenCalled();
+    expect(onCommit).toHaveBeenCalledWith('hello', 'down');
   });
 
-  it('handleKeyDown Tab commits', () => {
+  it('handleKeyDown Tab commits with RIGHT advance hint', () => {
     const onCommit = vi.fn();
     const { result } = renderHook(() => useDraftState({ ...defaultOpts, onCommit, isEditing: true }));
     act(() => {
       result.current.handleKeyDown({ key: 'Tab', preventDefault: vi.fn(), stopPropagation: vi.fn() } as any);
     });
-    expect(onCommit).toHaveBeenCalled();
+    expect(onCommit).toHaveBeenCalledWith('hello', 'right');
   });
 
   it('handleKeyDown Escape cancels', () => {
