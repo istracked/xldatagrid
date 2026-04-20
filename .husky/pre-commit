@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+# Pre-commit gate: fast checks that every commit must pass.
+#   - typecheck: catches API / type drift before it is recorded.
+#   - build:     surfaces tsup / Vite regressions immediately.
+#   - tests:     ~20s vitest run (unit + component), 1837 tests today.
+# E2E lives in .husky/pre-push — it is too slow to block every commit.
+#
+# Skip locally with `git commit --no-verify` when absolutely necessary
+# (e.g. WIP commits that will be squashed before push).
+
+set -e
+
+echo "==> pre-commit: running typecheck"
+pnpm run typecheck
+
+echo "==> pre-commit: running build"
+pnpm run build
+
+echo "==> pre-commit: running tests"
+pnpm test
+
+echo "==> pre-commit: all checks passed"
