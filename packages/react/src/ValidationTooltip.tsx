@@ -21,6 +21,11 @@
  *     `warning`). Paired with `data-validation-target` it lets tests and
  *     consumers address a specific cell's tooltip without relying on the
  *     React tree.
+ *   - A single `<span data-icon="<severity>">` glyph is rendered before the
+ *     messages block, reflecting the most-severe entry. Consumers can target
+ *     `[data-icon="error" | "warning" | "info"]` to swap in a bespoke SVG;
+ *     the built-in glyph is a unicode fallback so the tooltip still reads
+ *     as severity-tagged without any icon-font dependency.
  *
  * @module ValidationTooltip
  */
@@ -50,6 +55,16 @@ const SEVERITY_BG: Record<ValidationSeverity, string> = {
   info: 'var(--dg-info-color, #3b82f6)',
 };
 
+// Severity → unicode glyph used as the default icon. Consumers can override
+// by styling/replacing `[data-icon="<severity>"]` via portal CSS; the
+// `data-icon` attribute is the load-bearing contract so tests and external
+// icon swaps keep working either way.
+const SEVERITY_ICON: Record<ValidationSeverity, string> = {
+  error: '\u2716', // HEAVY MULTIPLICATION X — reads as "error" without an icon font.
+  warning: '\u26A0', // WARNING SIGN.
+  info: '\u2139', // INFORMATION SOURCE.
+};
+
 /**
  * Renders a single portal tooltip for a validated cell.
  *
@@ -64,6 +79,10 @@ export function ValidationTooltip(props: ValidationTooltipProps): React.ReactPor
   if (results.length === 0) return null;
 
   const bg = severity ? SEVERITY_BG[severity] : SEVERITY_BG.info;
+  // Most-severe entry drives the icon. When `severity` is null we still have
+  // at least one result (see early return above), so fall back to the first
+  // entry's own severity instead of hard-coding `info`.
+  const iconSeverity: ValidationSeverity = severity ?? results[0]!.severity;
 
   return createPortal(
     <div
@@ -83,13 +102,25 @@ export function ValidationTooltip(props: ValidationTooltipProps): React.ReactPor
         fontSize: 12,
         lineHeight: 1.4,
         maxWidth: 260,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 6,
       }}
     >
-      {results.map((r, i) => (
-        <div key={i} data-validation-message data-severity={r.severity}>
-          {r.message}
-        </div>
-      ))}
+      <span
+        data-icon={iconSeverity}
+        aria-hidden="true"
+        style={{ flexShrink: 0, lineHeight: 1, fontSize: 14 }}
+      >
+        {SEVERITY_ICON[iconSeverity]}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {results.map((r, i) => (
+          <div key={i} data-validation-message data-severity={r.severity}>
+            {r.message}
+          </div>
+        ))}
+      </div>
     </div>,
     document.body,
   );
