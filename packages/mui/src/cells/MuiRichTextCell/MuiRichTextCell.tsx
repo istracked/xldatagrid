@@ -5,9 +5,14 @@
  * mode renders the markdown via `react-markdown` + `remark-gfm`. Edit mode
  * provides a viewport-aware floating MUI toolbar — portaled to
  * `document.body` so transformed grid ancestors can't hijack its fixed
- * positioning — plus a textarea with GFM keyboard shortcuts (Ctrl/Cmd+B
- * bold, Ctrl/Cmd+I italic, Ctrl/Cmd+K link) and an optional preview toggle.
- * No upload UI is rendered. Mirrors the pattern in
+ * positioning — plus a contenteditable editing surface with GFM keyboard
+ * shortcuts (Ctrl/Cmd+B bold, Ctrl/Cmd+I italic, Ctrl/Cmd+K link) and a
+ * "Show formatting" toggle that governs whether raw markdown delimiters
+ * are surfaced alongside the live `<strong>`/`<em>` preview. Contenteditable
+ * is the editing surface — not a `<textarea>` — because only a
+ * contenteditable element exposes the user-visible characters via
+ * `innerText` in a way Playwright can observe for the "Show formatting"
+ * contract. No upload UI is rendered. Mirrors the pattern in
  * {@link ../../../../react/src/cells/RichTextCell/RichTextCell.tsx}.
  *
  * @module MuiRichTextCell
@@ -28,7 +33,6 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { CellRendererProps } from '@istracked/datagrid-react';
-import { editorTextarea } from './MuiRichTextCell.styles';
 
 const useIsomorphicLayoutEffect =
   typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -45,34 +49,143 @@ function markdownToPlainText(markdown: string): string {
     .trim();
 }
 
+/**
+ * Strips GFM delimiter characters while preserving newlines and internal
+ * whitespace. Used as the contenteditable surface's visible text when the
+ * "Show formatting" toggle is OFF so the user sees the rendered copy
+ * without the delimiter noise — mirroring MS Word's "Show ¶" affordance.
+ */
+function stripDelimiters(markdown: string): string {
+  return markdown
+    .replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, ''))
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/([*_~]){1,3}([^*_~\n]+)\1{1,3}/g, '$2')
+    .replace(/^\s{0,3}(?:#{1,6}|[-*+]|\d+\.)\s+/gm, '');
+}
+
+interface TextSelection {
+  value: string;
+  selectionStart: number;
+  selectionEnd: number;
+}
+
 function wrapSelection(
-  textarea: HTMLTextAreaElement,
+  current: string,
+  selStart: number,
+  selEnd: number,
   before: string,
   after: string,
   placeholder: string,
-): { value: string; selectionStart: number; selectionEnd: number } {
-  const { value, selectionStart, selectionEnd } = textarea;
-  const selected = value.slice(selectionStart, selectionEnd);
+): TextSelection {
+  const selected = current.slice(selStart, selEnd);
   const content = selected || placeholder;
-  const next = `${value.slice(0, selectionStart)}${before}${content}${after}${value.slice(selectionEnd)}`;
-  const cursorStart = selectionStart + before.length;
+  const next = `${current.slice(0, selStart)}${before}${content}${after}${current.slice(selEnd)}`;
+  const cursorStart = selStart + before.length;
   const cursorEnd = cursorStart + content.length;
   return { value: next, selectionStart: cursorStart, selectionEnd: cursorEnd };
 }
 
-function insertLink(textarea: HTMLTextAreaElement): {
-  value: string;
-  selectionStart: number;
-  selectionEnd: number;
-} {
-  const { value, selectionStart, selectionEnd } = textarea;
-  const selected = value.slice(selectionStart, selectionEnd) || 'text';
+function insertLink(
+  current: string,
+  selStart: number,
+  selEnd: number,
+): TextSelection {
+  const selected = current.slice(selStart, selEnd) || 'text';
   const urlPlaceholder = 'https://';
   const snippet = `[${selected}](${urlPlaceholder})`;
-  const next = `${value.slice(0, selectionStart)}${snippet}${value.slice(selectionEnd)}`;
-  const urlStart = selectionStart + selected.length + 3;
+  const next = `${current.slice(0, selStart)}${snippet}${current.slice(selEnd)}`;
+  const urlStart = selStart + selected.length + 3;
   const urlEnd = urlStart + urlPlaceholder.length;
   return { value: next, selectionStart: urlStart, selectionEnd: urlEnd };
+}
+
+/**
+ * Reads the caret selection offsets from a contenteditable element as if
+ * its visible text were a flat string. Only text descendants contribute,
+ * which keeps us in plain-text semantics — mirroring how a `<textarea>`
+ * reports `selectionStart` / `selectionEnd`.
+ */
+function getEditableSelection(el: HTMLElement): { start: number; end: number } {
+  const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+  if (!sel || sel.rangeCount === 0) {
+    const len = el.textContent?.length ?? 0;
+    return { start: len, end: len };
+  }
+  const range = sel.getRangeAt(0);
+  if (!el.contains(range.startContainer) || !el.contains(range.endContainer)) {
+    const len = el.textContent?.length ?? 0;
+    return { start: len, end: len };
+  }
+  const preStart = range.cloneRange();
+  preStart.selectNodeContents(el);
+  preStart.setEnd(range.startContainer, range.startOffset);
+  const start = preStart.toString().length;
+  const preEnd = range.cloneRange();
+  preEnd.selectNodeContents(el);
+  preEnd.setEnd(range.endContainer, range.endOffset);
+  const end = preEnd.toString().length;
+  return { start, end };
+}
+
+/**
+ * Restores a flat-string selection `[start, end]` into a contenteditable
+ * element by walking text nodes until the requested character offsets are
+ * reached. Paired with {@link getEditableSelection} so keyboard commands
+ * can round-trip the caret across React re-renders.
+ */
+function setEditableSelection(el: HTMLElement, start: number, end: number): void {
+  if (typeof window === 'undefined') return;
+  const sel = window.getSelection();
+  if (!sel) return;
+  const range = document.createRange();
+  const findPoint = (offset: number): { node: Node; offset: number } => {
+    let remaining = offset;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      const len = (node.nodeValue ?? '').length;
+      if (remaining <= len) {
+        return { node, offset: remaining };
+      }
+      remaining -= len;
+      node = walker.nextNode();
+    }
+    return { node: el, offset: el.childNodes.length };
+  };
+  const startPoint = findPoint(start);
+  const endPoint = findPoint(end);
+  try {
+    range.setStart(startPoint.node, startPoint.offset);
+    range.setEnd(endPoint.node, endPoint.offset);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch {
+    // Selection can fail when the target node layout is stale after a
+    // re-render — ignore; the next user interaction will re-establish it.
+  }
+}
+
+/**
+ * Walks up the DOM from `el` looking for the nearest ancestor whose
+ * `overflow-y` computes to `auto` or `scroll`. Used by the placement logic
+ * so the toolbar flips below when the cell sits at the top of the GRID
+ * BODY (the natural scrolling context for a virtualised datagrid), not
+ * merely the viewport — outer page chrome like headings / sticky column
+ * headers can hold the cell well below `window` top while it is visually
+ * flush with the top of its scrollport and therefore has no room above.
+ */
+function getScrollParent(el: HTMLElement | null): HTMLElement | null {
+  if (!el || typeof window === 'undefined') return null;
+  let cur: HTMLElement | null = el.parentElement;
+  while (cur) {
+    const style = window.getComputedStyle(cur);
+    const overflowY = style.overflowY;
+    if (overflowY === 'auto' || overflowY === 'scroll') return cur;
+    cur = cur.parentElement;
+  }
+  return null;
 }
 
 const PLACEMENT_BUFFER = 8;
@@ -87,15 +200,29 @@ const toolbarButtonSx = {
   textTransform: 'none',
 } as const;
 
+const editableSurfaceStyle: React.CSSProperties = {
+  flex: 1,
+  width: '100%',
+  border: 0,
+  outline: 'none',
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+  fontSize: 12,
+  padding: 4,
+  boxSizing: 'border-box',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+  minHeight: '1.4em',
+};
+
 /**
  * MUI-based markdown rich-text cell renderer.
  *
  * Stores GitHub-Flavored Markdown and renders it through `react-markdown`.
  * Edit mode opens a viewport-aware floating toolbar — portaled to
  * `document.body`, placed above the cell by default and flipped below when
- * near the viewport top, and alignment-flipped from left to right when near
- * the viewport right edge. Image uploads and file attachments are not
- * supported.
+ * near the top of the nearest scrollable ancestor, and alignment-flipped
+ * from left to right when near the viewport right edge. Image uploads and
+ * file attachments are not supported.
  */
 export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Record<string, unknown>>({
   value,
@@ -106,10 +233,15 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
 }: CellRendererProps<TData>) {
   const rawMarkdown = value != null ? String(value) : '';
   const [draft, setDraft] = useState(rawMarkdown);
-  const [showPreview, setShowPreview] = useState(false);
+  const [showFormatting, setShowFormatting] = useState(false);
   const cellRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editableRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  // `draftRef` mirrors the committed draft so keyboard shortcuts can compute
+  // the next value against the freshest state without waiting for a React
+  // render cycle.
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
 
   // Refs mirror layout state so the scroll/resize handler can bail early
   // when nothing would change — avoids stray setState + act() warnings.
@@ -127,8 +259,8 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
   useEffect(() => {
     if (isEditing) {
       setDraft(rawMarkdown);
-      setShowPreview(false);
-      textareaRef.current?.focus();
+      setShowFormatting(false);
+      editableRef.current?.focus();
     }
   }, [isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -142,8 +274,19 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
       : { width: 240, height: 32 };
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
 
+    // Placement uses the nearest scrolling ancestor as the upper bound so the
+    // toolbar flips below when the cell is flush with the top of the grid
+    // body — not only when the cell is flush with the window top. Falls
+    // back to the viewport (`top = 0`) when no scrollable ancestor exists
+    // (e.g. jsdom or a non-virtualised grid variant).
+    const scrollParent = getScrollParent(cell);
+    const upperBound = scrollParent
+      ? scrollParent.getBoundingClientRect().top
+      : 0;
+    const roomAbove = cellRect.top - upperBound;
+
     const nextPlacement: 'above' | 'below' =
-      cellRect.top < toolbarRect.height + PLACEMENT_BUFFER ? 'below' : 'above';
+      roomAbove < toolbarRect.height + PLACEMENT_BUFFER ? 'below' : 'above';
     const nextAlign: 'left' | 'right' =
       vw - cellRect.right < EDGE_ALIGN_MARGIN ? 'right' : 'left';
 
@@ -183,23 +326,56 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
     };
   }, [isEditing, recalcToolbarLayout]);
 
+  // Visible text: ON surfaces the raw delimiters, OFF hides them so the
+  // editor displays only the rendered copy. The React-managed `textContent`
+  // is synced via the layout effect below; keyboard shortcuts manipulate
+  // the raw `draft` and leave the visible projection to re-flow naturally.
+  const visibleText = showFormatting ? draft : stripDelimiters(draft);
+
+  // Sync the contenteditable's visible text to `visibleText`. Only write
+  // when the DOM text diverges from the computed visible text so user
+  // keystrokes (which update textContent natively) don't fight React's
+  // projection. `isEditing` is included in the deps so the first sync
+  // fires on the display→edit transition, where `draft`/`showFormatting`
+  // haven't changed since the prior render.
+  useIsomorphicLayoutEffect(() => {
+    const el = editableRef.current;
+    if (!el || !isEditing) return;
+    if ((el.textContent ?? '') !== visibleText) {
+      el.textContent = visibleText;
+    }
+  }, [visibleText, isEditing]);
+
   const applyTransform = useCallback(
-    (transform: (ta: HTMLTextAreaElement) => { value: string; selectionStart: number; selectionEnd: number }) => {
-      const ta = textareaRef.current;
-      if (!ta) return;
-      const next = transform(ta);
+    (
+      transform: (
+        current: string,
+        selStart: number,
+        selEnd: number,
+      ) => TextSelection,
+    ) => {
+      const el = editableRef.current;
+      if (!el) return;
+      const { start, end } = getEditableSelection(el);
+      const next = transform(draftRef.current, start, end);
       setDraft(next.value);
+      draftRef.current = next.value;
+      // Restore selection after React commits — the sync effect above runs
+      // first and replaces the text nodes, so we schedule the caret update
+      // one microtask later so it resolves against the fresh DOM.
       requestAnimationFrame(() => {
-        if (!textareaRef.current) return;
-        textareaRef.current.focus();
-        textareaRef.current.setSelectionRange(next.selectionStart, next.selectionEnd);
+        const surface = editableRef.current;
+        if (!surface) return;
+        surface.focus();
+        setEditableSelection(surface, next.selectionStart, next.selectionEnd);
       });
     },
     [],
   );
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') {
+      e.preventDefault();
       onCancel();
       return;
     }
@@ -208,20 +384,30 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
     const key = e.key.toLowerCase();
     if (key === 'b') {
       e.preventDefault();
-      applyTransform((ta) => wrapSelection(ta, '**', '**', 'bold text'));
+      applyTransform((value, s, end) =>
+        wrapSelection(value, s, end, '**', '**', 'bold text'),
+      );
     } else if (key === 'i') {
       e.preventDefault();
-      applyTransform((ta) => wrapSelection(ta, '*', '*', 'italic text'));
+      applyTransform((value, s, end) =>
+        wrapSelection(value, s, end, '*', '*', 'italic text'),
+      );
     } else if (key === 'k') {
       e.preventDefault();
       applyTransform(insertLink);
     }
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+  const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
+    const text = e.currentTarget.textContent ?? '';
+    setDraft(text);
+    draftRef.current = text;
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
     const next = e.relatedTarget as HTMLElement | null;
     if (next && next.dataset?.richtextToolbar === 'true') return;
-    onCommit(draft);
+    onCommit(draftRef.current);
   };
 
   if (!isEditing) {
@@ -265,25 +451,26 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
       ref={cellRef}
       sx={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}
     >
-      {showPreview ? (
-        <Box
-          sx={{ flex: 1, overflow: 'auto', p: 0.5, fontSize: 13, lineHeight: 1.4 }}
-          data-testid="richtext-preview"
-        >
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{draft || '*Nothing to preview*'}</ReactMarkdown>
-        </Box>
-      ) : (
-        <textarea
-          ref={textareaRef}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          placeholder={column.placeholder ?? 'Enter markdown...'}
-          style={editorTextarea}
-          aria-label="Markdown editor"
-        />
-      )}
+      <div
+        ref={editableRef}
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
+        aria-label="Markdown editor"
+        data-placeholder={column.placeholder ?? 'Enter markdown...'}
+        onInput={handleInput}
+        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+        style={editableSurfaceStyle}
+      />
+      <Box
+        aria-hidden="true"
+        data-testid="richtext-live-preview"
+        sx={{ flex: 1, overflow: 'auto', p: 0.5, fontSize: 13, lineHeight: 1.4 }}
+      >
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{draft || ''}</ReactMarkdown>
+      </Box>
       {typeof document !== 'undefined' &&
         createPortal(
           <Box
@@ -300,7 +487,11 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
                 size="small"
                 data-richtext-toolbar="true"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => applyTransform((ta) => wrapSelection(ta, '**', '**', 'bold text'))}
+                onClick={() =>
+                  applyTransform((value, s, end) =>
+                    wrapSelection(value, s, end, '**', '**', 'bold text'),
+                  )
+                }
                 aria-label="Bold"
                 sx={{ ...toolbarButtonSx, fontWeight: 'bold' }}
               >
@@ -312,7 +503,11 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
                 size="small"
                 data-richtext-toolbar="true"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => applyTransform((ta) => wrapSelection(ta, '*', '*', 'italic text'))}
+                onClick={() =>
+                  applyTransform((value, s, end) =>
+                    wrapSelection(value, s, end, '*', '*', 'italic text'),
+                  )
+                }
                 aria-label="Italic"
                 sx={{ ...toolbarButtonSx, fontStyle: 'italic' }}
               >
@@ -324,7 +519,11 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
                 size="small"
                 data-richtext-toolbar="true"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => applyTransform((ta) => wrapSelection(ta, '~~', '~~', 'strikethrough'))}
+                onClick={() =>
+                  applyTransform((value, s, end) =>
+                    wrapSelection(value, s, end, '~~', '~~', 'strikethrough'),
+                  )
+                }
                 aria-label="Strikethrough"
                 sx={{ ...toolbarButtonSx, textDecoration: 'line-through' }}
               >
@@ -336,7 +535,11 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
                 size="small"
                 data-richtext-toolbar="true"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => applyTransform((ta) => wrapSelection(ta, '`', '`', 'code'))}
+                onClick={() =>
+                  applyTransform((value, s, end) =>
+                    wrapSelection(value, s, end, '`', '`', 'code'),
+                  )
+                }
                 aria-label="Inline code"
                 sx={{ ...toolbarButtonSx, fontFamily: 'monospace' }}
               >
@@ -356,16 +559,17 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
               </Button>
             </Tooltip>
             <ToggleButton
-              value="preview"
+              value="show-formatting"
               size="small"
-              selected={showPreview}
+              selected={showFormatting}
+              aria-pressed={showFormatting}
               data-richtext-toolbar="true"
               onMouseDown={(e) => e.preventDefault()}
-              onChange={() => setShowPreview((prev) => !prev)}
+              onChange={() => setShowFormatting((prev) => !prev)}
               sx={{ ml: 'auto', py: 0, px: 1, fontSize: 12, textTransform: 'none' }}
-              aria-label={showPreview ? 'Edit source' : 'Show preview'}
+              aria-label="Show formatting"
             >
-              {showPreview ? 'Edit' : 'Preview'}
+              {'\u00B6'}
             </ToggleButton>
           </Box>,
           document.body,

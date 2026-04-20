@@ -118,7 +118,9 @@ describe('serializeRangeToText', () => {
       anchor: { rowId: 'r1', field: 'name' },
       focus: { rowId: 'r1', field: 'age' },
     };
-    expect(serializeRangeToText(data, range, cols, rowIds)).toBe('Alice\t30');
+    // Multi-cell ranges terminate with LF so spreadsheet apps treat the
+    // payload as a row-oriented block on paste (issue #65).
+    expect(serializeRangeToText(data, range, cols, rowIds)).toBe('Alice\t30\n');
   });
 
   it('serializes a multi-row single-column range', () => {
@@ -127,8 +129,9 @@ describe('serializeRangeToText', () => {
       focus: { rowId: 'r3', field: 'name' },
     };
     // Explicit `false` isolates the body rows from the Feature 6 default
-    // that prepends a header for multi-row ranges.
-    expect(serializeRangeToText(data, range, cols, rowIds, false)).toBe('Alice\nBob\nCarol');
+    // that prepends a header for multi-row ranges. Every row — including
+    // the last — is terminated with LF so the payload parses as a block.
+    expect(serializeRangeToText(data, range, cols, rowIds, false)).toBe('Alice\nBob\nCarol\n');
   });
 
   it('serializes a full multi-row multi-column range', () => {
@@ -137,7 +140,7 @@ describe('serializeRangeToText', () => {
       focus: { rowId: 'r2', field: 'age' },
     };
     const result = serializeRangeToText(data, range, cols, rowIds, false);
-    expect(result).toBe('Alice\t30\nBob\t25');
+    expect(result).toBe('Alice\t30\nBob\t25\n');
   });
 
   it('includes headers when requested', () => {
@@ -146,7 +149,7 @@ describe('serializeRangeToText', () => {
       focus: { rowId: 'r1', field: 'age' },
     };
     const result = serializeRangeToText(data, range, cols, rowIds, true);
-    expect(result).toBe('Name\tAge\nAlice\t30');
+    expect(result).toBe('Name\tAge\nAlice\t30\n');
   });
 
   it('excludes headers by default', () => {
@@ -164,7 +167,7 @@ describe('serializeRangeToText', () => {
       focus: { rowId: 'r1', field: 'name' },
     };
     const result = serializeRangeToText(data, range, cols, rowIds, false);
-    expect(result).toBe('Alice\t30\nBob\t25');
+    expect(result).toBe('Alice\t30\nBob\t25\n');
   });
 
   it('formats null cell values as empty string', () => {
@@ -176,7 +179,7 @@ describe('serializeRangeToText', () => {
       focus: { rowId: 'r1', field: 'age' },
     };
     const rowIds2 = ['r1'];
-    expect(serializeRangeToText(dataWithNull, range, cols, rowIds2)).toBe('\t30');
+    expect(serializeRangeToText(dataWithNull, range, cols, rowIds2)).toBe('\t30\n');
   });
 
   it('serializes the entire grid via selectAll-style range', () => {
@@ -184,7 +187,11 @@ describe('serializeRangeToText', () => {
       anchor: { rowId: 'r1', field: 'name' },
       focus: { rowId: 'r3', field: 'city' },
     };
-    const lines = serializeRangeToText(data, range, cols, rowIds, false).split('\n');
+    // Trailing LF produces an empty trailing element when split — drop it
+    // before asserting on the body rows.
+    const lines = serializeRangeToText(data, range, cols, rowIds, false)
+      .split('\n')
+      .filter(l => l.length > 0);
     expect(lines).toHaveLength(3);
     expect(lines[0]).toBe('Alice\t30\tLondon');
     expect(lines[1]).toBe('Bob\t25\tParis');
