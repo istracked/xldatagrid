@@ -909,7 +909,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
   // The `key="__row-number__"` is stable across re-renders and distinct from
   // any column `field` value so React can reconcile this child independently
   // of the data-cell list whose keys are `col.field`.
-  const renderRowNumberCell = (row: TData | undefined, rowId: string, rowIdx: number) => {
+  const renderRowNumberCell = (row: TData | undefined, rowId: string, rowIdx: number, isSelectedRow?: boolean) => {
     if (!rowNumberConfig || !onRowNumberClick) return null;
     // Resolve optional per-row chrome-cell content override. Only invoked when
     // the consumer supplied a resolver; the row may be `undefined` during a
@@ -926,6 +926,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         rowId={rowId}
         width={rowNumberWidth ?? 50}
         height={rowHeight}
+        isSelected={isSelectedRow}
         reorderable={rowNumberConfig.reorderable !== false}
         stickyLeft={rowNumberStickyLeft}
         contentText={content?.text}
@@ -961,6 +962,16 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     rowId: string,
     rowIdx: number,
     suppressSelectionOutline?: boolean,
+    /**
+     * Consumer-supplied row background (from `chrome.getRowBackground`). When
+     * non-null the row container already paints an explicit colour and cells
+     * must stay transparent so that colour shows through — required by the
+     * range / chrome composition contract (see the tests in
+     * `range-chrome-composition.test.tsx`). When null we fall through to the
+     * row-alternating token inside `styles.cell` so that `getComputedStyle`
+     * resolves to a concrete colour for the #70 luminance contract.
+     */
+    consumerRowBg?: string | null,
   ) => {
     const width = columnWidths[colIdx]?.width ?? 150;
     const value = row[col.field as keyof TData] as CellValue;
@@ -984,8 +995,17 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     // single outline around the row and suppress the per-cell range tint —
     // otherwise every cell in the row repaints the blue tint and the
     // selection reads as "individual cells" rather than "one row block".
-    const cellBackground =
-      !suppressSelectionOutline && isInRange && isInRange(rowId, col.field)
+    //
+    // For row-level selection (#75) we still paint a blue tint on every data
+    // cell — but a darker shade than the row-number gutter so the selected
+    // row reads as "data area is the focus" while the gutter stays the
+    // lighter affordance. The tint is surfaced as a variable so themes can
+    // override; the fallback rgba is opaque enough to register as selected
+    // yet dark enough to satisfy the `luminance(data) < luminance(gutter)`
+    // contract in the spec.
+    const cellBackground = suppressSelectionOutline
+      ? 'var(--dg-row-selected-bg, rgba(59, 130, 246, 0.28))'
+      : isInRange && isInRange(rowId, col.field)
         ? 'var(--dg-range-bg, rgba(59, 130, 246, 0.12))'
         : null;
     const cellType = getCellType(col, rowIdx);
@@ -1067,6 +1087,17 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             frozenLeftOffset: computeFrozenLeftOffset(colIdx),
             editable: col.editable !== false && !isReadOnly,
             suppressSelectionOutline,
+            // Match the row-container's alternating fallback so data cells
+            // paint a concrete colour (required by #70's luminance probe)
+            // without changing the visible stripe pattern. Skip when the
+            // consumer supplied a row colour — the container paints that
+            // explicit colour and cells must stay transparent to let it
+            // show through (see chrome/range composition contract).
+            rowBackground: consumerRowBg
+              ? undefined
+              : rowIdx % 2 === 0
+                ? 'var(--dg-row-bg, #ffffff)'
+                : 'var(--dg-row-bg-alt, #f8fafc)',
           }),
           role: 'gridcell',
           'aria-colindex': colIdx + 1,
@@ -1326,11 +1357,11 @@ export function DataGridBody<TData extends Record<string, unknown>>(
                   height={rowHeight}
                 />
               )}
-              {rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
+              {rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx, rowIsFullySelected)}
               {orderedVisibleColumns.map((col, colIdx) =>
-                renderCell(col, colIdx, row, rowId, rowIdx, rowIsFullySelected)
+                renderCell(col, colIdx, row, rowId, rowIdx, rowIsFullySelected, rowBg)
               )}
-              {!rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
+              {!rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx, rowIsFullySelected)}
             </div>
             {isExpanded && renderSubGridExpansionRow && (
               // The expansion row is a spanning row that holds a nested grid.
@@ -1452,11 +1483,11 @@ export function DataGridBody<TData extends Record<string, unknown>>(
                 height={rowHeight}
               />
             )}
-            {rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
+            {rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx, rowIsFullySelected)}
             {orderedVisibleColumns.map((col, colIdx) =>
-              renderCell(col, colIdx, row, rowId, rowIdx, rowIsFullySelected)
+              renderCell(col, colIdx, row, rowId, rowIdx, rowIsFullySelected, rowBg)
             )}
-            {!rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx)}
+            {!rowNumberOnLeft && renderRowNumberCell(row, rowId, rowIdx, rowIsFullySelected)}
           </div>
           {isExpanded && renderSubGridExpansionRow && (
             // See companion branch above for rationale: the nested grid is

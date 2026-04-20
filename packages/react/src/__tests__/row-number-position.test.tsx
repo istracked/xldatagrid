@@ -146,9 +146,12 @@ describe('Row number column — position', () => {
 // does not resolve CSS custom properties, so we assert on the inline style
 // string rather than a computed colour value.
 describe('Row number column — background styling', () => {
-  // Body row-number cell must reference the new `--dg-row-number-bg` token
-  // and fall back to `--dg-header-bg` when the token is undefined.
-  it('row-number cell background references --dg-row-number-bg token (Excel-gutter grey default #f3f2f1)', () => {
+  // Body row-number cell must reference the `--dg-row-number-bg` token. The
+  // fallback (#e2e8f0) must be darker than the row-bg-alt so the gutter reads
+  // as a distinct frame per #70 — previously the fallback chained to
+  // `--dg-header-bg`, which matched the alt-row tint and broke the "darker
+  // than adjacent data cell" contract.
+  it('row-number cell background references --dg-row-number-bg token with a darker-than-row fallback (#70)', () => {
     render(
       <DataGrid
         data={data}
@@ -161,17 +164,18 @@ describe('Row number column — background styling', () => {
     const rowNumberCell = screen.getAllByTestId('chrome-row-number')[0]! as HTMLElement;
 
     // jsdom does not resolve CSS custom properties to their fallback value, so
-    // assert on the inline style string that it references our new token and
-    // falls back to the existing header-bg token (Excel-gutter grey is provided
-    // by the `.dg-theme-excel365` stylesheet, not inline).
+    // assert on the inline style string that it references our token and has
+    // an explicit darker-grey fallback (never chain back to the header bg
+    // because that equals the row-alt bg and fails the #70 luminance check).
     const bg = rowNumberCell.style.background || rowNumberCell.style.backgroundColor;
     expect(bg).toContain('--dg-row-number-bg');
-    expect(bg).toContain('--dg-header-bg');
+    expect(bg).not.toContain('--dg-header-bg');
+    expect(bg).toMatch(/#e2e8f0/i);
   });
 
   // Header row-number tile must use the same token chain as the body cell so
   // the gutter reads as a single contiguous band.
-  it('row-number header cell background references --dg-row-number-bg token', () => {
+  it('row-number header cell background references --dg-row-number-bg token with the same darker fallback', () => {
     render(
       <DataGrid
         data={data}
@@ -184,6 +188,7 @@ describe('Row number column — background styling', () => {
     const header = screen.getByTestId('chrome-row-number-header') as HTMLElement;
     const bg = header.style.background || header.style.backgroundColor;
     expect(bg).toContain('--dg-row-number-bg');
-    expect(bg).toContain('--dg-header-bg');
+    expect(bg).not.toContain('--dg-header-bg');
+    expect(bg).toMatch(/#e2e8f0/i);
   });
 });

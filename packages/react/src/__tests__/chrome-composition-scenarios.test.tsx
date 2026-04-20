@@ -99,9 +99,14 @@ describe('chrome composition — selected + ranged cell', () => {
     expect(anchor.style.outline).toContain('2px solid');
     expect(anchor.style.outline).toContain('--dg-selection-border');
 
-    // Cells outside the range have neither tint nor selection outline.
+    // Cells outside the range have no range tint and no selection outline.
+    // They still paint the row-resting token (`--dg-row-bg` / `--dg-row-bg-alt`)
+    // so `getComputedStyle` probes resolve to a concrete colour (the #70
+    // row-number vs data luminance check depends on this). Visually identical
+    // to the row container's zebra stripe.
     const outside = getCell('2', 'salary');
-    expect(outside.style.background).toBe('');
+    expect(outside.style.background).not.toContain('--dg-range-bg');
+    expect(outside.style.background).toMatch(/--dg-row-bg/);
     expect(outside.style.outline === '' || outside.style.outline === 'none').toBe(true);
   });
 });
@@ -263,9 +268,13 @@ describe('chrome composition — readonly grid', () => {
     expect(getCell('1', 'dept').style.background).toContain('--dg-range-bg');
     expect(getCell('1', 'name').style.background).toContain('--dg-range-bg');
 
-    // A cell outside the 1x2 range stays transparent — the readOnly flag
-    // must not accidentally paint every cell.
-    expect(getCell('2', 'salary').style.background).toBe('');
+    // A cell outside the 1x2 range carries no range tint — the readOnly
+    // flag must not accidentally paint every cell with the range overlay.
+    // It still paints the row-resting token so computed-style probes resolve
+    // to a concrete colour; visually it matches the row container's zebra.
+    const outside = getCell('2', 'salary').style.background;
+    expect(outside).not.toContain('--dg-range-bg');
+    expect(outside).toMatch(/--dg-row-bg/);
   });
 
   it('chrome resolvers still fire on a readOnly grid', () => {

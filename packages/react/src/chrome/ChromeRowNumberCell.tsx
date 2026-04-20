@@ -250,6 +250,7 @@ export function ChromeRowNumberCell(props: ChromeRowNumberCellProps) {
       data-row-number={rowNumber}
       data-row-id={rowId}
       {...(dropHalf ? { 'data-drop-indicator': dropHalf } : {})}
+      data-selected={isSelected ? 'true' : undefined}
       aria-label={typeof contentText === 'string' && contentText.length > 0 ? contentText : `Row ${rowNumber}`}
       draggable={reorderable}
       onClick={handleClick}

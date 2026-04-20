@@ -79,6 +79,14 @@ export const cell = (opts: {
   frozenLeftOffset: number;
   editable: boolean;
   suppressSelectionOutline?: boolean;
+  /**
+   * Row-level resting background (used when no per-cell tint applies). Passed
+   * by the row renderer so every cell paints a concrete colour and
+   * `getComputedStyle().backgroundColor` always resolves — the #70 gutter-
+   * vs-data luminance check reads this on every data cell. Defaults to the
+   * default row token chain when omitted.
+   */
+  rowBackground?: string;
 }): CSSProperties => {
   const frozenBg = opts.frozen ? 'var(--dg-header-bg, #f8fafc)' : undefined;
   const outlineValue = opts.suppressSelectionOutline
@@ -102,10 +110,15 @@ export const cell = (opts: {
     position: opts.frozen ? 'sticky' : 'relative',
     left: opts.frozen === 'left' ? opts.frozenLeftOffset : undefined,
     zIndex: opts.frozen ? 2 : undefined,
-    // Frozen background wins over any per-cell chrome background so pinned
-    // columns stay legible even when a range or consumer hook would otherwise
-    // tint the cell.
-    background: frozenBg ?? opts.background ?? undefined,
+    // Precedence: frozen-column background wins so pinned columns stay
+    // legible against a scrolled range. A per-cell tint from the chrome API
+    // (range highlight, row-selection tint) wins next. The row-level
+    // resting background (passed as `rowBackground`) is used when neither
+    // higher-priority layer applies — this makes computed-style probes
+    // (#70 luminance contract) see a concrete colour. When the caller
+    // omits `rowBackground` the cell stays transparent so consumer row
+    // colours paint through unchanged (see range/chrome-composition tests).
+    background: frozenBg ?? opts.background ?? opts.rowBackground ?? undefined,
   };
 };
 
