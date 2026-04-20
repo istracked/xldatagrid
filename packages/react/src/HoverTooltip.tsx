@@ -43,6 +43,15 @@ interface HoverTooltipHandlers {
   /** Must be composed with any existing `onMouseLeave` on the cell. */
   onMouseLeave: (e: React.MouseEvent<HTMLElement>) => void;
   /**
+   * Keyboard-focus parity with mouse hover (cell-overflow spec, feature B).
+   * Focusing a truncated cell via Tab / arrow navigation schedules a show on
+   * the same 400 ms delay so keyboard-only users see the full value without
+   * needing a mouse hover.
+   */
+  onFocus: (e: React.FocusEvent<HTMLElement>) => void;
+  /** Counterpart to {@link HoverTooltipHandlers.onFocus}. Cancels a pending show. */
+  onBlur: (e: React.FocusEvent<HTMLElement>) => void;
+  /**
    * Id of the tooltip node while visible, or `undefined` when hidden. Assign
    * to `aria-describedby` on the cell.
    */
@@ -112,20 +121,18 @@ export function useHoverTooltip(
     setVisible(false);
   }, [cancelPendingShow]);
 
-  const onMouseEnter = useCallback(
-    (e: React.MouseEvent<HTMLElement>) => {
+  // Shared scheduler used by both the mouse-hover and keyboard-focus paths.
+  // Captures the cell rect synchronously (pooled-event safe) and schedules a
+  // single show after HOVER_TOOLTIP_DELAY_MS.
+  const schedule = useCallback(
+    (el: HTMLElement) => {
       cancelPendingShow();
-      // Capture the cell's bounding box synchronously — by the time the
-      // timer fires, `e.currentTarget` may have been nulled by React's
-      // pooled-event semantics on older versions. We keep a snapshot.
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
         const resolved = resolveContentRef.current();
         if (resolved == null || resolved === '') return;
         setContent(String(resolved));
-        // Position the tooltip slightly below the cell. Consumers can
-        // reposition via CSS on `role="tooltip"`.
         setPosition({
           top: rect.bottom + 4,
           left: rect.left,
@@ -136,7 +143,25 @@ export function useHoverTooltip(
     [cancelPendingShow],
   );
 
+  const onMouseEnter = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      schedule(e.currentTarget as HTMLElement);
+    },
+    [schedule],
+  );
+
   const onMouseLeave = useCallback(() => {
+    hide();
+  }, [hide]);
+
+  const onFocus = useCallback(
+    (e: React.FocusEvent<HTMLElement>) => {
+      schedule(e.currentTarget as HTMLElement);
+    },
+    [schedule],
+  );
+
+  const onBlur = useCallback(() => {
     hide();
   }, [hide]);
 
@@ -205,6 +230,8 @@ export function useHoverTooltip(
   return {
     onMouseEnter,
     onMouseLeave,
+    onFocus,
+    onBlur,
     ariaDescribedBy: visible ? tooltipId : undefined,
     tooltipNode,
   };

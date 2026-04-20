@@ -114,6 +114,7 @@ export const AllCellTypes: StoryObj = {
           rowKey="id"
           selectionMode="cell"
           keyboardNavigation
+          chrome={{ rowNumbers: true }}
         />
       </div>
     </div>

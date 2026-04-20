@@ -48,6 +48,7 @@ import {
   RowGroup,
   ControlsColumnConfig,
   RowNumberColumnConfig,
+  Density,
 } from '@istracked/datagrid-core';
 import {
   groupRows,
@@ -104,6 +105,13 @@ export interface DataGridProps<TData extends Record<string, unknown> = Record<st
   style?: React.CSSProperties;
   rowHeight?: number;
   headerHeight?: number;
+  /**
+   * Grid density. `'compact'` (the default) uses a dense ~36px row height
+   * tuned for scanning many rows on a single screen; `'comfortable'` pads the
+   * rows out to ~48px for easier touch/reading. Surfaces as `data-density` on
+   * the grid root and each row so CSS / Playwright can target the active mode.
+   */
+  density?: Density;
   onCellEdit?: (rowKey: string, field: string, value: CellValue, prev: CellValue) => void;
   onRowAdd?: (data: Partial<TData>) => void;
   onRowDelete?: (rowIds: string[]) => void;
@@ -262,8 +270,9 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
   const {
     className,
     style,
-    rowHeight = 36,
+    rowHeight: rowHeightProp,
     headerHeight = 40,
+    density = 'compact',
     onCellEdit,
     onRowAdd,
     onRowDelete: _onRowDelete,
@@ -289,6 +298,12 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     groupControlRef,
     ...config
   } = props;
+
+  // Row height defaults are density-derived. When a consumer explicitly passes
+  // `rowHeight` it wins (escape hatch for bespoke sizing); otherwise compact
+  // uses the historical 36px and comfortable uses 48px (the row-density test
+  // asserts `style.height >= 44` when `density='comfortable'` is set).
+  const rowHeight = rowHeightProp ?? (density === 'comfortable' ? 48 : 36);
 
   const themeStyle = resolveThemeStyle(config.theme);
   const { model, store, atoms } = useGridWithAtoms(config);
@@ -1239,6 +1254,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
         aria-colcount={visibleColumns.length}
         aria-readonly={isReadOnly || undefined}
         aria-labelledby={ariaLabelledBy}
+        data-density={density}
         {...(themeId ? { 'data-theme': themeId } : {})}
         {...(isReadOnly ? { 'data-readonly': 'true' } : {})}
         {...(showGhostRow ? { 'data-ghost-row': 'true' } : {})}
@@ -1462,6 +1478,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
           subGridDepth={subGridDepth}
           renderSubGridExpansionRow={renderSubGridExpansionRow}
           gridId={resolvedGridId}
+          density={density}
         />
 
         {contextMenuEnabled && (
