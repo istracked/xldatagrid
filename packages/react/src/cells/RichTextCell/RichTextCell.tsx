@@ -143,6 +143,26 @@ function insertLink(textarea: HTMLTextAreaElement): {
 }
 
 /**
+ * Walks up the DOM from `el` looking for the nearest ancestor whose
+ * `overflow-y` computes to `auto` or `scroll`. Placement uses this to
+ * choose the "upper bound" against which room-above is measured, so the
+ * toolbar flips below when the cell is at the top of the grid body — not
+ * only when the cell is at the top of the window. Falls back to the
+ * viewport when no scrollable ancestor exists (e.g. jsdom).
+ */
+function getScrollParent(el: HTMLElement | null): HTMLElement | null {
+  if (!el || typeof window === 'undefined') return null;
+  let cur: HTMLElement | null = el.parentElement;
+  while (cur) {
+    const style = window.getComputedStyle(cur);
+    const overflowY = style.overflowY;
+    if (overflowY === 'auto' || overflowY === 'scroll') return cur;
+    cur = cur.parentElement;
+  }
+  return null;
+}
+
+/**
  * Geometry buffer used to decide between above/below placement of the floating
  * toolbar: the toolbar flips below the cell when the cell's top is closer to
  * the viewport top than the toolbar's height plus this margin.
@@ -252,8 +272,19 @@ export const RichTextCell = React.memo(function RichTextCell<TData = Record<stri
       : { width: 240, height: 32 };
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
 
+    // Measure the room available above the cell INSIDE its scrolling
+    // context — e.g. the grid body — rather than only against the window
+    // top. Outer page chrome (headings, sticky column headers) can hold
+    // the cell well below `window` top while it is visually flush with
+    // the top of its scrollport.
+    const scrollParent = getScrollParent(cell);
+    const upperBound = scrollParent
+      ? scrollParent.getBoundingClientRect().top
+      : 0;
+    const roomAbove = cellRect.top - upperBound;
+
     const nextPlacement: 'above' | 'below' =
-      cellRect.top < toolbarRect.height + PLACEMENT_BUFFER ? 'below' : 'above';
+      roomAbove < toolbarRect.height + PLACEMENT_BUFFER ? 'below' : 'above';
     const nextAlign: 'left' | 'right' =
       vw - cellRect.right < EDGE_ALIGN_MARGIN ? 'right' : 'left';
 

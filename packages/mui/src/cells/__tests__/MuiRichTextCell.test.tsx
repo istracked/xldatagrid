@@ -41,18 +41,25 @@ describe('MuiRichTextCell', () => {
     expect(screen.getByTestId('richtext-rendered').querySelector('table')).not.toBeNull();
   });
 
-  it('shows textarea with markdown source in edit mode', () => {
+  it('shows contenteditable surface seeded with the markdown source in edit mode', () => {
     render(<MuiRichTextCell {...makeProps({ isEditing: true, value: '*hi*' })} />);
-    const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
-    expect(textarea.value).toBe('*hi*');
+    const editor = screen.getByRole('textbox');
+    expect(editor).toBeInTheDocument();
+    // Toggle is OFF by default, so the visible text strips delimiters; the
+    // raw markdown is still carried forward as the commit value — see the
+    // "commits draft markdown on blur" test.
+    expect(editor.textContent).toBe('hi');
   });
 
   it('commits draft markdown on blur', () => {
     const onCommit = vi.fn();
     render(<MuiRichTextCell {...makeProps({ isEditing: true, value: '', onCommit })} />);
-    const textarea = screen.getByRole('textbox');
-    fireEvent.change(textarea, { target: { value: '**done**' } });
-    fireEvent.blur(textarea);
+    const editor = screen.getByRole('textbox');
+    // Simulate native `input` — contenteditable's user-typed characters
+    // propagate via the input event's `currentTarget.textContent`.
+    editor.textContent = '**done**';
+    fireEvent.input(editor, { target: { textContent: '**done**' } });
+    fireEvent.blur(editor);
     expect(onCommit).toHaveBeenCalledWith('**done**');
   });
 
