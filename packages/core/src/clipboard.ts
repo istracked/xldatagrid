@@ -120,12 +120,20 @@ function escapeHtml(raw: string): string {
 /**
  * Serialises a rectangular cell range into tab-separated plain text.
  *
- * Columns are delimited by tabs and rows by newlines, matching the format
- * expected by spreadsheet applications. Values containing tab, newline,
+ * Columns are delimited by tabs and every multi-cell row — including the
+ * last — is terminated by a trailing LF, matching the format Excel and
+ * Google Sheets emit when copying cells. The trailing newline ensures
+ * spreadsheet applications parse the payload as a row-oriented block
+ * rather than a bare cell value on paste. Values containing tab, newline,
  * carriage-return, or double-quote characters are RFC-4180-quoted so the
  * payload round-trips through Excel without losing row/column structure.
  * Chrome columns (row-number gutter, controls column) are filtered out
  * before serialisation.
+ *
+ * Single-cell selections are the one exception: they represent a scalar
+ * value the user typically pastes into another cell, a search box, or a
+ * cell editor. Appending an LF there would convert the paste into a
+ * two-row operation (value + blank), so we emit the bare value instead.
  *
  * The `includeHeaders` parameter supports three calling conventions:
  *
@@ -171,7 +179,18 @@ export function serializeRangeToText(
     );
   }
 
-  return lines.join('\n');
+  // Terminate every row with LF (including the last) so spreadsheet
+  // applications parse the payload as a row-oriented block. A bare cell
+  // value with no newline is treated as a plain string by Excel/Sheets and
+  // loses the row boundary on paste — see issue #65.
+  //
+  // Single-cell selections (1×1, no header row) keep the historical
+  // bare-value contract so pastes into scalar targets (another cell, a
+  // search box, a cell editor) still work.
+  if (lines.length === 0) return '';
+  const isSingleCell = !useHeaders && rows.length === 1 && cols.length === 1;
+  if (isSingleCell) return lines[0]!;
+  return lines.join('\n') + '\n';
 }
 
 // ---------------------------------------------------------------------------
