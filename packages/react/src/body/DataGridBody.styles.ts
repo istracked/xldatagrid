@@ -111,8 +111,19 @@ export const cell = (opts: {
 
 /** Style for the fallback `<input>` editor used when no custom cell renderer
  *  is configured. Strips the native input chrome so it visually matches the
- *  surrounding cell. */
+ *  surrounding cell.
+ *
+ *  Excel-365 padding parity (issue #65): the input is positioned absolutely
+ *  to fill the cell's *border-box* (not the padding-box) so that
+ *  `input.getBoundingClientRect().left === cell.getBoundingClientRect().left`.
+ *  It then re-applies the same `--dg-cell-padding` token the cell uses, so
+ *  the first glyph lands on the exact pixel it occupied in display mode —
+ *  the only visible change when edit mode begins is a blinking caret. Font
+ *  is inherited so family / size / weight / line-height match the cell. */
 export const cellInput: CSSProperties = {
+  position: 'absolute',
+  top: 0,
+  left: 0,
   width: '100%',
   height: '100%',
   margin: 0,
@@ -120,6 +131,7 @@ export const cellInput: CSSProperties = {
   outline: 'none',
   padding: 'var(--dg-cell-padding, 0 12px)',
   font: 'inherit',
+  lineHeight: 'inherit',
   background: 'transparent',
   boxSizing: 'border-box',
 };
