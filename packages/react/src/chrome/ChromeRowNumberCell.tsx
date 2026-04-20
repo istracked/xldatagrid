@@ -11,7 +11,7 @@
  * the offset as the controls column width when a controls column precedes this
  * column, or `0` otherwise. When omitted, the cell scrolls with the grid body.
  */
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import * as styles from './ChromeColumn.styles';
 
 /**
@@ -70,6 +70,16 @@ export interface ChromeRowNumberCellProps {
 export function ChromeRowNumberCell(props: ChromeRowNumberCellProps) {
   const { rowNumber, rowId, width, height, isSelected, reorderable, stickyLeft, contentText, contentIcon, onContentClick, onSelect, onDragStart, onDragOver, onDrop } = props;
 
+  // Per-cell drop-indicator state (#68). While a row drag hovers this cell we
+  // record whether the pointer is in the upper or lower half so the cell can
+  // expose `data-drop-indicator` and render an edge bar. The pointer-half
+  // resolution runs on both `dragenter` and `dragover`: Chromium's HTML5 DnD
+  // only fires a trailing `dragover` in some motion paths, so `dragenter`
+  // acts as a backstop when the pointer ends over a child node inside the
+  // target cell.
+  const cellRef = useRef<HTMLDivElement | null>(null);
+  const [dropHalf, setDropHalf] = useState<'above' | 'below' | null>(null);
+
   // Click handler: stop propagation so the row-number click does not also
   // trigger cell-level selection, then forward shift/meta modifiers so the
   // caller can implement range/toggle selection semantics.
@@ -122,31 +132,96 @@ export function ChromeRowNumberCell(props: ChromeRowNumberCellProps) {
     onDragStart?.(rowId, rowNumber - 1);
   }, [reorderable, rowId, rowNumber, onDragStart]);
 
+  // Resolve pointer half within this cell. Returns 'above' when the pointer
+  // is in the upper half, 'below' otherwise. Uses the cell's bounding rect
+  // for the Y origin so nested child elements (icon, text span) don't skew
+  // the result.
+  const resolveHalf = useCallback((clientY: number): 'above' | 'below' => {
+    const el = cellRef.current;
+    if (!el) return 'above';
+    const rect = el.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    return clientY < midY ? 'above' : 'below';
+  }, []);
+
+  // Drag-enter: backstop for Chromium's HTML5 DnD, which may skip the
+  // trailing `dragover` when the pointer ends inside a child node. We
+  // compute the pointer half on enter so the indicator appears immediately.
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    if (!reorderable) return;
+    setDropHalf(resolveHalf(e.clientY));
+  }, [reorderable, resolveHalf]);
+
   // Drag-over: `preventDefault` is required to declare this element a valid
-  // drop target; we also set a move cursor and bubble the hover up.
+  // drop target; we also set a move cursor and bubble the hover up. The
+  // pointer half is re-computed here so slow drags across the vertical
+  // midpoint update the indicator in real time.
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (!reorderable) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    setDropHalf(resolveHalf(e.clientY));
     onDragOver?.(rowId, rowNumber - 1);
-  }, [reorderable, rowId, rowNumber, onDragOver]);
+  }, [reorderable, rowId, rowNumber, onDragOver, resolveHalf]);
+
+  // Drag-leave clears the indicator — but only when the pointer actually
+  // leaves THIS cell, not when it crosses into one of the cell's own
+  // children. HTML5 DnD fires dragenter/dragleave pairs at child boundaries
+  // which would otherwise flicker the indicator.
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!reorderable) return;
+    const el = cellRef.current;
+    const related = e.relatedTarget as Node | null;
+    if (el && related && el.contains(related)) return;
+    setDropHalf(null);
+  }, [reorderable]);
 
   // Drop: again `preventDefault` prevents the browser's default open/navigate
   // behaviour so the parent reorder callback owns the outcome.
   const handleDrop = useCallback((e: React.DragEvent) => {
     if (!reorderable) return;
     e.preventDefault();
+    setDropHalf(null);
     onDrop?.(rowId, rowNumber - 1);
   }, [reorderable, rowId, rowNumber, onDrop]);
 
+  // Drag-end fires on the drag SOURCE — we also clear local state so a
+  // cancelled drag (Escape, drop-off-target) doesn't leave a stale indicator.
+  const handleDragEnd = useCallback(() => {
+    setDropHalf(null);
+  }, []);
+
   // Compose: base gutter style, selection overlay (wins the background), then
   // optional sticky-left pin. `stickyLeft === 0` is a valid pin position, so
-  // the check uses `!== undefined` rather than truthiness.
-  const cellStyle = {
+  // the check uses `!== undefined` rather than truthiness. A `position:
+  // relative` fallback is layered beneath the sticky override so the
+  // absolutely-positioned drop-indicator bar has a reliable containing block
+  // whether or not the cell is sticky.
+  const cellStyle: React.CSSProperties = {
     ...styles.rowNumberCell(width, height),
     ...(isSelected ? styles.rowNumberSelected : {}),
     ...(stickyLeft !== undefined ? { position: 'sticky' as const, left: stickyLeft, zIndex: 5 } : {}),
   };
+  if (cellStyle.position === undefined) {
+    cellStyle.position = 'relative';
+  }
+
+  // Drop-indicator bar. 3px tall so the e2e contract (`height >= 3`) holds,
+  // absolutely positioned against the row-number cell's edge. The background
+  // consumes a design-token fallback so downstream themes can retune the
+  // colour without touching this component.
+  const indicatorStyle: React.CSSProperties | null = dropHalf
+    ? {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        height: 3,
+        background: 'var(--dg-row-drop-indicator-bg, #3b82f6)',
+        pointerEvents: 'none',
+        zIndex: 6,
+        ...(dropHalf === 'above' ? { top: 0 } : { bottom: 0 }),
+      }
+    : null;
 
   // Content override: when either text or icon is supplied via
   // `chrome.getChromeCellContent`, render them in place of the default digit.
@@ -167,19 +242,28 @@ export function ChromeRowNumberCell(props: ChromeRowNumberCellProps) {
 
   return (
     <div
+      ref={cellRef}
       style={cellStyle}
       role="rowheader"
       data-testid="chrome-row-number"
+      data-chrome="row-number"
       data-row-number={rowNumber}
       data-row-id={rowId}
+      {...(dropHalf ? { 'data-drop-indicator': dropHalf } : {})}
       aria-label={typeof contentText === 'string' && contentText.length > 0 ? contentText : `Row ${rowNumber}`}
       draggable={reorderable}
       onClick={handleClick}
       onDragStart={handleDragStart}
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onDragEnd={handleDragEnd}
     >
       {renderedContent}
+      {indicatorStyle && (
+        <div data-row-drop-indicator style={indicatorStyle} />
+      )}
     </div>
   );
 }
