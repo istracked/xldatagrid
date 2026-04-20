@@ -15,11 +15,22 @@ const STORYBOOK_URL = `http://localhost:${STORYBOOK_PORT}`;
 
 export default defineConfig({
   testDir: './e2e',
-  // Single worker keeps story iframes deterministic on CI runners that only
-  // have a couple of cores; Playwright still parallelises across files when
-  // the worker count is raised.
-  fullyParallel: false,
-  workers: 1,
+  // Parallelism policy:
+  //   - CI:    1 worker, no in-file parallelism — GitHub runners have ~2
+  //            cores and shared Storybook iframe state is easier to debug
+  //            when runs are deterministic.
+  //   - Local: half of the available CPUs (Playwright's default heuristic)
+  //            parallelising ACROSS files, but NOT within a file. Within-
+  //            file serialisation keeps per-describe setup (e.g. theme
+  //            toggles, story navigations) from racing each other.
+  //   Override either side with `PLAYWRIGHT_WORKERS=<n>` or
+  //   `PLAYWRIGHT_FULLY_PARALLEL=1` when iterating.
+  fullyParallel: process.env.PLAYWRIGHT_FULLY_PARALLEL === '1',
+  workers: process.env.PLAYWRIGHT_WORKERS
+    ? Number(process.env.PLAYWRIGHT_WORKERS)
+    : process.env.CI
+      ? 1
+      : undefined,
   retries: process.env.CI ? 2 : 0,
   forbidOnly: !!process.env.CI,
   reporter: process.env.CI
