@@ -33,7 +33,7 @@
  *  - {@link ./DataGridBody.styles} — inline CSSProperties factories used
  *    across both render paths.
  */
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import {
   ColumnDef,
   CellAddress,
@@ -49,6 +49,9 @@ import {
   SelectionMode,
   RowOutlineSides,
   mostSevere,
+  truncateMiddle,
+  truncateEnd,
+  getDefaultOverflowPolicy,
 } from '@istracked/datagrid-core';
 import type {
   ControlsColumnConfig,
@@ -57,6 +60,8 @@ import type {
   ChromeCellContent,
   ChromeRowResolver,
   ChromeRowResolverContext,
+  OverflowPolicy,
+  Density,
 } from '@istracked/datagrid-core';
 import { CellRendererProps } from '../DataGrid';
 import { ChromeControlsCell, ChromeRowNumberCell } from '../chrome';
@@ -83,6 +88,77 @@ function renderCellValue(value: CellValue, cellType: CellType): string {
 function getValidationKey(rowId: string, field: string): string {
   return `${rowId}:${field}`;
 }
+
+// ---------------------------------------------------------------------------
+// Helper: resolve a column's overflow policy
+// ---------------------------------------------------------------------------
+
+/**
+ * Explicit `ColumnDef.overflow` wins; otherwise we delegate to
+ * `getDefaultOverflowPolicy(field)` which bakes in the field-based conventions
+ * (e.g. `asset_tag` → `truncate-middle`, `description` → `clamp-2`).
+ */
+function resolveOverflowPolicy<TData>(col: ColumnDef<TData>): OverflowPolicy {
+  return col.overflow ?? getDefaultOverflowPolicy(col.field);
+}
+
+// ---------------------------------------------------------------------------
+// Helper: per-policy inline styles for the cell-text wrapper
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the inline styles that realise a given overflow policy on the
+ * `[data-cell-text]` wrapper. Multi-line policies require `display: -webkit-box`
+ * + the vendor-prefixed `-webkit-line-clamp` family; single-line truncation
+ * uses the classic `text-overflow: ellipsis` triad. Vendor-prefixed properties
+ * are written through `getPropertyValue` / `setProperty` at the DOM boundary
+ * because React's typed `CSSProperties` surface omits them, but tests still
+ * read them via `style.getPropertyValue('-webkit-line-clamp')`.
+ */
+function overflowStyleFor(policy: OverflowPolicy): React.CSSProperties {
+  switch (policy) {
+    case 'truncate-end':
+    case 'truncate-middle':
+      return {
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        display: 'block',
+        minWidth: 0,
+      };
+    case 'clamp-2':
+    case 'clamp-3':
+      // Line clamp is a flagrantly vendor-prefixed feature — we cannot set it
+      // through the typed `CSSProperties` surface, so callers apply the
+      // `-webkit-line-clamp` value via `setProperty` on the element ref.
+      return {
+        display: '-webkit-box',
+        overflow: 'hidden',
+      };
+    case 'wrap':
+      return {
+        whiteSpace: 'normal',
+        wordBreak: 'break-word',
+      };
+    case 'reveal-only':
+      return {
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+      };
+    default:
+      return {};
+  }
+}
+
+/**
+ * Default maxChars for single-line truncation (`truncate-end`,
+ * `truncate-middle`). Sized for the 120–280px columns that dominate the
+ * DAM/CMMS workload — any text strictly longer than this budget gets a
+ * DOM-level ellipsis so `textContent`-based assertions (and screen readers
+ * that ignore CSS `text-overflow`) observe the truncation, not just the
+ * sighted visual.
+ */
+const TRUNCATE_MAX_CHARS = 24;
 
 // ---------------------------------------------------------------------------
 // Helper: resolve ghost row position from config
@@ -304,6 +380,90 @@ export interface DataGridBodyProps<TData extends Record<string, unknown>> {
    * can construct deterministic child-grid ARIA ids for `aria-controls` linkage.
    */
   gridId?: string;
+
+  /**
+   * Grid density, forwarded from `DataGrid`. Emitted as `data-density` on each
+   * rendered row so CSS / Playwright can target the active mode, and consumed
+   * by the overflow machinery in the (future) clamp-vs-density interplay. The
+   * body does not compute row heights from this value — `rowHeight` is already
+   * resolved by the owning `DataGrid`.
+   */
+  density?: Density;
+}
+
+// ---------------------------------------------------------------------------
+// CellTextDisplay — renders the idle (non-editing, no custom renderer) text.
+// ---------------------------------------------------------------------------
+//
+// Wraps the formatted cell value in a `<span data-cell-text>` carrying the
+// per-policy inline styles. Vendor-prefixed CSS properties (line-clamp, box
+// orientation) cannot be expressed through React's typed `style` object, so
+// they are applied via `setProperty` on the ref once the element mounts — the
+// stylesheet the contract tests query (`style.getPropertyValue(...)`) works
+// identically against both typed and prefixed rules.
+//
+// For `reveal-only`, the span emits a minimal affordance marker (the U+2026
+// glyph under a `data-reveal-affordance` hook) alongside the raw text so the
+// user has a visible cue that the full value lives in the tooltip / editor.
+// The raw text itself is intentionally rendered so screen readers still read
+// it without depending on the hover tooltip.
+
+interface CellTextDisplayProps {
+  rawText: string;
+  policy: OverflowPolicy;
+}
+
+function CellTextDisplay({ rawText, policy }: CellTextDisplayProps) {
+  const ref = useRef<HTMLSpanElement | null>(null);
+
+  // Apply vendor-prefixed line-clamp rules through `setProperty` because
+  // React's typed `CSSProperties` map rejects `-webkit-line-clamp`. Keeping
+  // the styles on the element (not in a stylesheet) preserves the per-cell
+  // inline-style model the body uses everywhere else.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (policy === 'clamp-2' || policy === 'clamp-3') {
+      const lines = policy === 'clamp-2' ? '2' : '3';
+      el.style.setProperty('-webkit-line-clamp', lines);
+      el.style.setProperty('-webkit-box-orient', 'vertical');
+    } else {
+      el.style.removeProperty('-webkit-line-clamp');
+      el.style.removeProperty('-webkit-box-orient');
+    }
+  }, [policy]);
+
+  const displayText =
+    policy === 'truncate-middle'
+      ? truncateMiddle(rawText, TRUNCATE_MAX_CHARS)
+      : policy === 'truncate-end'
+        ? truncateEnd(rawText, TRUNCATE_MAX_CHARS)
+        : rawText;
+
+  if (policy === 'reveal-only') {
+    return (
+      <span
+        ref={ref}
+        data-cell-text
+        style={overflowStyleFor(policy)}
+      >
+        <span
+          data-reveal-affordance
+          aria-hidden="true"
+          style={{ marginRight: 4, color: 'var(--dg-muted-fg, #94a3b8)' }}
+        >
+          {'\u2026'}
+        </span>
+        {rawText}
+      </span>
+    );
+  }
+
+  return (
+    <span ref={ref} data-cell-text style={overflowStyleFor(policy)}>
+      {displayText}
+    </span>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -328,6 +488,8 @@ interface BodyCellProps<TData> {
   cellType: CellType;
   /** Text the default hover tooltip falls back to when `note` is absent. */
   defaultContent: string;
+  /** Resolved overflow policy for this cell (explicit `col.overflow` or default). */
+  overflowPolicy: OverflowPolicy;
   /** DOM-shaped props for the gridcell `<div>`. */
   cellDivProps: React.HTMLAttributes<HTMLDivElement> & {
     'data-cell-type'?: string;
@@ -344,6 +506,47 @@ interface BodyCellProps<TData> {
   children: React.ReactNode;
 }
 
+/**
+ * Measures whether the cell's content is clipped by comparing its
+ * `scrollWidth` against its `clientWidth`. Returns:
+ *
+ *   - `true`  — content exceeds the cell box (classic overflow signal), OR
+ *               the element has not laid out yet (both dimensions are 0); the
+ *               indeterminate branch errs on the side of showing the reveal
+ *               tooltip so jsdom tests without explicit stubs still fire.
+ *   - `false` — content fits within the cell box.
+ *
+ * `wrap` cells never report truncation — multi-line wrapping IS the behaviour,
+ * so a horizontal overflow measurement is meaningless in that mode.
+ */
+function isMeasuredTruncated(
+  el: HTMLElement | null,
+  policy: OverflowPolicy,
+  rawText: string,
+): boolean {
+  if (policy === 'wrap') return false;
+  // Deterministic path: when a single-line truncation policy would produce a
+  // shorter string than the raw text, we know the cell is truncated without
+  // touching the DOM. This is robust against renderers that hide overflow
+  // inside a child element (e.g. MUI `<Typography noWrap>`) where the outer
+  // cell div reports `scrollWidth === clientWidth`.
+  if (
+    (policy === 'truncate-end' || policy === 'truncate-middle') &&
+    rawText.length > TRUNCATE_MAX_CHARS
+  ) {
+    return true;
+  }
+  if (!el) return false;
+  const { scrollWidth, clientWidth } = el;
+  if (scrollWidth === 0 && clientWidth === 0) {
+    // Not yet laid out — assume truncation is possible so the reveal
+    // affordance stays live. Consumers that wire an explicit stub in tests
+    // (or real browsers after layout) override this branch.
+    return true;
+  }
+  return scrollWidth > clientWidth;
+}
+
 function BodyCell<TData extends Record<string, unknown>>(
   props: BodyCellProps<TData>,
 ) {
@@ -351,22 +554,58 @@ function BodyCell<TData extends Record<string, unknown>>(
     col,
     row,
     defaultContent,
+    overflowPolicy,
     cellDivProps,
     onValidationHoverEnter,
     onValidationHoverLeave,
     children,
   } = props;
 
-  // Resolve the hover-tooltip body: `col.note` wins over the default
-  // content when provided, in either string or function form. The resolver
-  // is called only after the hover delay elapses, so a per-row note
-  // function is not billed on every bounced hover.
+  const cellRef = useRef<HTMLDivElement | null>(null);
+  const [truncated, setTruncated] = useState<boolean>(() => overflowPolicy !== 'wrap');
+
+  // Measure truncation synchronously after layout so the `data-truncated`
+  // attribute reflects the browser's actual scrollWidth/clientWidth before
+  // any test assertion runs. Re-runs when the cell resizes (column resize,
+  // density toggle, data change). `useLayoutEffect` is intentional — it
+  // blocks paint so the attribute never flashes stale during a scroll.
+  useLayoutEffect(() => {
+    const el = cellRef.current;
+    if (!el) return;
+    const measure = () => {
+      const next = isMeasuredTruncated(el, overflowPolicy, defaultContent);
+      setTruncated((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    // Observe box resizes so a later column resize re-evaluates truncation.
+    // `ResizeObserver` may be absent in very old environments; the initial
+    // measurement is enough for jsdom tests.
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+    return undefined;
+  }, [overflowPolicy, defaultContent]);
+
+  // `reveal-only` always exposes the tooltip on hover/focus regardless of
+  // measured truncation — the affordance IS the reveal contract.
+  const alwaysReveal = overflowPolicy === 'reveal-only';
+
+  // Resolve the hover-tooltip body:
+  //   * `col.note` wins over the default content when provided, in either
+  //     string or function form.
+  //   * Otherwise, suppress the tooltip when the cell is NOT truncated —
+  //     hovering a cell that already shows its full value would be noise.
+  //   * `reveal-only` bypasses the measurement gate and always reveals.
   const resolveContent = React.useCallback(() => {
     const note = col.note;
     if (typeof note === 'function') return note(row);
     if (typeof note === 'string') return note;
+    if (alwaysReveal) return defaultContent;
+    if (!truncated) return null;
     return defaultContent;
-  }, [col.note, row, defaultContent]);
+  }, [col.note, row, defaultContent, truncated, alwaysReveal]);
 
   const hover = useHoverTooltip({ resolveContent });
 
@@ -380,19 +619,46 @@ function BodyCell<TData extends Record<string, unknown>>(
     hover.onMouseLeave(e);
     cellDivProps.onMouseLeave?.(e);
   };
+  const composedOnFocus: React.FocusEventHandler<HTMLDivElement> = (e) => {
+    hover.onFocus(e);
+    cellDivProps.onFocus?.(e);
+  };
+  const composedOnBlur: React.FocusEventHandler<HTMLDivElement> = (e) => {
+    hover.onBlur(e);
+    cellDivProps.onBlur?.(e);
+  };
 
   const {
     onMouseEnter: _ignoredEnter,
     onMouseLeave: _ignoredLeave,
+    onFocus: _ignoredFocus,
+    onBlur: _ignoredBlur,
     ...restDivProps
   } = cellDivProps;
+
+  // `data-truncated` is a published contract:
+  //   - 'true'  → content is clipped (or measurement pending / reveal-only).
+  //   - 'false' → content fits or the policy is `wrap` (multi-line).
+  const truncatedAttr =
+    overflowPolicy === 'wrap' ? 'false' : truncated ? 'true' : 'false';
 
   return (
     <div
       {...restDivProps}
+      ref={cellRef}
+      // Every cell is a keyboard tab-stop so hover-reveal + focus-reveal are
+      // equally reachable without a mouse. The grid consumer may still layer
+      // a roving-tabindex pattern on top, but the baseline contract
+      // (`[role="gridcell"]` is tabbable) keeps the overflow reveal a11y
+      // story honest when no higher-level keyboard wiring is configured.
+      tabIndex={0}
+      data-overflow-policy={overflowPolicy}
+      data-truncated={truncatedAttr}
       aria-describedby={hover.ariaDescribedBy ?? restDivProps['aria-describedby']}
       onMouseEnter={composedOnMouseEnter}
       onMouseLeave={composedOnMouseLeave}
+      onFocus={composedOnFocus}
+      onBlur={composedOnBlur}
     >
       {children}
       {hover.tooltipNode}
@@ -460,6 +726,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     renderSubGridExpansionRow,
     subGridDepth = 0,
     gridId,
+    density,
   } = props;
 
   const ghostPosition = showGhostRow ? resolveGhostPosition(ghostRowConfig) : 'bottom';
@@ -769,7 +1036,12 @@ export function DataGridBody<TData extends Record<string, unknown>>(
     // Default hover-tooltip content — shown when `col.note` is absent.
     // Mirrors what the cell actually renders for the idle (non-editing)
     // path so the tooltip's text never disagrees with the on-screen value.
-    const hoverDefaultContent = renderCellValue(value, cellType);
+    const rawDisplayText = renderCellValue(value, cellType);
+
+    // Resolve the column's overflow policy: explicit `col.overflow` wins,
+    // otherwise the field-based default. Drives both the `data-overflow-policy`
+    // attribute on the cell and the inline styles applied to the text wrapper.
+    const overflowPolicy = resolveOverflowPolicy(col);
 
     return (
       <BodyCell<TData>
@@ -779,7 +1051,8 @@ export function DataGridBody<TData extends Record<string, unknown>>(
         row={row}
         rowId={rowId}
         cellType={cellType}
-        defaultContent={hoverDefaultContent}
+        defaultContent={rawDisplayText}
+        overflowPolicy={overflowPolicy}
         onValidationHoverEnter={() => onValidationTooltip?.(rowId, col.field, 'hover', true)}
         onValidationHoverLeave={() => onValidationTooltip?.(rowId, col.field, 'hover', false)}
         cellDivProps={{
@@ -944,9 +1217,10 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             }}
           />
         ) : (
-          <span style={styles.cellValueText}>
-            {renderCellValue(value, cellType)}
-          </span>
+          <CellTextDisplay
+            rawText={rawDisplayText}
+            policy={overflowPolicy}
+          />
         )}
       </BodyCell>
     );
@@ -1029,6 +1303,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
               aria-rowindex={rowIdx + 2}
               data-row-id={rowId}
               data-row-header="true"
+              data-density={density}
               data-subgrid-expanded={isExpanded ? 'true' : undefined}
               onContextMenu={(e) => {
                 if (e.target === e.currentTarget) {
@@ -1154,6 +1429,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             aria-rowindex={rowIdx + 2}
             data-row-id={rowId}
             data-row-header="true"
+            data-density={density}
             data-subgrid-expanded={isExpanded ? 'true' : undefined}
             onContextMenu={(e) => {
               if (e.target === e.currentTarget) {

@@ -68,3 +68,6 @@ export * from './undo-redo';
 export * from './transposed';
 // Per-column search indexing: prefix trie, builders, and the IndexedDB persistence adapter.
 export * from './search-index';
+// Cell text overflow policy vocabulary + default policy resolver and middle-truncation helper.
+export type { OverflowPolicy, Density } from './overflow';
+export { truncateMiddle, truncateEnd, getDefaultOverflowPolicy } from './overflow';
