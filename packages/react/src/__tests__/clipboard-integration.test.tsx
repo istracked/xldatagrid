@@ -149,7 +149,7 @@ describe('Clipboard integration — copy', () => {
     model.select({ rowId: '1', field: 'name' });
     model.extendTo({ rowId: '2', field: 'age' });
     const range = model.getState().selection.range!;
-    // Pass explicit `false` so the assertion on `lines.length === 2` is
+    // Pass explicit `false` so the body-row count assertion below is
     // unaffected by the Feature 6 header-by-default rule for multi-row
     // ranges.
     const text = serializeRangeToText(
@@ -159,7 +159,9 @@ describe('Clipboard integration — copy', () => {
       model.getRowIds(),
       false,
     );
-    const lines = text.split('\n');
+    // Trailing LF (issue #65) introduces an empty terminal segment when
+    // split — drop it before counting body rows.
+    const lines = text.split('\n').filter(l => l.length > 0);
     expect(lines).toHaveLength(2);
     expect(lines[0]!.split('\t')).toHaveLength(2);
   });
@@ -178,7 +180,7 @@ describe('Clipboard integration — copy', () => {
       model.getRowIds(),
       false,
     );
-    expect(text).toBe('Alice\t30\nBob\t25\nCharlie\t35');
+    expect(text).toBe('Alice\t30\nBob\t25\nCharlie\t35\n');
   });
 
   it('copy includes header row when configured', () => {
@@ -210,7 +212,9 @@ describe('Clipboard integration — copy', () => {
       model.getRowIds(),
       false,
     );
-    const lines = text.split('\n');
+    // Trailing LF (issue #65) introduces an empty terminal segment when
+    // split — drop it before counting body rows.
+    const lines = text.split('\n').filter(l => l.length > 0);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toBe('Alice\t30');
   });
