@@ -1,0 +1,41 @@
+#!/usr/bin/env sh
+# Pre-push gate: run the Playwright E2E + visual-regression suite locally
+# before a push leaves the machine. This replaces the old GitHub Actions
+# E2E trigger on `pull_request` to `main` — CI only re-runs E2E on pushes
+# to `release` (see .github/workflows/e2e.yml).
+#
+# Parallelism: we opt in to PLAYWRIGHT_FULLY_PARALLEL=1 so spec files AND
+# tests within a file run concurrently using Playwright's default worker
+# count (~N/2 CPU cores). Shaves the suite from ~17 min (CI) to a few
+# minutes on a modern laptop. Tune with PLAYWRIGHT_WORKERS=<n> if needed.
+#
+# Skips:
+#   - SKIP_E2E=1 git push         → one-off bypass for doc / infra pushes.
+#   - git push --no-verify        → emergency hatch; use sparingly.
+# Both are intentional escape hatches — there is no server-side E2E gate
+# on regular branches, so abuse leaks failures into `release` PRs.
+
+set -e
+
+if [ "${SKIP_E2E:-0}" = "1" ]; then
+  echo "==> pre-push: SKIP_E2E=1 set — skipping Playwright run"
+  exit 0
+fi
+
+# Refuse to run when the Playwright browsers are missing — surfacing the
+# install step explicitly is friendlier than a cryptic Chromium error.
+if ! pnpm exec playwright --version >/dev/null 2>&1; then
+  echo "ERROR: @playwright/test is not installed. Run 'pnpm install' first." >&2
+  exit 1
+fi
+
+if [ ! -d "$HOME/.cache/ms-playwright" ] && [ ! -d "$HOME/Library/Caches/ms-playwright" ]; then
+  echo "ERROR: Playwright browsers not installed." >&2
+  echo "       Run: pnpm run test:e2e:install" >&2
+  exit 1
+fi
+
+echo "==> pre-push: running Playwright E2E (parallel)"
+PLAYWRIGHT_FULLY_PARALLEL=1 pnpm exec playwright test
+
+echo "==> pre-push: E2E passed"

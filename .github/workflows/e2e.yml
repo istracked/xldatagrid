@@ -2,10 +2,19 @@ name: E2E + Visual Regression
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ release ]
   pull_request:
-    branches: [ main ]
+    branches: [ release ]
+  # Manual re-run hatch for the rare case where a `main` PR needs a
+  # remote E2E sanity check before cutting a release branch.
+  workflow_dispatch:
 
+# E2E is NOT gated on pull_request to `main` anymore. Developers run the
+# same suite locally via the `.husky/pre-push` hook (parallelised across
+# CPU cores), which catches 99% of regressions before they reach the
+# remote. Only PRs targeting the `release` branch re-run E2E on GitHub's
+# runners — those are the commits about to ship to production.
+#
 # Two jobs: `playwright` for headless end-to-end coverage of the grid,
 # and `chromatic` for visual-regression snapshots of every story.
 #
@@ -16,9 +25,9 @@ on:
 # so baseline updates are never merge-blocking; reviewers accept/reject
 # changes through the Chromatic web UI.
 #
-# Add `playwright / e2e` to the branch-protection required checks on `main`
-# once this workflow has a passing run. The existing `verify-precommit-parity`
-# check stays in place; this is additive.
+# Add `playwright / e2e` to the branch-protection required checks on
+# `release` once this workflow has a passing run. `main` no longer
+# requires it.
 jobs:
   playwright:
     name: e2e

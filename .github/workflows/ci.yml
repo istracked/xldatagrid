@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 # The `verify-precommit-parity` job below runs EXACTLY what the local
-# pre-commit hook at `.git/hooks/pre-commit` runs (typecheck + build +
+# pre-commit hook at `.husky/pre-commit` runs (typecheck + build +
 # vitest). This makes `git commit --no-verify` useless in practice: CI
 # re-runs the same three checks on every PR and every push to protected
 # branches, so bypassing the hook only delays the failure.
@@ -17,6 +17,11 @@ on:
 #   Settings -> Branches -> Branch protection rules -> main ->
 #   "Require status checks to pass before merging" and select
 #   `verify-precommit-parity / verify`.
+#
+# NOTE: E2E (Playwright) lives in `.github/workflows/e2e.yml` and is
+# only triggered on pushes / PRs to the `release` branch. Regular `main`
+# PRs rely on the `.husky/pre-push` hook for local E2E coverage, which
+# keeps merge latency low while still guarding the release cut.
 #
 # Additional guards in the same job:
 #   * `pnpm tokens:check` — fails if `packages/react/src/styles/tokens/`
@@ -50,7 +55,7 @@ jobs:
       run: pnpm install --frozen-lockfile
 
     # Pre-commit-hook parity: the three commands below MUST stay in sync
-    # with `.git/hooks/pre-commit`. If you change one, change the other.
+    # with `.husky/pre-commit`. If you change one, change the other.
     - name: Type check (pre-commit parity)
       run: pnpm run typecheck
 
