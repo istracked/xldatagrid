@@ -29,6 +29,11 @@
  * @module DataGrid
  */
 import React, { useRef, useCallback, useState, useEffect, useId, useMemo } from 'react';
+// Side-effect CSS import: the theme layer defines `--dg-*` tokens (scoped to
+// `.istracked-datagrid[data-theme="..."]`) plus the `data-row-selected`
+// header-darken rule. Without this import the CSS lives on disk but never
+// reaches the DOM, and host pages see inline-style fallbacks only.
+import './styles/datagrid-theme.css';
 import {
   GridConfig,
   ColumnDef,
@@ -556,6 +561,27 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     [state.selection, orderedVisibleColumns, rowIds],
   );
 
+  // Grid-level "any row is fully selected?" signal. When true, the root
+  // element is tagged `data-row-selected="true"` so CSS can darken column
+  // headers (#75) and surfaces outside the body can react without threading
+  // selection state through every child. A range counts as row-level when
+  // it is tagged `kind: 'row'` OR when it spans every visible column
+  // (fallback for `selectionMode: 'row'` cell clicks that widen the range).
+  const hasRowSelection = useMemo(() => {
+    if (orderedVisibleColumns.length === 0) return false;
+    for (const r of state.selection.ranges) {
+      if (r.kind === 'row') return true;
+      // Fallback: a range that covers from the first visible column's field
+      // to the last visible column's field, regardless of row span.
+      const firstField = orderedVisibleColumns[0]?.field;
+      const lastField = orderedVisibleColumns[orderedVisibleColumns.length - 1]?.field;
+      if (firstField === undefined || lastField === undefined) continue;
+      const fields = new Set([r.anchor.field, r.focus.field]);
+      if (fields.has(firstField) && fields.has(lastField)) return true;
+    }
+    return false;
+  }, [state.selection.ranges, orderedVisibleColumns]);
+
   const isEditingCell = useCallback((rowId: string, field: string): boolean => {
     const cell = state.editing.cell;
     return cell !== null && cell.rowId === rowId && cell.field === field;
@@ -888,6 +914,12 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
     } else {
       model.selectRowByKey(rowId);
     }
+    // Refocus the grid container so the keyboard handler's scope guard
+    // (`container.contains(e.target)`) passes on the next keystroke — without
+    // this, pressing Escape after a row-number click is a no-op because the
+    // click target (the chrome cell) is inside the container but focus never
+    // moves there; keystrokes land on `<body>` and are discarded.
+    containerRef.current?.focus({ preventScroll: true });
   }, [model]);
 
   const [rowDragState, setRowDragState] = useState<{ sourceRowId: string; sourceIndex: number } | null>(null);
@@ -1267,6 +1299,7 @@ export function DataGrid<TData extends Record<string, unknown>>(props: DataGridP
         aria-labelledby={ariaLabelledBy}
         data-density={density}
         {...(themeId ? { 'data-theme': themeId } : {})}
+        {...(hasRowSelection ? { 'data-row-selected': 'true' } : {})}
         {...(isReadOnly ? { 'data-readonly': 'true' } : {})}
         {...(showGhostRow ? { 'data-ghost-row': 'true' } : {})}
         {...(fileDropEnabled ? { 'data-file-drop': 'true' } : {})}

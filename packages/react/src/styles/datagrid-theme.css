@@ -36,6 +36,10 @@
   --dg-selection-border: #3B82F6;
   --dg-selection-color: #DBEAFE;
   --dg-hover-bg: #F1F5F9;
+  --dg-row-number-bg: #E2E8F0;
+  --dg-row-number-selected-bg: rgba(96, 165, 250, 0.5);
+  --dg-row-selected-bg: rgba(59, 130, 246, 0.28);
+  --dg-header-selected-bg: #CBD5E1;
   --dg-error-color: #EF4444;
   --dg-cell-padding: 0 12px;
   --dg-font-family: system-ui, sans-serif;
@@ -57,7 +61,11 @@
  * root cause of issue #17's "row bg unchanged" bug.
  */
 .istracked-datagrid[data-theme="dark"],
-.istracked-datagrid.dg-theme-dark {
+.istracked-datagrid.dg-theme-dark,
+/* Allow an ancestor (html/body) `data-theme="dark"` to cascade into an
+ * otherwise-unthemed grid instance. This lets a host app toggle dark mode at
+ * the document level without threading `theme="dark"` through every grid. */
+[data-theme="dark"] .istracked-datagrid:not([data-theme="light"]):not(.dg-theme-light) {
   --dg-primary-color: #62A0EA;
   --dg-bg-color: #0F172A;
   --dg-text-color: #F1F5F9;
@@ -76,6 +84,9 @@
   --dg-selection-color: #1E3A8A;
   --dg-hover-bg: #1E293B;
   --dg-row-number-bg: #1E293B;
+  --dg-row-number-selected-bg: rgba(96, 165, 250, 0.45);
+  --dg-row-selected-bg: rgba(59, 130, 246, 0.38);
+  --dg-header-selected-bg: #475569;
   --dg-error-color: #EF4444;
   --dg-cell-padding: 0 12px;
   --dg-font-family: system-ui, sans-serif;
@@ -83,3 +94,16 @@
   --dg-row-height: 36px;
   color-scheme: dark;
 }
+
+/* Row-select visual state (#75).
+ *
+ * When any row is fully selected the grid root carries `data-row-selected="true"`.
+ * In that state every column header is repainted with the "selected"
+ * header background token — in light mode that's one step darker than the
+ * resting header, in dark mode one step brighter. `!important` is needed
+ * because the header cell factory already sets `background` inline via
+ * `CSSProperties`, which would otherwise win over plain stylesheet rules. */
+.istracked-datagrid[data-row-selected="true"] [role="columnheader"] {
+  background: var(--dg-header-selected-bg, #CBD5E1) !important;
+}
+

@@ -119,9 +119,17 @@ export const actionButtonIcon: CSSProperties = {
 
 /**
  * Body-row row-number cell. Centered digit with the Excel-gutter background
- * token `--dg-row-number-bg` that falls back to `--dg-header-bg` when the
- * token is not defined. Does not apply sticky positioning by itself — callers
- * opt into sticky via the `stickyLeft` prop on `ChromeRowNumberCell`.
+ * token `--dg-row-number-bg` that falls back to a grey that is visibly darker
+ * than the default row background (`--dg-row-bg` / `#ffffff`). Without the
+ * darker fallback the gutter would paint the same colour as the adjacent
+ * data cell on un-themed hosts, breaking the "gutter frames the data" visual
+ * contract (#70). Does not apply sticky positioning by itself — callers opt
+ * into sticky via the `stickyLeft` prop on `ChromeRowNumberCell`.
+ *
+ * The `cursor: 'e-resize'` communicates "click to select this row" — a
+ * non-default token the hover cursor spec (#74) requires. `e-resize` is a
+ * right-pointing-arrow shape in most environments, mirroring the Excel
+ * row-header affordance.
  */
 export const rowNumberCell = (width: number, height: number): CSSProperties => ({
   // Locked track width.
@@ -136,12 +144,17 @@ export const rowNumberCell = (width: number, height: number): CSSProperties => (
   borderLeft: '1px solid var(--dg-border-color, #e2e8f0)',
   boxSizing: 'border-box',
   // Clickable for row selection; disable text selection so drag works cleanly.
-  cursor: 'pointer',
+  // `e-resize` is a right-pointing-arrow in most cursor themes and communicates
+  // "select this row" per #74.
+  cursor: 'e-resize',
   userSelect: 'none',
   fontSize: 12,
   color: 'var(--dg-text-color, #64748b)',
-  // Excel-gutter tint via token with fallback to the header background.
-  background: 'var(--dg-row-number-bg, var(--dg-header-bg))',
+  // Excel-gutter tint via token. The fallback must be darker than the default
+  // row background (white / `--dg-row-bg-alt`) so the gutter reads as a
+  // distinct frame. `#e2e8f0` is one step darker than the header bg and
+  // noticeably darker than the row-alt shade.
+  background: 'var(--dg-row-number-bg, #e2e8f0)',
 });
 
 /**
@@ -162,7 +175,7 @@ export const rowNumberHeaderCell = (width: number, height: number): CSSPropertie
   borderLeft: '1px solid var(--dg-border-color, #e2e8f0)',
   boxSizing: 'border-box',
   // Same token chain as the body cell for a seamless gutter.
-  background: 'var(--dg-row-number-bg, var(--dg-header-bg))',
+  background: 'var(--dg-row-number-bg, #e2e8f0)',
   fontSize: 12,
   fontWeight: 600,
   color: 'var(--dg-text-color, #64748b)',
@@ -201,9 +214,17 @@ export const rowNumberDragging: CSSProperties = {
 /**
  * Visual overlay applied to a row-number cell whose row is selected. Merged on
  * top of `rowNumberCell` so it wins the background cascade.
+ *
+ * The fallback is a semi-transparent blue (alpha 0.5) so the gutter reads as
+ * "selected" without fully hiding the underlying grey — and so that data-cell
+ * selection tint in the adjacent row can be painted darker (see #75). The
+ * `--dg-row-number-selected-bg` token lets themes override independently of
+ * `--dg-selection-color`, which is used for non-row-selection highlights.
  */
 export const rowNumberSelected: CSSProperties = {
-  // Selection-tinted fill and bolder digit for the selected row.
-  background: 'var(--dg-selection-color, #dbeafe)',
+  // Selection-tinted fill and bolder digit for the selected row. The default
+  // is an explicit `rgba(...)` so the alpha satisfies the "semi-transparent"
+  // contract in #75 even when no theme token is defined.
+  background: 'var(--dg-row-number-selected-bg, rgba(96, 165, 250, 0.5))',
   fontWeight: 600,
 };

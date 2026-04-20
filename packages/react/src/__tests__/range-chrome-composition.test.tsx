@@ -86,22 +86,32 @@ describe('range styling routes through the chrome-API plumbing', () => {
     expect(getCell('1', 'b').style.background).toContain('--dg-range-bg');
   });
 
-  it('leaves cells outside the range with no cell-level background override', () => {
+  it('leaves cells outside the range with no range tint (paints the row-resting token as fallback)', () => {
     renderGrid();
     fireEvent.click(getCell('1', 'a'));
     fireEvent.keyDown(getGrid(), { key: 'ArrowRight', shiftKey: true });
 
-    // Out-of-range cell: cell is transparent so the row container's
-    // background (zebra stripe / consumer colour) shows through.
-    expect(getCell('2', 'c').style.background).toBe('');
+    // Out-of-range cell: no range tint is applied. The cell paints the
+    // row-level resting token (`--dg-row-bg` / `--dg-row-bg-alt`) so that
+    // `getComputedStyle(cell).backgroundColor` resolves to a concrete
+    // colour — required by the #70 row-number vs data luminance probe.
+    // The visible colour is identical to the row container's resting
+    // token, so the user still sees a seamless zebra stripe.
+    const bg = getCell('2', 'c').style.background;
+    expect(bg).not.toContain('--dg-range-bg');
+    expect(bg).toMatch(/--dg-row-bg/);
   });
 
   it('single-cell selection does NOT apply the range tint (visual unchanged for default consumers)', () => {
     renderGrid();
     fireEvent.click(getCell('2', 'b'));
-    // No Shift+Arrow — single-cell selection only. Cell should remain
-    // transparent (outline-only visual, matching pre-refactor behaviour).
-    expect(getCell('2', 'b').style.background).toBe('');
+    // No Shift+Arrow — single-cell selection only. No range tint; the cell
+    // falls back to the row-resting token so computed-style probes resolve
+    // to a concrete colour. Visually identical to the row container's
+    // resting zebra stripe.
+    const bg = getCell('2', 'b').style.background;
+    expect(bg).not.toContain('--dg-range-bg');
+    expect(bg).toMatch(/--dg-row-bg/);
   });
 
   it('composes with a consumer getRowBackground: row bg on container, range tint overlays on cells', () => {
