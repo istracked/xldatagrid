@@ -59,7 +59,7 @@ test.describe('RichText cell – floating formatting menu (Feature A)', () => {
     await page.locator('[role="grid"]').first().waitFor({ state: 'visible' });
   });
 
-  test('toolbar renders at document root via portal, not as a descendant of the cell', async ({ page }) => {
+  test('toolbar renders at document root via portal, not as a descendant of the cell (#9)', async ({ page }) => {
     const cell = richTextCell(page, '1');
     await expect(cell).toBeVisible();
     await enterEditMode(cell);
@@ -84,7 +84,7 @@ test.describe('RichText cell – floating formatting menu (Feature A)', () => {
     ).toBe(false);
   });
 
-  test('cell near viewport top flips the menu to `data-placement="below"`', async ({ page }) => {
+  test('cell near viewport top flips the menu to `data-placement="below"` (#9)', async ({ page }) => {
     const cell = richTextCell(page, '1');
     await expect(cell).toBeVisible();
 
@@ -105,7 +105,7 @@ test.describe('RichText cell – "Show formatting" toggle (Feature B)', () => {
     await page.locator('[role="grid"]').first().waitFor({ state: 'visible' });
   });
 
-  test('toggle ON shows raw `**` delimiters alongside the rendered <strong>', async ({ page }) => {
+  test('toggle ON shows raw `**` delimiters alongside the rendered <strong> (#9)', async ({ page }) => {
     const cell = richTextCell(page, '1');
     await expect(cell).toBeVisible();
     await enterEditMode(cell);
@@ -141,7 +141,7 @@ test.describe('RichText cell – "Show formatting" toggle (Feature B)', () => {
     ).toBeGreaterThan(0);
   });
 
-  test('toggle OFF hides the `**` delimiters but keeps the <strong> rendering', async ({ page }) => {
+  test('toggle OFF hides the `**` delimiters but keeps the <strong> rendering (#9)', async ({ page }) => {
     const cell = richTextCell(page, '1');
     await expect(cell).toBeVisible();
     await enterEditMode(cell);

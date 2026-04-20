@@ -86,7 +86,7 @@ test.describe('Validation tooltip — portal + severity styling', () => {
     await waitForGrid(page);
   });
 
-  test('error-severity: portal tooltip exists with a red background and an error icon', async ({ page }) => {
+  test('error-severity: portal tooltip exists with a red background and an error icon (#65)', async ({ page }) => {
     // Row 1 / email — story wires an error-severity "invalid email" validator.
     await commit(page, '1', 'email', 'not-an-email');
 
@@ -114,7 +114,7 @@ test.describe('Validation tooltip — portal + severity styling', () => {
     await expect(cell.locator('[role="alert"]')).toHaveCount(0);
   });
 
-  test('warning-severity: tooltip background in the yellow family with a warning icon', async ({ page }) => {
+  test('warning-severity: tooltip background in the yellow family with a warning icon (#65)', async ({ page }) => {
     // The story's `name` column has a warning-severity rule ("letters only");
     // entering digits triggers it without failing the error-severity rule.
     await commit(page, '1', 'name', 'Alice99');
@@ -130,7 +130,7 @@ test.describe('Validation tooltip — portal + severity styling', () => {
     await expect(tip.locator('[data-icon="warning"]')).toHaveCount(1);
   });
 
-  test('two validators (error + warning): both messages listed, error first', async ({ page }) => {
+  test('two validators (error + warning): both messages listed, error first (#65)', async ({ page }) => {
     // The story's `name` column has two validators: minLength (error) and
     // letters-only (warning). An empty-then-digit value fires both: empty
     // hits minLength as error; "1" also contains a digit as warning. To hit
@@ -157,7 +157,7 @@ test.describe('Validation tooltip — portal + severity styling', () => {
     expect(severities).toEqual(['error', 'warning']);
   });
 
-  test('no inline validation message is rendered inside an invalid cell', async ({ page }) => {
+  test('no inline validation message is rendered inside an invalid cell (#65)', async ({ page }) => {
     await commit(page, '1', 'email', 'bad');
 
     const cell = page.locator('[role="gridcell"][data-row-id="1"][data-field="email"]').first();
