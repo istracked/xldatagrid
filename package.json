@@ -25,7 +25,8 @@
     "docs:open": "typedoc && open docs/index.html",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium",
-    "chromatic": "chromatic --exit-zero-on-changes"
+    "chromatic": "chromatic --exit-zero-on-changes",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^5.1.2",
@@ -51,6 +52,7 @@
     "eslint-plugin-storybook": "^10.3.5",
     "fake-indexeddb": "^6.0.1",
     "fast-check": "^3.22.0",
+    "husky": "^9.1.7",
     "jsdom": "~25.0.1",
     "playwright": "^1.59.1",
     "prettier": "~3.4.2",
