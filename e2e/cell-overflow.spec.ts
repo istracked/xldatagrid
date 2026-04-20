@@ -37,7 +37,7 @@ test.describe('Cell overflow — policies, reveal, density, a11y', () => {
     await waitForGrid(page);
   });
 
-  test('asset_name cell renders as truncate-end with a trailing ellipsis', async ({ page }) => {
+  test('asset_name cell renders as truncate-end with a trailing ellipsis (#63)', async ({ page }) => {
     const cell = page
       .locator('[role="gridcell"][data-field="asset_name"]')
       .first();
@@ -50,7 +50,7 @@ test.describe('Cell overflow — policies, reveal, density, a11y', () => {
     expect(text.endsWith('\u2026')).toBe(true);
   });
 
-  test('asset_tag cell renders with middle-ellipsis truncation', async ({ page }) => {
+  test('asset_tag cell renders with middle-ellipsis truncation (#63)', async ({ page }) => {
     const cell = page
       .locator('[role="gridcell"][data-field="asset_tag"]')
       .first();
@@ -62,7 +62,7 @@ test.describe('Cell overflow — policies, reveal, density, a11y', () => {
     expect(idx).toBeLessThan(text.length - 1);
   });
 
-  test('hovering a truncated cell shows the FULL raw value in a portaled tooltip', async ({ page }) => {
+  test('hovering a truncated cell shows the FULL raw value in a portaled tooltip (#63)', async ({ page }) => {
     const cell = page
       .locator('[role="gridcell"][data-field="asset_name"]')
       .first();
@@ -98,7 +98,7 @@ test.describe('Cell overflow — policies, reveal, density, a11y', () => {
     expect(cellContainsTooltip).toBe(false);
   });
 
-  test('density-toggle button flips the grid root between compact and comfortable', async ({ page }) => {
+  test('density-toggle button flips the grid root between compact and comfortable (#63)', async ({ page }) => {
     const grid = page.locator('[role="grid"]').first();
     const toggle = page.locator('[data-testid="density-toggle"]');
     await expect(toggle).toBeVisible();
@@ -114,7 +114,7 @@ test.describe('Cell overflow — policies, reveal, density, a11y', () => {
     await expect(grid).toHaveAttribute('data-density', initial ?? 'compact');
   });
 
-  test('tabbing to a truncated cell opens the tooltip after the hover delay', async ({ page }) => {
+  test('tabbing to a truncated cell opens the tooltip after the hover delay (#63)', async ({ page }) => {
     // Tab past the toggle button and into the grid cells. Exact Tab count
     // depends on the story's header chrome; the assertion is that a cell
     // receives focus and its associated tooltip becomes visible.
@@ -131,7 +131,7 @@ test.describe('Cell overflow — policies, reveal, density, a11y', () => {
     await expect(tooltip).toBeVisible();
   });
 
-  test('double-clicking a truncated cell reveals the raw value in the edit input', async ({ page }) => {
+  test('double-clicking a truncated cell reveals the raw value in the edit input (#63)', async ({ page }) => {
     const cell = page
       .locator('[role="gridcell"][data-field="asset_name"]')
       .first();
