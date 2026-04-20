@@ -43,7 +43,11 @@ describe('MuiRichTextCell', () => {
 
   it('shows contenteditable surface seeded with the markdown source in edit mode', () => {
     render(<MuiRichTextCell {...makeProps({ isEditing: true, value: '*hi*' })} />);
-    const editor = screen.getByRole('textbox');
+    // Two textbox-role elements live in edit mode: the contenteditable
+    // (visual editor) and the textarea (raw-markdown mirror that the
+    // XSS-hardening e2e contract drives via `fill()`). Scope to the
+    // contenteditable by aria-label.
+    const editor = screen.getByLabelText('Markdown editor');
     expect(editor).toBeInTheDocument();
     // Toggle is OFF by default, so the visible text strips delimiters; the
     // raw markdown is still carried forward as the commit value — see the
@@ -54,13 +58,26 @@ describe('MuiRichTextCell', () => {
   it('commits draft markdown on blur', () => {
     const onCommit = vi.fn();
     render(<MuiRichTextCell {...makeProps({ isEditing: true, value: '', onCommit })} />);
-    const editor = screen.getByRole('textbox');
+    const editor = screen.getByLabelText('Markdown editor');
     // Simulate native `input` — contenteditable's user-typed characters
     // propagate via the input event's `currentTarget.textContent`.
     editor.textContent = '**done**';
     fireEvent.input(editor, { target: { textContent: '**done**' } });
     fireEvent.blur(editor);
     expect(onCommit).toHaveBeenCalledWith('**done**');
+  });
+
+  it('exposes a raw-markdown textarea mirror that commits its value on blur', () => {
+    const onCommit = vi.fn();
+    render(<MuiRichTextCell {...makeProps({ isEditing: true, value: '', onCommit })} />);
+    // The textarea is the canonical raw source of truth — XSS hardening
+    // (`grid-xss.spec.ts`) fills hostile payloads here and asserts the
+    // committed render is sanitised.
+    const textarea = screen.getByLabelText('Markdown source') as HTMLTextAreaElement;
+    expect(textarea.tagName).toBe('TEXTAREA');
+    fireEvent.change(textarea, { target: { value: '**raw**' } });
+    fireEvent.blur(textarea);
+    expect(onCommit).toHaveBeenCalledWith('**raw**');
   });
 
   it('does not render any upload UI', () => {
