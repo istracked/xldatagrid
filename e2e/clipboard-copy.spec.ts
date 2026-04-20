@@ -58,7 +58,7 @@ test.describe('Clipboard copy — dual flavor ClipboardItem', () => {
     await waitForGrid(page);
   });
 
-  test('multi-cell selection + Ctrl+C writes both text/plain TSV and text/html <table>', async ({ page }) => {
+  test('multi-cell selection + Ctrl+C writes both text/plain TSV and text/html <table> (#65)', async ({ page }) => {
     // Click the anchor cell, then shift-click the focus cell to build a
     // 2x2 range. Field names come from `defaultColumns` in stories/data.ts.
     const anchor = page
@@ -96,7 +96,7 @@ test.describe('Clipboard copy — dual flavor ClipboardItem', () => {
     expect(clip.html.toLowerCase()).toContain('<td');
   });
 
-  test('clipboard read round-trips each row as its own <tr>', async ({ page }) => {
+  test('clipboard read round-trips each row as its own <tr> (#65)', async ({ page }) => {
     // Select two rows × one column.
     const cell = page
       .locator('[role="gridcell"][data-row-id="1"]')

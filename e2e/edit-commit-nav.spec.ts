@@ -67,7 +67,7 @@ for (const { label, url } of STORY_URLS) {
     // -----------------------------------------------------------------------
     // Enter → commit + move DOWN
     // -----------------------------------------------------------------------
-    test('Enter commits typed value and moves selection DOWN one row', async ({ page }) => {
+    test('Enter commits typed value and moves selection DOWN one row (#65)', async ({ page }) => {
       const target = cell(page, '2', 'name');
       const input = await beginEdit(target);
 
@@ -88,7 +88,7 @@ for (const { label, url } of STORY_URLS) {
     // -----------------------------------------------------------------------
     // Tab → commit + move RIGHT
     // -----------------------------------------------------------------------
-    test('Tab commits typed value and moves selection RIGHT one cell', async ({ page }) => {
+    test('Tab commits typed value and moves selection RIGHT one cell (#65)', async ({ page }) => {
       const target = cell(page, '2', 'name');
       const input = await beginEdit(target);
 
@@ -108,7 +108,7 @@ for (const { label, url } of STORY_URLS) {
     // -----------------------------------------------------------------------
     // Escape → cancel + STAY
     // -----------------------------------------------------------------------
-    test('Escape discards the draft and keeps selection on the same cell', async ({ page }) => {
+    test('Escape discards the draft and keeps selection on the same cell (#65)', async ({ page }) => {
       const target = cell(page, '2', 'name');
       const originalText = (await target.innerText()).trim();
 
@@ -133,7 +133,7 @@ for (const { label, url } of STORY_URLS) {
     // the editor's `stopPropagation` / stale `editing.cell` state blocks
     // plain arrow navigation from running after an edit commits.
     // -----------------------------------------------------------------------
-    test('ArrowRight after Enter commit moves selection one more cell to the right', async ({ page }) => {
+    test('ArrowRight after Enter commit moves selection one more cell to the right (#65)', async ({ page }) => {
       const target = cell(page, '2', 'name');
       const input = await beginEdit(target);
 
