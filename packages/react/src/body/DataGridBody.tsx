@@ -822,7 +822,7 @@ export function DataGridBody<TData extends Record<string, unknown>>(
             isEditing={editing}
             gridId={gridId}
             rowId={rowId}
-            onCommit={v => {
+            onCommit={(v, advance) => {
               const vResults = validateCell(col, v, rowId, row);
               const severe = mostSevere(vResults);
               if (severe && severe.severity === 'error') {
@@ -834,6 +834,21 @@ export function DataGridBody<TData extends Record<string, unknown>>(
               model.setCellValue(cellAddr, v);
               model.cancelEdit();
               onCellEdit?.(rowId, col.field, v, value);
+              // Excel-365 commit-and-advance: Enter → DOWN, Tab → RIGHT.
+              // Stay at edges rather than wrap. Matches the default inline
+              // <input> path below and the unit test contract in
+              // `edit-commit-nav.test.tsx`.
+              if (advance === 'down') {
+                const nextRowId = rowIds[rowIdx + 1];
+                if (nextRowId != null) {
+                  model.select({ rowId: nextRowId, field: col.field });
+                }
+              } else if (advance === 'right') {
+                const nextCol = orderedVisibleColumns[colIdx + 1];
+                if (nextCol) {
+                  model.select({ rowId, field: nextCol.field });
+                }
+              }
             }}
             onCancel={() => model.cancelEdit()}
           />
