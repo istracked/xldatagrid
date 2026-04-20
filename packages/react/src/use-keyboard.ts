@@ -214,7 +214,10 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         if (!current) {
           e.preventDefault();
           const first = getFirstCell(columns, rowIds);
-          if (first) model.select(first);
+          if (first) {
+            model.select(first);
+            focusCellDom(container, first);
+          }
           return;
         }
         const next = e.shiftKey
@@ -223,6 +226,7 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         if (next) {
           e.preventDefault();
           model.select(next);
+          focusCellDom(container, next);
         }
         break;
       }
@@ -438,8 +442,12 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         break;
       }
       // --- Ctrl+A: select all cells ---
+      // Must NOT fire while an editor input has focus — otherwise
+      // Ctrl+A in the inline editor is swallowed by the grid and the
+      // user can't select-all-text to replace it. Matches the Ctrl+C /
+      // Ctrl+V / Ctrl+X gating below.
       case 'a': {
-        if (e.ctrlKey || e.metaKey) {
+        if ((e.ctrlKey || e.metaKey) && !editing.cell) {
           e.preventDefault();
           model.selectAllCells();
         }
@@ -592,6 +600,21 @@ function isEditorTarget(target: EventTarget | null): boolean {
   if (target instanceof HTMLTextAreaElement) return true;
   if (target instanceof HTMLElement && target.isContentEditable) return true;
   return false;
+}
+
+/**
+ * Moves DOM focus onto the grid cell identified by `addr`. The model-level
+ * selection change alone doesn't shift focus, so keyboard-only users never
+ * trigger `onFocus`-driven affordances (notably the hover-tooltip reveal for
+ * truncated text). Looking the cell up by its stable `data-row-id` +
+ * `data-field` attributes inside `container` lets us keep focus coherent
+ * without threading refs through every render layer.
+ */
+function focusCellDom(container: HTMLElement | null, addr: CellAddress): void {
+  if (!container) return;
+  const sel = `[role="gridcell"][data-row-id="${CSS.escape(String(addr.rowId))}"][data-field="${CSS.escape(addr.field)}"]`;
+  const cell = container.querySelector<HTMLElement>(sel);
+  cell?.focus();
 }
 
 /**

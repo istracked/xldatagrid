@@ -42,7 +42,7 @@ test.describe('Basic Grid – keyboard navigation', () => {
     await page.locator('[role="grid"]').first().waitFor({ state: 'visible' });
   });
 
-  test('ArrowDown moves selection down one row', async ({ page }) => {
+  test('ArrowDown moves selection down one row (#16)', async ({ page }) => {
     const first = cell(page, '1', 'name');
     await first.click();
     await expect(first).toHaveAttribute('aria-selected', 'true');
@@ -57,7 +57,7 @@ test.describe('Basic Grid – keyboard navigation', () => {
     await expect(first).toHaveAttribute('aria-selected', 'false');
   });
 
-  test('Enter enters edit mode and a second Enter commits the new value', async ({ page }) => {
+  test('Enter enters edit mode and a second Enter commits the new value (#16)', async ({ page }) => {
     const target = cell(page, '3', 'name');
     await target.click();
     await expect(target).toHaveAttribute('aria-selected', 'true');
@@ -83,7 +83,7 @@ test.describe('Basic Grid – keyboard navigation', () => {
     expect(newValue).not.toBe(originalText);
   });
 
-  test('Escape cancels the edit and preserves the original value', async ({ page }) => {
+  test('Escape cancels the edit and preserves the original value (#16)', async ({ page }) => {
     const target = cell(page, '5', 'name');
     await target.click();
     await expect(target).toHaveAttribute('aria-selected', 'true');
@@ -105,7 +105,7 @@ test.describe('Basic Grid – keyboard navigation', () => {
     await expect(target).not.toContainText('garbage-should-not-commit');
   });
 
-  test('Tab commits the draft value (Enter-parity per issue #10)', async ({ page }) => {
+  test('Tab commits the draft value (Enter-parity per issue #10) (#16)', async ({ page }) => {
     const target = cell(page, '7', 'name');
     await target.click();
     await expect(target).toHaveAttribute('aria-selected', 'true');

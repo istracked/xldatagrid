@@ -42,7 +42,7 @@ test.describe('Inline Editing – editor padding matches cell padding (Excel-365
     await page.locator('[role="grid"]').first().waitFor({ state: 'visible' });
   });
 
-  test('first glyph X position does not shift on enter-edit (≤ 1px delta)', async ({ page }) => {
+  test('first glyph X position does not shift on enter-edit (≤ 1px delta) (#65)', async ({ page }) => {
     const target = cell(page, '1', 'name');
     await target.click();
     await expect(target).toHaveAttribute('aria-selected', 'true');
@@ -85,7 +85,7 @@ test.describe('Inline Editing – editor padding matches cell padding (Excel-365
     expect(Math.abs(postEditLeft - preEditLeft)).toBeLessThanOrEqual(1);
   });
 
-  test('input padding / font-size / line-height match the cell pixel-for-pixel', async ({ page }) => {
+  test('input padding / font-size / line-height match the cell pixel-for-pixel (#65)', async ({ page }) => {
     const target = cell(page, '1', 'name');
     await target.click();
 
@@ -133,7 +133,7 @@ test.describe('Inline Editing – editor padding matches cell padding (Excel-365
     expect(inputMetrics.lineHeight).toBe(cellMetrics.lineHeight);
   });
 
-  test('input is not visually shorter/taller than the cell (height delta ≤ 1px)', async ({ page }) => {
+  test('input is not visually shorter/taller than the cell (height delta ≤ 1px) (#65)', async ({ page }) => {
     const target = cell(page, '2', 'name');
     await target.click();
     const cellHeight = await target.evaluate(

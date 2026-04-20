@@ -34,7 +34,7 @@ test.describe('Hover tooltip — portal + viewport clamping', () => {
     await waitForGrid(page);
   });
 
-  test('hovering a cell shows a portaled role="tooltip" with its text content', async ({ page }) => {
+  test('hovering a cell shows a portaled role="tooltip" with its text content (#65)', async ({ page }) => {
     // Pick the first visible data cell in the "Text" column.
     const cell = page
       .locator('[role="gridcell"][data-field="text"]')
@@ -74,7 +74,7 @@ test.describe('Hover tooltip — portal + viewport clamping', () => {
     expect(cellContainsTooltip).toBe(false);
   });
 
-  test('tooltip stays inside the viewport (viewport-edge clamping)', async ({ page }) => {
+  test('tooltip stays inside the viewport (viewport-edge clamping) (#65)', async ({ page }) => {
     // Hover the rightmost visible cell in the first row so the tooltip
     // has a strong chance of overflowing right-edge without clamping.
     const row = page.locator('[role="row"][data-row-id="1"]').first();

@@ -28,8 +28,12 @@ interface TextCellProps<TData = Record<string, unknown>> {
   rowIndex: number;
   /** Whether the cell is currently in inline-edit mode. */
   isEditing: boolean;
-  /** Callback to persist the edited value back to the data source. */
-  onCommit: (value: CellValue) => void;
+  /**
+   * Callback to persist the edited value back to the data source. Optional
+   * `advance` encodes Excel-365 commit-and-move intent: `'down'` for Enter,
+   * `'right'` for Tab, `undefined` for blur commits.
+   */
+  onCommit: (value: CellValue, advance?: 'down' | 'right') => void;
   /** Callback to discard the current edit and exit edit mode. */
   onCancel: () => void;
 }
@@ -116,11 +120,12 @@ export const TextCell = React.memo(function TextCell<TData = Record<string, unkn
   /**
    * Commits on Enter (single-line only), commits on Tab, cancels on Escape.
    *
-   * Issue #10: Enter and Tab both commit-and-stay — the cell exits edit mode
-   * but selection remains on the same cell. `preventDefault` suppresses the
-   * browser's Tab-focus-advance, and `stopPropagation` prevents the
-   * grid-level keyboard handler from re-entering edit mode (Enter) or moving
-   * selection to the adjacent cell (Tab).
+   * Excel-365 commit-and-advance: Enter commits the draft and advances
+   * selection DOWN one row; Tab commits and advances RIGHT one column. At
+   * the grid edge the selection stays put. `preventDefault` suppresses the
+   * browser's Tab-focus-advance, and `stopPropagation` keeps the grid-level
+   * keyboard handler from observing the same Enter/Tab twice (the advance
+   * is already applied by the `onCommit` consumer).
    */
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Guard: ignore Enter/Tab while an IME candidate window is open.
@@ -129,11 +134,11 @@ export const TextCell = React.memo(function TextCell<TData = Record<string, unkn
     if (e.key === 'Enter' && !column.format?.includes('multiline')) {
       e.preventDefault();
       e.stopPropagation();
-      onCommit(draft);
+      onCommit(draft, 'down');
     } else if (e.key === 'Tab') {
       e.preventDefault();
       e.stopPropagation();
-      onCommit(draft);
+      onCommit(draft, 'right');
     } else if (e.key === 'Escape') {
       handleCancel();
     }
@@ -157,11 +162,12 @@ export const TextCell = React.memo(function TextCell<TData = Record<string, unkn
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
           // In multiline mode Enter inserts a newline rather than committing,
-          // but Tab still commits-and-stays per issue #10. Escape cancels.
+          // but Tab commits and advances RIGHT one column per the Excel-365
+          // contract. Escape cancels.
           if (e.key === 'Tab') {
             e.preventDefault();
             e.stopPropagation();
-            onCommit(draft);
+            onCommit(draft, 'right');
           } else if (e.key === 'Escape') {
             handleCancel();
           }

@@ -1,4 +1,5 @@
 import type { Validator } from './validators';
+import type { OverflowPolicy, Density } from './overflow';
 
 /**
  * Core type definitions for the datagrid system.
@@ -294,6 +295,18 @@ export interface ColumnDef<TData = Record<string, unknown>> {
    * See `HoverTooltip` for the dismiss/delay/portal contract.
    */
   note?: string | ((row: TData) => string);
+
+  /**
+   * How this column's cells render text when the value is wider than the cell.
+   *
+   * Defaults to `getDefaultOverflowPolicy(field)` at runtime when omitted —
+   * `truncate-middle` for path-/identifier-like fields, `clamp-2` for
+   * description-like fields, `truncate-end` otherwise. Truncated and clamped
+   * cells expose the full raw value via the existing hover tooltip + edit
+   * mode, so omitting this is safe for adoption — but explicit declarations
+   * are recommended for a predictable, scannable grid.
+   */
+  overflow?: OverflowPolicy;
 
   // Sub-grid
 

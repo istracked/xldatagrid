@@ -60,7 +60,7 @@ test.describe('RichText cell – XSS hardening', () => {
     await page.locator('[role="grid"]').first().waitFor({ state: 'visible' });
   });
 
-  test('raw HTML <a href="javascript:"> is not rendered as a live link', async ({ page }) => {
+  test('raw HTML <a href="javascript:"> is not rendered as a live link (#47)', async ({ page }) => {
     const cell = richTextCell(page, '1');
     await expect(cell).toBeVisible();
 
@@ -121,7 +121,7 @@ test.describe('RichText cell – XSS hardening', () => {
     ).toEqual([]);
   });
 
-  test('markdown link with javascript: scheme is neutered', async ({ page }) => {
+  test('markdown link with javascript: scheme is neutered (#47)', async ({ page }) => {
     const cell = richTextCell(page, '2');
     await expect(cell).toBeVisible();
 
