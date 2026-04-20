@@ -50,6 +50,7 @@ import {
   RowOutlineSides,
   mostSevere,
   truncateMiddle,
+  truncateEnd,
   getDefaultOverflowPolicy,
 } from '@istracked/datagrid-core';
 import type {
@@ -150,12 +151,14 @@ function overflowStyleFor(policy: OverflowPolicy): React.CSSProperties {
 }
 
 /**
- * Default maxChars for `truncate-middle` rendering. Chosen to keep the prefix
- * + ellipsis + suffix visually comfortable for 80–200px columns; tests only
- * require that the returned string is strictly shorter than the raw value and
- * contains a U+2026 in the middle.
+ * Default maxChars for single-line truncation (`truncate-end`,
+ * `truncate-middle`). Sized for the 120–280px columns that dominate the
+ * DAM/CMMS workload — any text strictly longer than this budget gets a
+ * DOM-level ellipsis so `textContent`-based assertions (and screen readers
+ * that ignore CSS `text-overflow`) observe the truncation, not just the
+ * sighted visual.
  */
-const TRUNCATE_MIDDLE_MAX_CHARS = 40;
+const TRUNCATE_MAX_CHARS = 24;
 
 // ---------------------------------------------------------------------------
 // Helper: resolve ghost row position from config
@@ -432,8 +435,10 @@ function CellTextDisplay({ rawText, policy }: CellTextDisplayProps) {
 
   const displayText =
     policy === 'truncate-middle'
-      ? truncateMiddle(rawText, TRUNCATE_MIDDLE_MAX_CHARS)
-      : rawText;
+      ? truncateMiddle(rawText, TRUNCATE_MAX_CHARS)
+      : policy === 'truncate-end'
+        ? truncateEnd(rawText, TRUNCATE_MAX_CHARS)
+        : rawText;
 
   if (policy === 'reveal-only') {
     return (
@@ -517,9 +522,21 @@ interface BodyCellProps<TData> {
 function isMeasuredTruncated(
   el: HTMLElement | null,
   policy: OverflowPolicy,
+  rawText: string,
 ): boolean {
-  if (!el) return false;
   if (policy === 'wrap') return false;
+  // Deterministic path: when a single-line truncation policy would produce a
+  // shorter string than the raw text, we know the cell is truncated without
+  // touching the DOM. This is robust against renderers that hide overflow
+  // inside a child element (e.g. MUI `<Typography noWrap>`) where the outer
+  // cell div reports `scrollWidth === clientWidth`.
+  if (
+    (policy === 'truncate-end' || policy === 'truncate-middle') &&
+    rawText.length > TRUNCATE_MAX_CHARS
+  ) {
+    return true;
+  }
+  if (!el) return false;
   const { scrollWidth, clientWidth } = el;
   if (scrollWidth === 0 && clientWidth === 0) {
     // Not yet laid out — assume truncation is possible so the reveal
@@ -556,7 +573,7 @@ function BodyCell<TData extends Record<string, unknown>>(
     const el = cellRef.current;
     if (!el) return;
     const measure = () => {
-      const next = isMeasuredTruncated(el, overflowPolicy);
+      const next = isMeasuredTruncated(el, overflowPolicy, defaultContent);
       setTruncated((prev) => (prev === next ? prev : next));
     };
     measure();
@@ -629,6 +646,12 @@ function BodyCell<TData extends Record<string, unknown>>(
     <div
       {...restDivProps}
       ref={cellRef}
+      // Every cell is a keyboard tab-stop so hover-reveal + focus-reveal are
+      // equally reachable without a mouse. The grid consumer may still layer
+      // a roving-tabindex pattern on top, but the baseline contract
+      // (`[role="gridcell"]` is tabbable) keeps the overflow reveal a11y
+      // story honest when no higher-level keyboard wiring is configured.
+      tabIndex={0}
       data-overflow-policy={overflowPolicy}
       data-truncated={truncatedAttr}
       aria-describedby={hover.ariaDescribedBy ?? restDivProps['aria-describedby']}

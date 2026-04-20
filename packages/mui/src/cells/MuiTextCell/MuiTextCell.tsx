@@ -7,7 +7,18 @@
 import React from 'react';
 import type { CellRendererProps } from '@istracked/datagrid-react';
 import { useDraftState } from '@istracked/datagrid-react';
+import {
+  truncateEnd,
+  truncateMiddle,
+  getDefaultOverflowPolicy,
+} from '@istracked/datagrid-core';
 import { EditableTextField, DisplayTypography } from '../../components';
+
+// Matches `TRUNCATE_MAX_CHARS` in `packages/react/src/body/DataGridBody.tsx`:
+// the body measures truncation by raw-text length, and the display path must
+// produce a string whose character count equals that budget so the two paths
+// agree on what counts as truncated.
+const TRUNCATE_MAX_CHARS = 24;
 
 /**
  * MUI-based text cell renderer.
@@ -32,8 +43,21 @@ export const MuiTextCell = React.memo(function MuiTextCell<TData = Record<string
   });
 
   if (!isEditing) {
+    // Apply the column's overflow policy textually so DOM-based assertions
+    // (and AT/SR consumers) observe the truncation. The `BodyCell` wrapper
+    // supplies the full raw value via the hover-reveal tooltip, so users
+    // never lose access to the underlying text.
+    const policy =
+      (column as { overflow?: string }).overflow ??
+      getDefaultOverflowPolicy(column.field);
+    const truncated =
+      policy === 'truncate-end'
+        ? truncateEnd(displayValue, TRUNCATE_MAX_CHARS)
+        : policy === 'truncate-middle'
+          ? truncateMiddle(displayValue, TRUNCATE_MAX_CHARS)
+          : displayValue;
     return (
-      <DisplayTypography value={displayValue} placeholder={column.placeholder} noWrap />
+      <DisplayTypography value={truncated} placeholder={column.placeholder} noWrap />
     );
   }
 

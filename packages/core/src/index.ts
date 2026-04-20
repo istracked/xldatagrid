@@ -70,4 +70,4 @@ export * from './transposed';
 export * from './search-index';
 // Cell text overflow policy vocabulary + default policy resolver and middle-truncation helper.
 export type { OverflowPolicy, Density } from './overflow';
-export { truncateMiddle, getDefaultOverflowPolicy } from './overflow';
+export { truncateMiddle, truncateEnd, getDefaultOverflowPolicy } from './overflow';

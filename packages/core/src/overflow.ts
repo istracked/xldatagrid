@@ -43,6 +43,19 @@ export function truncateMiddle(text: string, maxChars: number): string {
 }
 
 /**
+ * Returns a string of at most `maxChars` characters with a trailing ellipsis
+ * when the input is too long. Single counterpart to {@link truncateMiddle};
+ * the ellipsis itself counts toward `maxChars`.
+ *
+ * Returns the input unchanged when it already fits or when `maxChars < 2`.
+ */
+export function truncateEnd(text: string, maxChars: number): string {
+  if (text == null) return '';
+  if (maxChars < 2 || text.length <= maxChars) return text;
+  return text.slice(0, maxChars - 1) + ELLIPSIS;
+}
+
+/**
  * Spec-driven default overflow policy per column field name. The grid uses
  * this when a column omits an explicit `overflow` declaration. Identifier-,
  * path-, and filename-like fields prefer middle truncation; description-like
