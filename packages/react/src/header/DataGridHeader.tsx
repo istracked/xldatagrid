@@ -11,7 +11,7 @@
  * mirroring the placement logic used by DataGridBody so the two stay in
  * lockstep.
  */
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import type { ColumnDef, SortState, ControlsColumnConfig, RowNumberColumnConfig } from '@istracked/datagrid-core';
 import type { ColumnDragState } from '../state';
 import { ChromeControlsHeaderCell, ChromeRowNumberHeaderCell } from '../chrome';
@@ -131,6 +131,248 @@ function getSortPriority(sortState: SortState, field: string): number | null {
   if (sortState.length <= 1) return null;
   const idx = sortState.findIndex(s => s.field === field);
   return idx >= 0 ? idx + 1 : null;
+}
+
+/**
+ * Per-column header cell. Extracted into its own component so each cell can
+ * own a local `dropHalf` state driving the `data-drop-indicator` contract
+ * (#69). The per-cell state model means the indicator is scoped to the
+ * header currently under the pointer — unrelated columns stay untouched.
+ *
+ * HTML5 DnD in Chromium can skip the trailing `dragover` when the pointer
+ * ends over a child node (e.g. the title span), so both `dragenter` and
+ * `dragover` compute the pointer half and set `dropHalf`. `dragleave`
+ * suppresses spurious clear events when the pointer merely crosses into
+ * one of this cell's own children.
+ */
+interface HeaderCellProps<TData> {
+  col: ColumnDef<TData>;
+  colIdx: number;
+  width: number;
+  headerHeight: number;
+  sortDir: 'asc' | 'desc' | null;
+  sortPriorityVal: number | null;
+  frozen: 'left' | 'right' | null;
+  frozenLeftOffset: number;
+  isLastFrozenLeft: boolean;
+  isGroupLast: boolean;
+  isSortingEnabled: boolean;
+  isFilteringEnabled: boolean;
+  showColumnMenu: boolean;
+  columnDrag: ColumnDragState;
+  onSort: (field: string, shiftKey: boolean) => void;
+  onContextMenu: (e: React.MouseEvent, rowId: string | null, field: string | null) => void;
+  onDragStart: (field: string) => void;
+  onDragOver: (field: string) => void;
+  onDrop: (field: string) => void;
+  onDragEnd: () => void;
+  onMenuTrigger: (field: string) => void;
+  onAutoFit: (field: string) => void;
+  onResizeMouseDown: (e: React.MouseEvent, field: string, width: number) => void;
+  onFilterMenuTrigger?: (field: string, anchor: DOMRect) => void;
+  activeFilterFields?: ReadonlySet<string>;
+}
+
+function HeaderCell<TData>(props: HeaderCellProps<TData>) {
+  const {
+    col,
+    colIdx,
+    width,
+    headerHeight,
+    sortDir,
+    sortPriorityVal,
+    frozen,
+    frozenLeftOffset,
+    isLastFrozenLeft,
+    isGroupLast,
+    isSortingEnabled,
+    isFilteringEnabled,
+    showColumnMenu,
+    columnDrag,
+    onSort,
+    onContextMenu,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    onDragEnd,
+    onMenuTrigger,
+    onAutoFit,
+    onResizeMouseDown,
+    onFilterMenuTrigger,
+    activeFilterFields,
+  } = props;
+
+  const cellRef = useRef<HTMLDivElement | null>(null);
+  const [dropHalf, setDropHalf] = useState<'left' | 'right' | null>(null);
+
+  const resolveHalf = useCallback((clientX: number): 'left' | 'right' => {
+    const el = cellRef.current;
+    if (!el) return 'left';
+    const rect = el.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+    return clientX < midX ? 'left' : 'right';
+  }, []);
+
+  // Frozen columns never accept a drop indicator — they also carry
+  // `data-draggable="false"` so the e2e gate finds them.
+  const canAcceptDrop =
+    !frozen && columnDrag.type === 'dragging' && columnDrag.field !== col.field;
+
+  const baseCellStyle = styles.headerCell({
+    width,
+    height: headerHeight,
+    frozen,
+    frozenLeftOffset,
+    isGroupLast,
+    isSortable: col.sortable !== false && isSortingEnabled,
+  });
+  // Ensure we have a containing block for the absolutely-positioned drop bar.
+  const cellStyle: React.CSSProperties = {
+    ...baseCellStyle,
+    position: (baseCellStyle.position as React.CSSProperties['position']) ?? 'relative',
+  };
+
+  return (
+    <div
+      ref={cellRef}
+      style={cellStyle}
+      role="columnheader"
+      data-field={col.field}
+      data-draggable={frozen ? 'false' : 'true'}
+      aria-colindex={colIdx + 1}
+      aria-sort={
+        sortDir === 'asc' ? 'ascending' :
+        sortDir === 'desc' ? 'descending' :
+        'none'
+      }
+      draggable={!frozen}
+      {...(col.sortable !== false && isSortingEnabled ? { 'data-sortable': 'true' } : {})}
+      {...(frozen ? { 'data-frozen': frozen, 'data-frozen-border': isLastFrozenLeft ? 'true' : undefined, 'data-drop-disabled': 'true' } : {})}
+      {...(isGroupLast ? { 'data-group-last': 'true' } : {})}
+      {...(dropHalf && canAcceptDrop ? { 'data-drop-indicator': dropHalf } : {})}
+      onClick={(e) => {
+        if (col.sortable !== false && isSortingEnabled) {
+          onSort(col.field, e.shiftKey);
+        }
+      }}
+      onContextMenu={(e) => onContextMenu(e, null, col.field)}
+      onDragStart={(e) => {
+        if (frozen) { e.preventDefault(); return; }
+        onDragStart(col.field);
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+      }}
+      onDragEnter={(e) => {
+        if (!canAcceptDrop) return;
+        setDropHalf(resolveHalf(e.clientX));
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (!canAcceptDrop) return;
+        setDropHalf(resolveHalf(e.clientX));
+        onDragOver(col.field);
+      }}
+      onDragLeave={(e) => {
+        const el = cellRef.current;
+        const related = e.relatedTarget as Node | null;
+        if (el && related && el.contains(related)) return;
+        setDropHalf(null);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDropHalf(null);
+        if (columnDrag.type === 'dragging' && columnDrag.field !== col.field && !frozen) {
+          onDrop(col.field);
+        }
+      }}
+      onDragEnd={() => {
+        setDropHalf(null);
+        onDragEnd();
+      }}
+    >
+      <span style={styles.headerCellTitle}>
+        {col.title}
+      </span>
+      {sortDir && (
+        <span style={styles.sortIndicator}>
+          {sortDir === 'asc' ? '\u25B2' : '\u25BC'}
+        </span>
+      )}
+      {sortPriorityVal != null && (
+        <span style={styles.sortPriority}>
+          {sortPriorityVal}
+        </span>
+      )}
+      {/* Filter icon */}
+      {isFilteringEnabled && (
+        onFilterMenuTrigger ? (
+          <button
+            type="button"
+            data-testid="column-filter-icon"
+            data-active={activeFilterFields?.has(col.field) ? 'true' : undefined}
+            aria-label={`Filter ${col.title ?? col.field}`}
+            aria-haspopup="menu"
+            style={styles.filterIcon}
+            onClick={(e) => {
+              e.stopPropagation();
+              const anchor = (e.currentTarget as HTMLElement)
+                .closest('[role="columnheader"]')
+                ?.getBoundingClientRect();
+              if (anchor) onFilterMenuTrigger(col.field, anchor);
+            }}
+          >
+            {activeFilterFields?.has(col.field) ? '\u2714' : '\u25BC'}
+          </button>
+        ) : (
+          <span
+            data-testid="column-filter-icon"
+            data-active={activeFilterFields?.has(col.field) ? 'true' : undefined}
+            aria-hidden="true"
+            style={styles.filterIcon}
+          >
+            {activeFilterFields?.has(col.field) ? '\u2714' : '\u25BC'}
+          </span>
+        )
+      )}
+      {showColumnMenu && (
+        <span
+          data-testid="column-menu-trigger"
+          style={styles.columnMenuTrigger}
+          onClick={(e) => {
+            e.stopPropagation();
+            onMenuTrigger(col.field);
+          }}
+        >
+          &#8942;
+        </span>
+      )}
+      {col.resizable !== false && (
+        <div
+          data-testid="column-resize-handle"
+          style={styles.resizeHandle}
+          onMouseDown={(e) => onResizeMouseDown(e, col.field, width)}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onAutoFit(col.field);
+          }}
+        />
+      )}
+      {dropHalf && canAcceptDrop && (
+        <div
+          data-column-drop-indicator
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            width: 3,
+            background: 'var(--dg-column-drop-indicator-bg, #3b82f6)',
+            pointerEvents: 'none',
+            zIndex: 6,
+            ...(dropHalf === 'left' ? { left: 0 } : { right: 0 }),
+          }}
+        />
+      )}
+    </div>
+  );
 }
 
 /**
@@ -261,140 +503,34 @@ export function DataGridHeader<TData>(props: DataGridHeaderProps<TData>) {
           const isGroupLast = lastFieldInGroup.has(col.field);
 
           return (
-            <div
+            <HeaderCell<TData>
               key={col.field}
-              style={styles.headerCell({
-                width,
-                height: headerHeight,
-                frozen,
-                frozenLeftOffset: computeFrozenLeftOffset(colIdx),
-                isGroupLast,
-                isSortable: col.sortable !== false && isSortingEnabled,
-              })}
-              role="columnheader"
-              aria-colindex={colIdx + 1}
-              aria-sort={
-                sortDir === 'asc' ? 'ascending' :
-                sortDir === 'desc' ? 'descending' :
-                'none'
-              }
-              draggable={!frozen}
-              {...(col.sortable !== false && isSortingEnabled ? { 'data-sortable': 'true' } : {})}
-              {...(frozen ? { 'data-frozen': frozen, 'data-frozen-border': isLastFrozenLeft(colIdx) ? 'true' : undefined, 'data-drop-disabled': 'true' } : {})}
-              {...(isGroupLast ? { 'data-group-last': 'true' } : {})}
-              onClick={(e) => {
-                if (col.sortable !== false && isSortingEnabled) {
-                  onSort(col.field, e.shiftKey);
-                }
-              }}
-              onContextMenu={(e) => onContextMenu(e, null, col.field)}
-              onDragStart={(e) => {
-                if (frozen) { e.preventDefault(); return; }
-                onDragStart(col.field);
-                if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                if (columnDrag.type === 'dragging' && columnDrag.field !== col.field) {
-                  onDragOver(col.field);
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (columnDrag.type === 'dragging' && columnDrag.field !== col.field && !frozen) {
-                  onDrop(col.field);
-                }
-              }}
-              onDragEnd={() => {
-                onDragEnd();
-              }}
-            >
-              <span style={styles.headerCellTitle}>
-                {col.title}
-              </span>
-              {sortDir && (
-                <span style={styles.sortIndicator}>
-                  {sortDir === 'asc' ? '\u25B2' : '\u25BC'}
-                </span>
-              )}
-              {sortPriorityVal != null && (
-                <span style={styles.sortPriority}>
-                  {sortPriorityVal}
-                </span>
-              )}
-              {/* Filter icon */}
-              {/*
-                In Excel 365 mode (onFilterMenuTrigger provided) the icon is
-                a real button with aria-label "Filter <column title>" and
-                aria-haspopup="menu" so assistive tech announces it as a
-                menu opener. Click stops propagation to avoid triggering
-                the header-cell sort, walks up to the columnheader element
-                to measure its rect, and passes the rect to the menu so it
-                can anchor itself. Without a handler we render a purely
-                decorative span marked aria-hidden="true" — the glyph is
-                still tagged with data-active when a filter is applied.
-              */}
-              {isFilteringEnabled && (
-                onFilterMenuTrigger ? (
-                  <button
-                    type="button"
-                    data-testid="column-filter-icon"
-                    data-active={activeFilterFields?.has(col.field) ? 'true' : undefined}
-                    aria-label={`Filter ${col.title ?? col.field}`}
-                    aria-haspopup="menu"
-                    style={styles.filterIcon}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const anchor = (e.currentTarget as HTMLElement)
-                        .closest('[role="columnheader"]')
-                        ?.getBoundingClientRect();
-                      if (anchor) onFilterMenuTrigger(col.field, anchor);
-                    }}
-                  >
-                    {activeFilterFields?.has(col.field) ? '\u2714' : '\u25BC'}
-                  </button>
-                ) : (
-                  <span
-                    data-testid="column-filter-icon"
-                    data-active={activeFilterFields?.has(col.field) ? 'true' : undefined}
-                    aria-hidden="true"
-                    style={styles.filterIcon}
-                  >
-                    {activeFilterFields?.has(col.field) ? '\u2714' : '\u25BC'}
-                  </span>
-                )
-              )}
-              {/* Column menu trigger */}
-              {/*
-                Kebab (vertical-ellipsis) affordance that opens the
-                per-column menu. stopPropagation prevents the click from
-                being interpreted as a sort on the surrounding header cell.
-              */}
-              {showColumnMenu && (
-                <span
-                  data-testid="column-menu-trigger"
-                  style={styles.columnMenuTrigger}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onMenuTrigger(col.field);
-                  }}
-                >
-                  &#8942;
-                </span>
-              )}
-              {/* Resize handle */}
-              {col.resizable !== false && (
-                <div
-                  data-testid="column-resize-handle"
-                  style={styles.resizeHandle}
-                  onMouseDown={(e) => handleResizeMouseDown(e, col.field, width)}
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    onAutoFit(col.field);
-                  }}
-                />
-              )}
-            </div>
+              col={col}
+              colIdx={colIdx}
+              width={width}
+              headerHeight={headerHeight}
+              sortDir={sortDir}
+              sortPriorityVal={sortPriorityVal}
+              frozen={frozen}
+              frozenLeftOffset={computeFrozenLeftOffset(colIdx)}
+              isLastFrozenLeft={isLastFrozenLeft(colIdx)}
+              isGroupLast={isGroupLast}
+              isSortingEnabled={isSortingEnabled}
+              isFilteringEnabled={isFilteringEnabled}
+              showColumnMenu={showColumnMenu}
+              columnDrag={columnDrag}
+              onSort={onSort}
+              onContextMenu={onContextMenu}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              onDragEnd={onDragEnd}
+              onMenuTrigger={onMenuTrigger}
+              onAutoFit={onAutoFit}
+              onResizeMouseDown={handleResizeMouseDown}
+              onFilterMenuTrigger={onFilterMenuTrigger}
+              activeFilterFields={activeFilterFields}
+            />
           );
         })}
         {!rowNumberOnLeft && renderRowNumberHeaderCell()}
