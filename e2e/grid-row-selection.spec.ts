@@ -90,7 +90,7 @@ test.describe('Row selection – outline rendered on row, not per cell', () => {
     await waitForGrid(page);
   });
 
-  test('clicking a rowheader paints the outline on the row element', async ({ page }) => {
+  test('clicking a rowheader paints the outline on the row element (#64)', async ({ page }) => {
     const rowheader = page.locator('[role="rowheader"][data-row-id="3"]').first();
     await expect(rowheader).toBeVisible();
     await rowheader.click();
@@ -120,7 +120,7 @@ test.describe('Row selection – outline rendered on row, not per cell', () => {
     }
   });
 
-  test('a different row stays un-outlined when another row is selected', async ({ page }) => {
+  test('a different row stays un-outlined when another row is selected (#64)', async ({ page }) => {
     const target = page.locator('[role="rowheader"][data-row-id="2"]').first();
     await target.click();
 
@@ -128,7 +128,7 @@ test.describe('Row selection – outline rendered on row, not per cell', () => {
     expect(await rowHasAnySide(otherRow)).toBe(false);
   });
 
-  test('clicking a gridcell directly does NOT paint the row-level outline', async ({ page }) => {
+  test('clicking a gridcell directly does NOT paint the row-level outline (#64)', async ({ page }) => {
     const clickedCell = page
       .locator('[role="gridcell"][data-row-id="4"][data-field="name"]')
       .first();
@@ -153,7 +153,7 @@ test.describe('Row selection – outline rendered on row, not per cell', () => {
     await expect(siblingCell).toHaveAttribute('aria-selected', 'false');
   });
 
-  test('clicking a gridcell after a row is selected collapses to per-cell UX', async ({ page }) => {
+  test('clicking a gridcell after a row is selected collapses to per-cell UX (#64)', async ({ page }) => {
     const rowheader = page.locator('[role="rowheader"][data-row-id="6"]').first();
     await rowheader.click();
 
@@ -190,7 +190,7 @@ test.describe('Row range – Shift+click contiguous and Cmd/Ctrl+click disjoint'
     await waitForGrid(page);
   });
 
-  test('Shift+click extends to a contiguous row range outlined as one block', async ({ page }) => {
+  test('Shift+click extends to a contiguous row range outlined as one block (#66)', async ({ page }) => {
     const first = page.locator('[role="rowheader"][data-row-id="2"]').first();
     const last = page.locator('[role="rowheader"][data-row-id="5"]').first();
     await first.click();
@@ -212,7 +212,7 @@ test.describe('Row range – Shift+click contiguous and Cmd/Ctrl+click disjoint'
     expect(await rowHasAnySide(row6)).toBe(false);
   });
 
-  test('Cmd/Ctrl+click toggles a disjoint row with its own four-sided outline', async ({ page }) => {
+  test('Cmd/Ctrl+click toggles a disjoint row with its own four-sided outline (#66)', async ({ page }) => {
     // Plain click row 2, then Cmd/Ctrl+click row 5. Intermediate rows stay
     // un-selected; both anchor and disjoint row carry the full four sides.
     const r2 = page.locator('[role="rowheader"][data-row-id="2"]').first();
@@ -232,7 +232,7 @@ test.describe('Row range – Shift+click contiguous and Cmd/Ctrl+click disjoint'
     expect(await rowHasAnySide(row4)).toBe(false);
   });
 
-  test('Cmd/Ctrl+click a selected row again removes it from the disjoint selection', async ({ page }) => {
+  test('Cmd/Ctrl+click a selected row again removes it from the disjoint selection (#66)', async ({ page }) => {
     const r2 = page.locator('[role="rowheader"][data-row-id="2"]').first();
     const r5 = page.locator('[role="rowheader"][data-row-id="5"]').first();
     await r2.click();
@@ -245,7 +245,7 @@ test.describe('Row range – Shift+click contiguous and Cmd/Ctrl+click disjoint'
     expect(await rowHasAnySide(row5)).toBe(false);
   });
 
-  test('Shift+ArrowDown once extends the row selection down by one row', async ({ page }) => {
+  test('Shift+ArrowDown once extends the row selection down by one row (#66)', async ({ page }) => {
     const r3 = page.locator('[role="rowheader"][data-row-id="3"]').first();
     await r3.click();
     await page.locator('[role="grid"]').first().focus();
@@ -260,7 +260,7 @@ test.describe('Row range – Shift+click contiguous and Cmd/Ctrl+click disjoint'
     expect(await rowHasAnySide(row5)).toBe(false);
   });
 
-  test('Shift+ArrowDown twice extends the row selection down by two rows', async ({ page }) => {
+  test('Shift+ArrowDown twice extends the row selection down by two rows (#66)', async ({ page }) => {
     const r3 = page.locator('[role="rowheader"][data-row-id="3"]').first();
     await r3.click();
     await page.locator('[role="grid"]').first().focus();
@@ -278,7 +278,7 @@ test.describe('Row range – Shift+click contiguous and Cmd/Ctrl+click disjoint'
     expect(await rowHasAnySide(row6)).toBe(false);
   });
 
-  test('Shift+ArrowUp shrinks an extended range back', async ({ page }) => {
+  test('Shift+ArrowUp shrinks an extended range back (#66)', async ({ page }) => {
     const r3 = page.locator('[role="rowheader"][data-row-id="3"]').first();
     await r3.click();
     await page.locator('[role="grid"]').first().focus();
@@ -295,7 +295,7 @@ test.describe('Row range – Shift+click contiguous and Cmd/Ctrl+click disjoint'
     expect(await rowHasAnySide(row5)).toBe(false);
   });
 
-  test('Shift+ArrowLeft and Shift+ArrowRight are no-ops while a row is selected', async ({ page }) => {
+  test('Shift+ArrowLeft and Shift+ArrowRight are no-ops while a row is selected (#66)', async ({ page }) => {
     const r3 = page.locator('[role="rowheader"][data-row-id="3"]').first();
     await r3.click();
     await page.locator('[role="grid"]').first().focus();
@@ -317,7 +317,7 @@ test.describe('Row range – Shift+click contiguous and Cmd/Ctrl+click disjoint'
     }
   });
 
-  test('plain ArrowDown moves the row selection to the next row', async ({ page }) => {
+  test('plain ArrowDown moves the row selection to the next row (#66)', async ({ page }) => {
     const r3 = page.locator('[role="rowheader"][data-row-id="3"]').first();
     await r3.click();
     await page.locator('[role="grid"]').first().focus();
@@ -331,7 +331,7 @@ test.describe('Row range – Shift+click contiguous and Cmd/Ctrl+click disjoint'
     });
   });
 
-  test('plain ArrowLeft and ArrowRight are no-ops while a row is selected', async ({ page }) => {
+  test('plain ArrowLeft and ArrowRight are no-ops while a row is selected (#66)', async ({ page }) => {
     const r3 = page.locator('[role="rowheader"][data-row-id="3"]').first();
     await r3.click();
     await page.locator('[role="grid"]').first().focus();
@@ -348,7 +348,7 @@ test.describe('Row range – Shift+click contiguous and Cmd/Ctrl+click disjoint'
     expect(after).toEqual(before);
   });
 
-  test('Escape clears the row selection', async ({ page }) => {
+  test('Escape clears the row selection (#66)', async ({ page }) => {
     const r3 = page.locator('[role="rowheader"][data-row-id="3"]').first();
     await r3.click();
     await page.locator('[role="grid"]').first().focus();

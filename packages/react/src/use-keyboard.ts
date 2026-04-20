@@ -442,8 +442,12 @@ export function useKeyboard<TData extends Record<string, unknown>>(
         break;
       }
       // --- Ctrl+A: select all cells ---
+      // Must NOT fire while an editor input has focus — otherwise
+      // Ctrl+A in the inline editor is swallowed by the grid and the
+      // user can't select-all-text to replace it. Matches the Ctrl+C /
+      // Ctrl+V / Ctrl+X gating below.
       case 'a': {
-        if (e.ctrlKey || e.metaKey) {
+        if ((e.ctrlKey || e.metaKey) && !editing.cell) {
           e.preventDefault();
           model.selectAllCells();
         }

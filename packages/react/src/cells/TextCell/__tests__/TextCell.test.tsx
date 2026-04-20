@@ -53,7 +53,9 @@ describe('TextCell', () => {
     expect(input?.value).toBe('hello');
   });
 
-  it('calls onCommit with updated value on Enter', () => {
+  // Excel-365 commit-and-advance: Enter commits the draft and hints the
+  // grid to move selection DOWN one row (second arg = 'down').
+  it('calls onCommit with updated value + DOWN advance on Enter', () => {
     const onCommit = vi.fn();
     const { container } = render(
       <TextCell value="hello" row={{}} column={baseColumn} rowIndex={0} isEditing={true} onCommit={onCommit} onCancel={noop} />
@@ -61,12 +63,13 @@ describe('TextCell', () => {
     const input = container.querySelector('input')!;
     fireEvent.change(input, { target: { value: 'world' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(onCommit).toHaveBeenCalledWith('world');
+    expect(onCommit).toHaveBeenCalledWith('world', 'down');
   });
 
-  // Issue #10: Enter must commit the draft AND stop propagation/defaults so
-  // the grid-level handler does not re-open edit mode afterwards.
-  it('stops propagation and prevents default on Enter (issue #10)', () => {
+  // Enter must preventDefault (no form submit) and stopPropagation so the
+  // grid-level handler does not observe a second commit/advance for the
+  // same event — the advance is already encoded in the onCommit call.
+  it('stops propagation and prevents default on Enter', () => {
     const onCommit = vi.fn();
     const { container } = render(
       <TextCell value="hello" row={{}} column={baseColumn} rowIndex={0} isEditing={true} onCommit={onCommit} onCancel={noop} />
@@ -77,14 +80,14 @@ describe('TextCell', () => {
     const stopProp = vi.spyOn(evt, 'stopPropagation');
     const prevDef = vi.spyOn(evt, 'preventDefault');
     input.dispatchEvent(evt);
-    expect(onCommit).toHaveBeenCalledWith('world');
+    expect(onCommit).toHaveBeenCalledWith('world', 'down');
     expect(stopProp).toHaveBeenCalled();
     expect(prevDef).toHaveBeenCalled();
   });
 
-  // Issue #10: Tab commits exactly like Enter (commit-and-stay) instead of
-  // the browser's default focus-advance.
-  it('commits on Tab and does not advance focus (issue #10)', () => {
+  // Excel-365 commit-and-advance: Tab commits and hints the grid to move
+  // RIGHT one column (second arg = 'right').
+  it('commits on Tab and hints RIGHT advance', () => {
     const onCommit = vi.fn();
     const onCancel = vi.fn();
     const { container } = render(
@@ -96,16 +99,16 @@ describe('TextCell', () => {
     const stopProp = vi.spyOn(evt, 'stopPropagation');
     const prevDef = vi.spyOn(evt, 'preventDefault');
     input.dispatchEvent(evt);
-    expect(onCommit).toHaveBeenCalledWith('world');
+    expect(onCommit).toHaveBeenCalledWith('world', 'right');
     expect(onCancel).not.toHaveBeenCalled();
     // Default Tab behaviour (focus move) is suppressed.
     expect(prevDef).toHaveBeenCalled();
     expect(stopProp).toHaveBeenCalled();
   });
 
-  // Issue #10: Shift+Tab must behave the same as Tab — commit-and-stay, no
-  // reverse focus advance to the cell on the left.
-  it('commits on Shift+Tab (issue #10)', () => {
+  // Shift+Tab commits with the same RIGHT hint — reverse-advance is not
+  // modelled yet; the grid clamps at edges either way.
+  it('commits on Shift+Tab with RIGHT advance', () => {
     const onCommit = vi.fn();
     const { container } = render(
       <TextCell value="hello" row={{}} column={baseColumn} rowIndex={0} isEditing={true} onCommit={onCommit} onCancel={noop} />
@@ -115,7 +118,7 @@ describe('TextCell', () => {
     const evt = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true });
     const prevDef = vi.spyOn(evt, 'preventDefault');
     input.dispatchEvent(evt);
-    expect(onCommit).toHaveBeenCalledWith('world');
+    expect(onCommit).toHaveBeenCalledWith('world', 'right');
     expect(prevDef).toHaveBeenCalled();
   });
 
@@ -200,7 +203,7 @@ describe('TextCell', () => {
     const input = container.querySelector('input')!;
     fireEvent.change(input, { target: { value: '' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(onCommit).toHaveBeenCalledWith('');
+    expect(onCommit).toHaveBeenCalledWith('', 'down');
   });
 
   it('passes placeholder to input in edit mode', () => {

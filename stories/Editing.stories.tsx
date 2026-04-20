@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { MuiDataGrid } from '@istracked/datagrid-mui';
 import type { ColumnDef, CellValue } from '@istracked/datagrid-core';
@@ -14,6 +14,7 @@ export default meta;
 export const InlineEditing: StoryObj = {
   render: () => {
     const [log, setLog] = useState<string[]>([]);
+    const data = useMemo(() => makeEmployees(15), []);
     return (
       <div style={storyContainer}>
         <h2 style={styles.heading}>Inline Cell Editing</h2>
@@ -22,7 +23,7 @@ export const InlineEditing: StoryObj = {
         </p>
         <div style={gridContainer}>
           <MuiDataGrid
-            data={makeEmployees(15)}
+            data={data}
             columns={defaultColumns as any}
             rowKey="id"
             selectionMode="cell"
@@ -48,6 +49,7 @@ export const EnterTabCommitAndAdvance: StoryObj = {
   name: 'Enter/Tab commit-and-advance (Excel-365)',
   render: () => {
     const [log, setLog] = useState<string[]>([]);
+    const data = useMemo(() => makeEmployees(10), []);
     return (
       <div style={storyContainer}>
         <h2 style={styles.heading}>Enter / Tab: commit-and-advance</h2>
@@ -62,7 +64,7 @@ export const EnterTabCommitAndAdvance: StoryObj = {
         </p>
         <div style={gridContainer}>
           <MuiDataGrid
-            data={makeEmployees(10)}
+            data={data}
             columns={defaultColumns as any}
             rowKey="id"
             selectionMode="cell"
@@ -106,6 +108,7 @@ export const WithValidation: StoryObj = {
       }
       return c;
     });
+    const data = useMemo(() => makeEmployees(10), []);
     return (
       <div style={storyContainer}>
         <h2 style={styles.heading}>Validation</h2>
@@ -114,7 +117,7 @@ export const WithValidation: StoryObj = {
         </p>
         <div style={gridContainer}>
           <MuiDataGrid
-            data={makeEmployees(10)}
+            data={data}
             columns={cols as any}
             rowKey="id"
             selectionMode="cell"
@@ -129,6 +132,7 @@ export const WithValidation: StoryObj = {
 export const EscapeCancelsAndKeepsSelection: StoryObj = {
   render: () => {
     const [log, setLog] = useState<string[]>([]);
+    const data = useMemo(() => makeEmployees(8), []);
     return (
       <div style={storyContainer}>
         <h2 style={styles.heading}>Escape Cancels Edit and Keeps Selection</h2>
@@ -140,7 +144,7 @@ export const EscapeCancelsAndKeepsSelection: StoryObj = {
         </p>
         <div style={gridContainer}>
           <MuiDataGrid
-            data={makeEmployees(8)}
+            data={data}
             columns={defaultColumns as any}
             rowKey="id"
             selectionMode="cell"
@@ -159,21 +163,24 @@ export const EscapeCancelsAndKeepsSelection: StoryObj = {
 };
 
 export const UndoRedo: StoryObj = {
-  render: () => (
-    <div style={storyContainer}>
-      <h2 style={styles.heading}>Undo / Redo</h2>
-      <p style={styles.subtitle}>
-        Edit cells then press <kbd>Ctrl+Z</kbd> to undo and <kbd>Ctrl+Y</kbd> or <kbd>Ctrl+Shift+Z</kbd> to redo.
-      </p>
-      <div style={gridContainer}>
-        <MuiDataGrid
-          data={makeEmployees(10)}
-          columns={defaultColumns as any}
-          rowKey="id"
-          selectionMode="cell"
-          keyboardNavigation
-        />
+  render: () => {
+    const data = useMemo(() => makeEmployees(10), []);
+    return (
+      <div style={storyContainer}>
+        <h2 style={styles.heading}>Undo / Redo</h2>
+        <p style={styles.subtitle}>
+          Edit cells then press <kbd>Ctrl+Z</kbd> to undo and <kbd>Ctrl+Y</kbd> or <kbd>Ctrl+Shift+Z</kbd> to redo.
+        </p>
+        <div style={gridContainer}>
+          <MuiDataGrid
+            data={data}
+            columns={defaultColumns as any}
+            rowKey="id"
+            selectionMode="cell"
+            keyboardNavigation
+          />
+        </div>
       </div>
-    </div>
-  ),
+    );
+  },
 };

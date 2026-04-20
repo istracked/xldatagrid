@@ -167,7 +167,18 @@ export interface CellRendererProps<TData = Record<string, unknown>> {
   column: ColumnDef<TData>;
   rowIndex: number;
   isEditing: boolean;
-  onCommit: (value: CellValue) => void;
+  /**
+   * Commit the edited value and exit edit mode.
+   *
+   * Optional second argument encodes the Excel-365 commit-and-move intent:
+   *   `'down'`  → Enter  : commit and move selection DOWN one row.
+   *   `'right'` → Tab    : commit and move selection RIGHT one column.
+   *   `undefined`        → no advance (e.g. blur commit).
+   *
+   * The grid clamps at edges (last row for `'down'`, last column for `'right'`)
+   * and leaves selection on the current cell rather than wrapping.
+   */
+  onCommit: (value: CellValue, advance?: 'down' | 'right') => void;
   onCancel: () => void;
   /**
    * Stable identifier of the owning grid, forwarded so cell renderers that

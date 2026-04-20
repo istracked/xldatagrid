@@ -30,7 +30,7 @@ test.describe('Sub-grid – ARIA wiring + expansion', () => {
     await waitForGrid(page);
   });
 
-  test('clicking the expander mounts a nested grid with the expected id format', async ({ page }) => {
+  test('clicking the expander mounts a nested grid with the expected id format (#6)', async ({ page }) => {
     // Exactly one parent grid exists before any toggle is clicked. The
     // count of `[role="grid"]` must increase when we expand a row.
     const initialGridCount = await page.locator('[role="grid"]').count();
@@ -54,7 +54,7 @@ test.describe('Sub-grid – ARIA wiring + expansion', () => {
     expect(nestedGridId!).toMatch(/-row-.+-subgrid$/);
   });
 
-  test('nested grid carries aria-labelledby pointing at an in-DOM parent cell id', async ({ page }) => {
+  test('nested grid carries aria-labelledby pointing at an in-DOM parent cell id (#6)', async ({ page }) => {
     const firstToggle = page.locator('[data-testid="subgrid-toggle"]').first();
     await firstToggle.click();
 
@@ -76,7 +76,7 @@ test.describe('Sub-grid – ARIA wiring + expansion', () => {
     expect(nestedId).not.toBe(parentId);
   });
 
-  test('expanded sub-grid renders inner cells and Tab reaches a grid', async ({ page }) => {
+  test('expanded sub-grid renders inner cells and Tab reaches a grid (#6)', async ({ page }) => {
     const firstToggle = page.locator('[data-testid="subgrid-toggle"]').first();
     await firstToggle.click();
 

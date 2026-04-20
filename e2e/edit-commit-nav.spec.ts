@@ -67,13 +67,17 @@ for (const { label, url } of STORY_URLS) {
     // -----------------------------------------------------------------------
     // Enter → commit + move DOWN
     // -----------------------------------------------------------------------
-    test('Enter commits typed value and moves selection DOWN one row', async ({ page }) => {
+    test('Enter commits typed value and moves selection DOWN one row (#65)', async ({ page }) => {
       const target = cell(page, '2', 'name');
       const input = await beginEdit(target);
 
       const newValue = `enter-${label}-${Date.now()}`;
-      await input.press('Control+a');
-      await input.pressSequentially(newValue, { delay: 2 });
+      // `fill` atomically clears + sets the value via the DOM property and
+      // dispatches an `input` event, which React's controlled-input
+      // `onChange` picks up. More robust than keystroke-level Ctrl+A +
+      // pressSequentially, where selection state can be dropped across the
+      // focus/re-render cycle in chromium.
+      await input.fill(newValue);
       await input.press('Enter');
 
       // Editor is gone.
@@ -88,13 +92,12 @@ for (const { label, url } of STORY_URLS) {
     // -----------------------------------------------------------------------
     // Tab → commit + move RIGHT
     // -----------------------------------------------------------------------
-    test('Tab commits typed value and moves selection RIGHT one cell', async ({ page }) => {
+    test('Tab commits typed value and moves selection RIGHT one cell (#65)', async ({ page }) => {
       const target = cell(page, '2', 'name');
       const input = await beginEdit(target);
 
       const newValue = `tab-${label}-${Date.now()}`;
-      await input.press('Control+a');
-      await input.pressSequentially(newValue, { delay: 2 });
+      await input.fill(newValue);
       await input.press('Tab');
 
       await expect(target.locator('input')).toHaveCount(0);
@@ -108,13 +111,12 @@ for (const { label, url } of STORY_URLS) {
     // -----------------------------------------------------------------------
     // Escape → cancel + STAY
     // -----------------------------------------------------------------------
-    test('Escape discards the draft and keeps selection on the same cell', async ({ page }) => {
+    test('Escape discards the draft and keeps selection on the same cell (#65)', async ({ page }) => {
       const target = cell(page, '2', 'name');
       const originalText = (await target.innerText()).trim();
 
       const input = await beginEdit(target);
-      await input.press('Control+a');
-      await input.pressSequentially('should-not-persist', { delay: 2 });
+      await input.fill('should-not-persist');
       await input.press('Escape');
 
       await expect(target.locator('input')).toHaveCount(0);
@@ -133,13 +135,12 @@ for (const { label, url } of STORY_URLS) {
     // the editor's `stopPropagation` / stale `editing.cell` state blocks
     // plain arrow navigation from running after an edit commits.
     // -----------------------------------------------------------------------
-    test('ArrowRight after Enter commit moves selection one more cell to the right', async ({ page }) => {
+    test('ArrowRight after Enter commit moves selection one more cell to the right (#65)', async ({ page }) => {
       const target = cell(page, '2', 'name');
       const input = await beginEdit(target);
 
       const newValue = `post-commit-arrow-${Date.now()}`;
-      await input.press('Control+a');
-      await input.pressSequentially(newValue, { delay: 2 });
+      await input.fill(newValue);
       await input.press('Enter');
 
       // Enter-commit landed us on (3, name).
