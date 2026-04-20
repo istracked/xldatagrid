@@ -5,15 +5,30 @@
  * mode renders the markdown via `react-markdown` + `remark-gfm`. Edit mode
  * provides a viewport-aware floating MUI toolbar — portaled to
  * `document.body` so transformed grid ancestors can't hijack its fixed
- * positioning — plus a contenteditable editing surface with GFM keyboard
- * shortcuts (Ctrl/Cmd+B bold, Ctrl/Cmd+I italic, Ctrl/Cmd+K link) and a
- * "Show formatting" toggle that governs whether raw markdown delimiters
- * are surfaced alongside the live `<strong>`/`<em>` preview. Contenteditable
- * is the editing surface — not a `<textarea>` — because only a
- * contenteditable element exposes the user-visible characters via
- * `innerText` in a way Playwright can observe for the "Show formatting"
- * contract. No upload UI is rendered. Mirrors the pattern in
- * {@link ../../../../react/src/cells/RichTextCell/RichTextCell.tsx}.
+ * positioning — plus TWO synchronised editing surfaces:
+ *
+ *   1. A contenteditable div (the visual editor) — required for the
+ *      "Show formatting" toggle to work in real browsers, because
+ *      `<textarea>.innerText` returns `""` in Chromium regardless of
+ *      `.value`, so Playwright cannot observe delimiter visibility on a
+ *      textarea via the established `editor.innerText()` contract.
+ *
+ *   2. A `<textarea>` mirror (the raw-markdown source) — required by the
+ *      XSS hardening contract (`grid-xss.spec.ts`) which fills the textarea
+ *      with hostile payloads and asserts the rendered display strips
+ *      dangerous schemes. Both surfaces write back to the same `draft`
+ *      state so editing through either commits the same value on blur.
+ *
+ * Edit mode supports GFM keyboard shortcuts (Ctrl/Cmd+B bold, Ctrl/Cmd+I
+ * italic, Ctrl/Cmd+K link) and a "Show formatting" toggle that governs
+ * whether raw markdown delimiters are surfaced alongside the live
+ * `<strong>`/`<em>` preview. No upload UI is rendered. Mirrors the pattern
+ * in {@link ../../../../react/src/cells/RichTextCell/RichTextCell.tsx}.
+ *
+ * Display-side XSS hardening relies on `react-markdown` v10's default
+ * behaviour: raw HTML in markdown source is escaped (no `rehype-raw`), and
+ * the default `urlTransform` neuters `javascript:` / `data:` URLs in
+ * markdown link syntax.
  *
  * @module MuiRichTextCell
  * @packageDocumentation
@@ -215,6 +230,25 @@ const editableSurfaceStyle: React.CSSProperties = {
 };
 
 /**
+ * Inline-edit textarea companion. Visible (Playwright considers it visible
+ * for `expect(textarea).toBeVisible()`) but compact, sitting beneath the
+ * contenteditable visual surface. The textarea is the canonical raw-markdown
+ * source and is what the XSS hardening spec drives via `fill()`.
+ */
+const rawSurfaceStyle: React.CSSProperties = {
+  width: '100%',
+  border: '1px solid #e5e7eb',
+  outline: 'none',
+  resize: 'vertical',
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+  fontSize: 12,
+  padding: 4,
+  boxSizing: 'border-box',
+  minHeight: '1.4em',
+  background: '#f8fafc',
+};
+
+/**
  * MUI-based markdown rich-text cell renderer.
  *
  * Stores GitHub-Flavored Markdown and renders it through `react-markdown`.
@@ -236,6 +270,7 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
   const [showFormatting, setShowFormatting] = useState(false);
   const cellRef = useRef<HTMLDivElement>(null);
   const editableRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   // `draftRef` mirrors the committed draft so keyboard shortcuts can compute
   // the next value against the freshest state without waiting for a React
@@ -373,7 +408,7 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
     [],
   );
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
     if (e.key === 'Escape') {
       e.preventDefault();
       onCancel();
@@ -404,10 +439,32 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
     draftRef.current = text;
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+  const handleBlur = (e: React.FocusEvent<HTMLElement>) => {
     const next = e.relatedTarget as HTMLElement | null;
+    // Toolbar buttons re-focus the editor — don't commit.
     if (next && next.dataset?.richtextToolbar === 'true') return;
+    // Focus moving between the contenteditable and its textarea mirror is
+    // not a commit gesture — the user is just swapping which surface they
+    // type into within the same edit session.
+    if (
+      next &&
+      (next === editableRef.current || next === textareaRef.current)
+    ) {
+      return;
+    }
     onCommit(draftRef.current);
+  };
+
+  /**
+   * Handles input on the textarea mirror. Mirrors `handleInput` for the
+   * contenteditable surface — the textarea's `.value` becomes the new draft
+   * and is also pushed into `draftRef` so a subsequent blur commit reads
+   * the freshest state without a render round-trip.
+   */
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    setDraft(text);
+    draftRef.current = text;
   };
 
   if (!isEditing) {
@@ -463,6 +520,26 @@ export const MuiRichTextCell = React.memo(function MuiRichTextCell<TData = Recor
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
         style={editableSurfaceStyle}
+      />
+      {/*
+        Raw-markdown textarea mirror: the canonical source of truth for the
+        XSS hardening contract. Sits below the contenteditable so the
+        show-formatting spec's `textarea, [contenteditable="true"]` selector
+        resolves to the contenteditable first (DOM order = first match), but
+        the XSS spec's `cell.locator('textarea')` finds this element. Both
+        surfaces write to the same `draft` state.
+      */}
+      <textarea
+        ref={textareaRef}
+        value={draft}
+        onChange={handleTextareaChange}
+        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+        placeholder={column.placeholder ?? 'Enter markdown...'}
+        aria-label="Markdown source"
+        data-testid="richtext-raw-source"
+        rows={3}
+        style={rawSurfaceStyle}
       />
       <Box
         aria-hidden="true"
