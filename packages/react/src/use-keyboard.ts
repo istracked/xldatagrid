@@ -184,6 +184,74 @@ export function useKeyboard<TData extends Record<string, unknown>>(
       return;
     }
 
+    // ---------------------------------------------------------------------
+    // Type-to-edit (#71)
+    // ---------------------------------------------------------------------
+    //
+    // Excel / Google Sheets convention: typing a printable character while a
+    // cell is selected (NOT already in edit mode) immediately enters edit
+    // mode and seeds the editor with that character — replacing any prior
+    // cell value in the process. Non-printable keys (Arrow*, Tab, Escape,
+    // etc.) must NOT enter edit mode, and Ctrl/Meta-modified keys must
+    // continue to route to their existing shortcut handlers
+    // (Ctrl+A, Ctrl+Z, Ctrl+C/V/X, Ctrl+Y) below.
+    //
+    // The seeding step dispatches a synthetic `input` event on the newly
+    // mounted editor `<input>` via the native `value` setter. React's
+    // controlled-input contract reads the element's `.value` during its
+    // SyntheticEvent dispatch, so this correctly triggers the renderer's
+    // `onChange` and updates the controlled draft state.
+    if (
+      current &&
+      !editing.cell &&
+      e.key.length === 1 &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.altKey
+    ) {
+      const col = columns.find((c) => c.field === current.field);
+      const editableType =
+        col?.cellType == null ||
+        col.cellType === 'text' ||
+        col.cellType === 'numeric' ||
+        col.cellType === 'currency' ||
+        col.cellType === 'password';
+      if (col && col.editable !== false && editableType) {
+        e.preventDefault();
+        const typedChar = e.key;
+        model.beginEdit(current);
+        requestAnimationFrame(() => {
+          if (!container) return;
+          const cellSel = `[role="gridcell"][data-row-id="${CSS.escape(
+            String(current.rowId),
+          )}"][data-field="${CSS.escape(current.field)}"]`;
+          const cellEl = container.querySelector<HTMLElement>(cellSel);
+          const input = cellEl?.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+            'input, textarea',
+          );
+          if (!input) return;
+          // React tracks a private `_valueTracker` on controlled inputs.
+          // Using the native value setter is the canonical workaround for
+          // programmatic seeding that still dispatches React's onChange.
+          const proto = Object.getPrototypeOf(input);
+          const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+          if (setter) {
+            setter.call(input, typedChar);
+          } else {
+            input.value = typedChar;
+          }
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          // Place the caret after the seeded char so continued typing
+          // appends naturally.
+          if (typeof input.setSelectionRange === 'function') {
+            const len = typedChar.length;
+            input.setSelectionRange(len, len);
+          }
+        });
+        return;
+      }
+    }
+
     switch (e.key) {
       // --- Tab: commit-and-stay while editing, move within row otherwise ---
       //

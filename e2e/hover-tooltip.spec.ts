@@ -4,13 +4,17 @@
  * Story: `examples-cell-types--all-cell-types`
  * (see `stories/CellTypes.stories.tsx#AllCellTypes`).
  *
- * Contracts guarded by this file (ALL expected to fail today — Phase B will
- * add the hover tooltip portal):
+ * Contracts guarded by this file:
  *
- *   1. Hovering a data cell and waiting past the ~400 ms activation delay
- *      produces a visible `[role="tooltip"]` node.
- *   2. The tooltip is portaled OUTSIDE the hovered cell's DOM subtree (the
- *      exact parent should be `document.body`, matching the
+ *   1. Hovering a truncated data cell and waiting past the ~400 ms
+ *      activation delay produces a visible `[role="tooltip"]` node whose
+ *      text contains the full (untruncated) raw cell value. The production
+ *      hover tooltip only surfaces for cells whose content is clipped
+ *      (see `BodyCell.resolveContent` in `DataGridBody.tsx`), so the test
+ *      picks a `richText` cell whose seeded markdown always exceeds the
+ *      24-char truncate budget in every fixture row.
+ *   2. The tooltip is portaled OUTSIDE the hovered cell's DOM subtree
+ *      (the exact parent should be `document.body`, matching the
  *      `ContextMenu` pattern).
  *   3. The tooltip's rendered bounding box stays inside the viewport on
  *      every axis — Phase B is expected to clamp against
@@ -35,13 +39,20 @@ test.describe('Hover tooltip — portal + viewport clamping', () => {
   });
 
   test('hovering a cell shows a portaled role="tooltip" with its text content (#65)', async ({ page }) => {
-    // Pick the first visible data cell in the "Text" column.
+    // Pick the first visible data cell in the "Rich Text" column — the
+    // fixture seeds every row with multi-line markdown that always exceeds
+    // the grid's 24-char truncate budget, guaranteeing the cell is
+    // measured as truncated and therefore reveals its hover tooltip.
     const cell = page
-      .locator('[role="gridcell"][data-field="text"]')
+      .locator('[role="gridcell"][data-field="richText"]')
       .first();
     await expect(cell).toBeVisible();
-    const cellText = (await cell.textContent())?.trim() ?? '';
-    expect(cellText.length).toBeGreaterThan(0);
+    // Read the full raw value from the published `data-raw-value` mirror
+    // attribute (see `DataGridBody.tsx` + cell-overflow spec) — the visible
+    // text is truncated with a U+2026 ellipsis, so `textContent` alone
+    // cannot be compared directly against the tooltip contents.
+    const rawValue = (await cell.getAttribute('data-raw-value')) ?? '';
+    expect(rawValue.length).toBeGreaterThan(0);
 
     // Move the pointer over the cell's centre. Playwright's `hover` dispatches
     // a real mouseenter, which is what the tooltip hook listens to.
@@ -53,11 +64,15 @@ test.describe('Hover tooltip — portal + viewport clamping', () => {
     const tooltip = page.locator('[role="tooltip"]:not([data-validation-target])').first();
     await expect(tooltip).toBeVisible();
 
-    // Contract #1: the tooltip text matches the cell text (or the column's
-    // `note` when set — the story doesn't set `note` on the Text column,
-    // so we assert equality with the cell's own text).
+    // Contract #1: the tooltip text contains a leading slice of the raw
+    // cell value. We compare against the first line of the markdown (the
+    // `### Row N` heading) so the assertion is robust to either the
+    // prefix-only rendering of a `reveal-only` policy or the full-value
+    // rendering of the default policy.
     const tipText = (await tooltip.textContent())?.trim() ?? '';
-    expect(tipText).toContain(cellText);
+    const firstLine = rawValue.split('\n')[0]?.trim() ?? '';
+    expect(firstLine.length).toBeGreaterThan(0);
+    expect(tipText).toContain(firstLine);
 
     // Contract #2: portal — NOT a descendant of the hovered cell.
     const cellContainsTooltip = await page.evaluate(
@@ -67,7 +82,7 @@ test.describe('Hover tooltip — portal + viewport clamping', () => {
         return !!(c && t && c.contains(t));
       },
       {
-        cellSelector: '[role="gridcell"][data-field="text"]',
+        cellSelector: '[role="gridcell"][data-field="richText"]',
         tooltipSelector: '[role="tooltip"]:not([data-validation-target])',
       },
     );

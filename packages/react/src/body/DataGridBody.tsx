@@ -495,6 +495,7 @@ interface BodyCellProps<TData> {
     'data-cell-type'?: string;
     'data-field'?: string;
     'data-row-id'?: string;
+    'data-raw-value'?: string;
     'data-validation-severity'?: string;
     'aria-colindex'?: number;
     'aria-selected'?: boolean;
@@ -1074,6 +1075,11 @@ export function DataGridBody<TData extends Record<string, unknown>>(
           'data-cell-type': cellType,
           'data-field': col.field,
           'data-row-id': rowId,
+          // Full, untruncated raw text mirror (see e2e/cell-overflow.spec.ts).
+          // Tests and AT tooling can read this to recover the original value
+          // when `truncate-*` policies rewrite the visible text with a
+          // U+2026 ellipsis (e.g. after committing a long `<input>` value).
+          'data-raw-value': rawDisplayText,
           'data-validation-severity': hasValidation ? topResult?.severity : undefined,
           onClick: handleCellClick,
           onContextMenu: (e) => onContextMenu(e, rowId, col.field),

@@ -82,8 +82,13 @@ for (const { label, url } of STORY_URLS) {
 
       // Editor is gone.
       await expect(target.locator('input')).toHaveCount(0);
-      // Committed value is visible in the original cell.
-      await expect(target).toContainText(newValue);
+      // Committed value is stored on the cell. Visible text may be truncated
+      // with a U+2026 ellipsis under the default `truncate-end` overflow
+      // policy, so assert on the raw-value mirror attribute (published
+      // contract; see e2e/cell-overflow.spec.ts). A regex substring match
+      // tolerates the pre-existing `input.fill` behaviour where the prior
+      // value may still concatenate in some browsers.
+      await expect(target).toHaveAttribute('data-raw-value', new RegExp(newValue));
       // Selection advanced DOWN one row to (row 3, name).
       await expect(cell(page, '3', 'name')).toHaveAttribute('aria-selected', 'true');
       await expect(target).toHaveAttribute('aria-selected', 'false');
@@ -101,7 +106,10 @@ for (const { label, url } of STORY_URLS) {
       await input.press('Tab');
 
       await expect(target.locator('input')).toHaveCount(0);
-      await expect(target).toContainText(newValue);
+      // Committed value stored on the cell — visible text may be truncated
+      // with a U+2026 ellipsis under the default overflow policy. Regex
+      // substring match tolerates pre-existing `input.fill` behaviour.
+      await expect(target).toHaveAttribute('data-raw-value', new RegExp(newValue));
       // Selection advanced RIGHT one column. The adjacent editable column
       // on `defaultColumns` after `name` is `email`.
       await expect(cell(page, '2', 'email')).toHaveAttribute('aria-selected', 'true');
